@@ -35,6 +35,20 @@ The goal is simple: stop the mistake before it leaves your machine.
 
 This is a guardrail, not a report.
 
+```mermaid
+flowchart LR
+    A[Edit code] --> B[git commit]
+    B --> C{pre-commit hook<br/>mvn facepalm:scan}
+    C -- secret found --> X[🤦 Commit blocked]
+    C -- clean --> D[Local history]
+    D --> E[git push]
+    E --> F[Remote / CI]
+    F --> G[Forks, clones, bots]
+
+    style X fill:#d33,color:#fff
+    style G fill:#555,color:#fff
+```
+
 ---
 
 ## Recommended setup (important)
@@ -90,6 +104,28 @@ Make it executable:
 
 ```bash
 chmod +x .git/hooks/pre-commit
+```
+
+---
+
+## How it works
+
+```mermaid
+flowchart TD
+    W[Walk repository] --> F{Filter}
+    F -- hidden / skipDirs / binary / too large --> S[Skipped]
+    F -- candidate --> P[Parallel per-file scan]
+    P --> X[Extract: regex patterns]
+    X --> E[Evaluate: entropy, location, extension,<br/>placeholder, surrounding context, public exposure]
+    E --> PP[Post-process: composite scoring, dedup]
+    PP --> SV{Severity}
+    SV -- ERROR --> FE{failOnError}
+    SV -- WARNING --> FW{failOnWarnings}
+    SV -- INFO --> OK[Build passes]
+    FE -- true --> FAIL[Build fails]
+    FE -- false --> OK
+    FW -- true --> FAIL
+    FW -- false --> OK
 ```
 
 ---
