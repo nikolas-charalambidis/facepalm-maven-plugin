@@ -125,16 +125,26 @@ Aim for patterns that are **specific** (provider prefix, fixed length, charset) 
 
 ## Commit and PR conventions
 
-Commit messages follow a lightweight Conventional-Commits-ish style observed in `git log`:
+Commit messages and PR titles follow [Conventional Commits](https://www.conventionalcommits.org):
 
 - `fix: …` — bug fix
 - `feat: …` — new feature
-- `chore: …` — build, dependencies, version bumps
+- `perf: …` — performance improvement without behavior change
+- `refactor: …` — code change without behavior change
+- `test: …` — tests only
 - `docs: …` — documentation only
-- `CI: …` — CI/release machinery
-- `Bug#NN: …` — fix tied to issue #NN
+- `chore: …` — build, dependencies, housekeeping
+- `ci: …` — GitHub Actions workflows and release machinery
 
-Keep the subject under ~72 characters; put detail in the body if needed.
+Keep the subject imperative, lowercase after the prefix, and under ~72 characters. Do not put issue numbers in the subject.
+
+Issues are linked from the **PR description**, not the commit:
+
+```
+Fixes #14
+```
+
+PRs are merged with **Squash and merge** (except the bot's forward PRs, which use **Rebase and merge**), so GitHub turns the PR title into the commit subject and appends the PR number, e.g. `fix: compute multi-line line numbers via binary search (#39)`. The PR then links to the issue. `Fixes #NN` only auto-closes issues for PRs into `master`; for PRs into `release/X.Y.x`, the maintainer closes the issue after merging.
 
 Pull request checklist:
 
