@@ -145,7 +145,7 @@ Pull request checklist:
 - [ ] No real secrets committed (the plugin will catch you, but please don't make it have to).
 - [ ] PR description explains the *why*, not just the *what*.
 
-PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are merged forward into `master` afterwards. Keep PRs focused — one concern per PR.
+PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are forwarded to `master` automatically (see below). Keep PRs focused — one concern per PR.
 
 ## Branches and versioning
 
@@ -153,14 +153,16 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 - `release/X.Y.x` — maintenance line for `X.Y.*` patch releases (e.g. `release/1.0.x`).
 - `feature/<name>`, `bugfix/<issue>/<name>` — short-lived work branches.
 
-`pom.xml` never contains a real version. It uses the Maven [CI-friendly](https://maven.apache.org/maven-ci-friendly.html) placeholder `<version>${revision}</version>`, which defaults to `0.0.0-SNAPSHOT` for local builds. `flatten-maven-plugin` writes the resolved version into the installed/deployed POM. Because `pom.xml` is identical on every branch, release branches merge into `master` without version conflicts.
+`pom.xml` never contains a real version. It uses the Maven [CI-friendly](https://maven.apache.org/maven-ci-friendly.html) placeholder `<version>${revision}</version>`, which defaults to `0.0.0-SNAPSHOT` for local builds. `flatten-maven-plugin` writes the resolved version into the installed/deployed POM. Because `pom.xml` is identical on every branch, commits move between branches without version conflicts.
 
-Forward-port fixes by merging, not cherry-picking:
+`master` requires linear history (merge commits are rejected), so fixes are forward-ported by cherry-picking with `-x`, which records the source commit. This is automated by `.github/workflows/forward.yaml`:
 
-```bash
-git checkout master
-git merge release/1.0.x
-```
+- Every push to `release/X.Y.x` (e.g. a merged PR) is cherry-picked onto the branch `forward/release/X.Y.x`, and a PR into `master` is opened. While that PR is open, later pushes add their commits to it.
+- Commits already on `master` are skipped. Add `[no-forward]` to a commit message to keep a release-only change off `master`.
+- On conflict, the commit is pushed with conflict markers and the PR becomes a draft; the PR description lists the commands to resolve it.
+- The maintainer merges the forward PR with **Rebase and merge**.
+
+**Contributors never forward-port.** Open your PR against the oldest affected branch; forwarding is the maintainer's job.
 
 The released version exists only as a git tag `vX.Y.Z`. To build a specific version locally, pass it explicitly: `mvn install -Drevision=1.2.3`.
 
