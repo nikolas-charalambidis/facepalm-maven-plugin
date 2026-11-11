@@ -60,6 +60,8 @@ public class RegexSecretExtractor implements SecretExtractor {
         }
 
         // Multi-Line Block Scanning (e.g., PEM certificates).
+        // Built lazily on the first multi-line match, then shared by all patterns for this file.
+        LineIndex lineIndex = null;
         for (final var sp : activePatterns) {
             if (!sp.isMultiLine()) {
                 continue;
@@ -68,12 +70,11 @@ public class RegexSecretExtractor implements SecretExtractor {
             final var matcher = sp.getPattern().matcher(context.getFullContent());
             while (matcher.find()) {
                 final var secretValue = matcher.group();
+                if (lineIndex == null) {
+                    lineIndex = new LineIndex(context.getFullContent());
+                }
                 // Map character offset to its 1-based line number.
-                final var lineNum = (int) context.getFullContent()
-                    .substring(0, matcher.start())
-                    .chars()
-                    .filter(ch -> ch == '\n')
-                    .count() + 1;
+                final var lineNum = lineIndex.lineNumberAt(matcher.start());
                 registerFinding(findings, localDedup, context, sp, secretValue, lineNum, "[MULTI-LINE BLOCK]");
             }
         }
