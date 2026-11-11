@@ -31,8 +31,8 @@
 <![CDATA[
 //MethodCall[
     @MethodName = 'format'
-    and pmd-java:typeIs('java.lang.String')
-    and not(pmd-java:typeIs(ArgumentList/*[1], 'java.util.Locale'))
+    and *[1][pmd-java:typeIs('java.lang.String')]
+    and not(ArgumentList/*[1][pmd-java:typeIs('java.util.Locale')])
 ]
 ]]>
                 </value>

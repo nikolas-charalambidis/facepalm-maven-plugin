@@ -1,0 +1,182 @@
+# Contributing to Facepalm Maven Plugin
+
+Thanks for taking the time to contribute. Facepalm is a small, focused security tool — the bar for changes is "does this make the guardrail safer, faster, or quieter, without adding noise?"
+
+## Table of contents
+
+- [Code of conduct](#code-of-conduct)
+- [Ways to contribute](#ways-to-contribute)
+- [Reporting bugs](#reporting-bugs)
+- [Proposing features](#proposing-features)
+- [Development setup](#development-setup)
+- [Building and testing](#building-and-testing)
+- [Code style](#code-style)
+- [Adding detection patterns](#adding-detection-patterns)
+- [Commit and PR conventions](#commit-and-pr-conventions)
+- [Release process](#release-process)
+- [License](#license)
+
+## Code of conduct
+
+Be respectful, assume good intent, and keep discussions technical. Harassment or personal attacks are not tolerated in issues, PRs, or any project space.
+
+## Ways to contribute
+
+- **Report false positives or false negatives** — these are the most valuable bug reports for a secret scanner.
+- **Add or refine detection patterns** for new providers and credential formats.
+- **Improve the scoring engine** (evaluators, strategies, post-processors).
+- **Tighten the docs** under `docs/`.
+- **Fix bugs** filed in [Issues](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues).
+
+## Reporting bugs
+
+Before opening an issue, please:
+
+1. Search existing issues — many false positives are already known and tracked in `docs/faq.md`.
+2. Reproduce against the latest published version.
+3. Include:
+   - Plugin version and Maven version (`mvn -v`).
+   - JDK version (Java 17+ is required).
+   - A **minimal reproducer**: ideally a snippet of the offending file (sanitized) and the `pom.xml` configuration.
+   - The full `mvn -X facepalm:scan` output for scoring context, or `-DshowScoring=true -DshowDetails=true`.
+
+For suspected secret-detection misses, please **do not paste real secrets** — replace them with fake values that share the same structural shape.
+
+## Proposing features
+
+Open an issue describing the use case before sending a PR for non-trivial changes. Good proposals answer:
+
+- What problem does it solve? Who hits it?
+- Does it belong in the core plugin, or as configuration?
+- What is the impact on scan performance and the noise/false-positive rate?
+
+The project deliberately stays minimal: it is a guardrail, not a reporting suite.
+
+## Development setup
+
+Requirements:
+
+- JDK 17 (Temurin recommended — matches CI).
+- Maven 3.9+.
+- Git.
+
+Clone and bootstrap:
+
+```bash
+git clone https://github.com/nikolas-charalambidis/facepalm-maven-plugin.git
+cd facepalm-maven-plugin
+mvn clean verify
+```
+
+The first build runs unit tests, integration tests (which spawn real Maven processes via `itf-jupiter-extension`), Spotless, and PMD/CPD. Expect 1–3 minutes on a modern laptop.
+
+### IDE setup
+
+- **IntelliJ IDEA**: import as a Maven project. Enable annotation processing (for Lombok). Install the *Lombok* plugin if it is not bundled. Set the Java formatter to use `eclipse.xml` (Eclipse formatter plugin) so your edits match Spotless.
+- **VS Code**: install the *Extension Pack for Java* and *Lombok Annotations Support*.
+
+## Building and testing
+
+| Task | Command |
+|------|---------|
+| Full build (tests + quality gates) | `mvn clean verify` |
+| Unit tests only | `mvn test` |
+| Integration tests only | `mvn verify -DskipUnitTests` (or `mvn failsafe:integration-test failsafe:verify`) |
+| Apply formatting | `mvn spotless:apply` |
+| Check formatting | `mvn spotless:check` |
+| Run the plugin against this repo | `mvn facepalm:scan` |
+| Generate the site (Javadoc, PMD, JaCoCo, Surefire) | `mvn site` |
+
+Integration test fixtures live under `src/test/resources-its/dev/nichar/facepalm/FacepalmMojoIT/` and are filtered so `${project.version}` resolves to your local build. Add a new directory there to cover a new scenario, and wire it from `FacepalmMojoIT`.
+
+## Code style
+
+All of the following are enforced by `mvn verify`:
+
+- **Spotless** with the Eclipse formatter (`eclipse.xml`). Run `mvn spotless:apply` before committing.
+- **License header** on every Java file (the Spotless config injects it from `license.header`):
+  ```java
+  /*
+   * SPDX-License-Identifier: Apache-2.0
+   * Copyright 2026 Nikolas Charalambidis
+   */
+  ```
+- **PMD** with `pmd-ruleset.xml`. The build fails at priority ≤ 2.
+- **CPD** at `minimumTokens=100`. Refactor duplicated logic instead of suppressing.
+
+Coding conventions:
+
+- Use `Locale.ROOT` in **every** `String.format` call. Locale-sensitive formatting is a known bug class in this project.
+- Use `javax.inject.@Inject` / `@Named` — **not** `jakarta.inject`. The Maven Sisu container only sees the JSR-330 annotations.
+- Prefer Lombok (`@RequiredArgsConstructor`, `@Getter`, `@Value`) over hand-written boilerplate, but match the surrounding file's style.
+- Comma-separated CLI parameters must flow through `CommaSeparatedConfigurator` so `-DskipDirs=a,b` continues to work.
+- Public Mojo parameters belong in `docs/configuration.md`. Keep that table in sync.
+
+## Adding detection patterns
+
+A new pattern usually means:
+
+1. A `SecretPattern` registered in `SecretPatternRegistry`.
+2. A **unit test** in `src/test/java/dev/nichar/facepalm/pattern/SecretPatternRegistryTest.java` covering positive and negative cases.
+3. An **integration test fixture** in `src/test/resources-its/.../dirty_project/` (or a new fixture) demonstrating a real-file detection.
+4. A short note in `docs/patterns.md`.
+
+Aim for patterns that are **specific** (provider prefix, fixed length, charset) rather than broad. Broad patterns drive false positives, which are the single most common reason users disable security tooling.
+
+## Commit and PR conventions
+
+Commit messages follow a lightweight Conventional-Commits-ish style observed in `git log`:
+
+- `fix: …` — bug fix
+- `feat: …` — new feature
+- `chore: …` — build, dependencies, version bumps
+- `docs: …` — documentation only
+- `CI: …` — CI/release machinery
+- `Bug#NN: …` — fix tied to issue #NN
+
+Keep the subject under ~72 characters; put detail in the body if needed.
+
+Pull request checklist:
+
+- [ ] `mvn clean verify` passes locally.
+- [ ] Formatting applied (`mvn spotless:apply`).
+- [ ] New or changed Mojo parameters documented in `docs/configuration.md`.
+- [ ] New detection patterns have unit and integration tests.
+- [ ] No real secrets committed (the plugin will catch you, but please don't make it have to).
+- [ ] PR description explains the *why*, not just the *what*.
+
+PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are merged forward into `master` afterwards. Keep PRs focused — one concern per PR.
+
+## Branches and versioning
+
+- `master` — next minor/major release.
+- `release/X.Y.x` — maintenance line for `X.Y.*` patch releases (e.g. `release/1.0.x`).
+- `feature/<name>`, `bugfix/<issue>/<name>` — short-lived work branches.
+
+`pom.xml` never contains a real version. It uses the Maven [CI-friendly](https://maven.apache.org/maven-ci-friendly.html) placeholder `<version>${revision}</version>`, which defaults to `0.0.0-SNAPSHOT` for local builds. `flatten-maven-plugin` writes the resolved version into the installed/deployed POM. Because `pom.xml` is identical on every branch, release branches merge into `master` without version conflicts.
+
+Forward-port fixes by merging, not cherry-picking:
+
+```bash
+git checkout master
+git merge release/1.0.x
+```
+
+The released version exists only as a git tag `vX.Y.Z`. To build a specific version locally, pass it explicitly: `mvn install -Drevision=1.2.3`.
+
+## Release process
+
+Releases are fully automated via `.github/workflows/deploy.yaml` (manual `workflow_dispatch`):
+
+1. Maintainer triggers the workflow, selects the branch to release (`master` or `release/X.Y.x`) in "Use workflow from", and picks `patch` / `minor` / `major`.
+2. CI finds the latest `vX.Y.Z` tag reachable from that branch and bumps it (e.g. `v1.0.1` + `patch` → `1.0.2`).
+3. CI runs `mvn clean deploy site:site -Drevision=<version>` and publishes to GitHub Packages.
+4. CI tags the built commit `v<version>` and pushes only the tag. No commits are pushed back.
+
+Guards: a `release/X.Y.x` branch can only publish `X.Y.*` versions (so only `patch` works there), and an existing tag aborts the release.
+
+Do not put a version in `pom.xml` — the version is derived from tags.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the [Apache License, Version 2.0](LICENSE), the same license as the project. Every Java file must carry the SPDX header shown above.

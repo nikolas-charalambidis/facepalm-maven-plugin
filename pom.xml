@@ -6,7 +6,7 @@
 
     <groupId>dev.nichar</groupId>
     <artifactId>facepalm-maven-plugin</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>maven-plugin</packaging>
 
     <name>Facepalm Maven Plugin</name>
@@ -37,6 +37,10 @@
     </scm>
 
     <properties>
+        <!-- CI-friendly version placeholder. Identical on every branch so release branches merge into master without conflicts. -->
+        <!-- Local builds use this default; the release workflow overrides it with -Drevision=X.Y.Z derived from git tags. -->
+        <revision>0.0.0-SNAPSHOT</revision>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -56,6 +60,7 @@
         <guice.version>5.1.0</guice.version>
 
         <!-- Plugins. -->
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
         <sisu-maven-plugin.version>0.9.0.M2</sisu-maven-plugin.version>
@@ -222,6 +227,34 @@
 
     <build>
         <plugins>
+            <!-- Replaces ${revision} with its resolved value in the installed and deployed POM, so consumers never see the placeholder. -->
+            <!-- Phase: process-resources - it must run before install/deploy pick up the POM; flatten.clean removes the generated file on clean. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Attaches a Java agent to the JVM during testing to track which lines of code are executed for coverage analysis. -->
             <!-- Phase: initialize (default) - it must run before the tests start to set up the necessary environment properties. -->
             <plugin>
