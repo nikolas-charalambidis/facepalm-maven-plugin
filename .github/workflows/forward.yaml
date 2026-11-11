@@ -1,0 +1,151 @@
+name: Forward to master
+
+# Every push to a release/X.Y.x branch is forward-ported to master through a pull request.
+# Commits are cherry-picked with -x onto one rolling branch "forward/<release branch>" and a single PR into master.
+# While that PR is open, later pushes add their commits to it, so commit order is preserved.
+#
+# - Commits whose message contains [no-forward] are skipped.
+# - Commits whose change is already on master (empty cherry-pick) are skipped.
+# - On conflict, the conflicting commit is committed WITH conflict markers, the PR becomes a draft,
+#   and the remaining commits are listed in the PR for manual cherry-picking.
+#
+# Requires a GitHub App (Contents, Pull requests, Workflows: read & write) installed on this repository,
+# with secrets FORWARD_APP_ID and FORWARD_APP_PRIVATE_KEY. The App token (unlike GITHUB_TOKEN) makes the PR trigger build.yaml.
+
+on:
+  push:
+    branches: [ 'release/**' ]
+
+concurrency:
+  group: forward-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  forward:
+    name: Forward-port to master
+    runs-on: ubuntu-latest
+    # Skip branch creation pushes (no "before" commit to diff against).
+    if: github.event.before != '0000000000000000000000000000000000000000'
+    steps:
+      - name: Create GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.FORWARD_APP_ID }}
+          private-key: ${{ secrets.FORWARD_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # All branches and history for cherry-picking
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure Git as the App Bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          USER_ID=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          git config --global user.name "${SLUG}[bot]"
+          git config --global user.email "${USER_ID}+${SLUG}[bot]@users.noreply.github.com"
+
+      - name: Cherry-pick onto Forward Branch
+        id: pick
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE: ${{ github.ref_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+          FORWARD="forward/${SOURCE}"
+
+          # Continue the open forward PR if there is one, otherwise start fresh from master.
+          OPEN_PR=$(gh pr list --head "$FORWARD" --base master --state open --json number --jq '.[0].number // empty')
+          if [ -n "$OPEN_PR" ]; then
+            git checkout -B "$FORWARD" "origin/$FORWARD"
+          else
+            git checkout -B "$FORWARD" origin/master
+          fi
+
+          PICKED=""; SKIPPED=""; CONFLICT=""; REMAINING=""
+          for C in $(git rev-list --reverse --no-merges "$BEFORE..$AFTER"); do
+            LINE="- $(git log -1 --format='%h %s' "$C")"
+            if [ -n "$CONFLICT" ]; then
+              REMAINING+="$C "; continue
+            fi
+            if git log -1 --format=%B "$C" | grep -qF '[no-forward]'; then
+              SKIPPED+="$LINE ([no-forward])"$'\n'; continue
+            fi
+            if git cherry-pick -x "$C"; then
+              PICKED+="$LINE"$'\n'; continue
+            fi
+            if [ -z "$(git status --porcelain --untracked-files=no)" ]; then
+              # Empty result: the change is already on master.
+              git cherry-pick --skip
+              SKIPPED+="$LINE (already on master)"$'\n'; continue
+            fi
+            # Conflict: keep the markers in a commit so it can be resolved on the PR branch.
+            git add -A
+            git -c core.editor=true cherry-pick --continue
+            CONFLICT="$LINE"
+          done
+
+          if [ -z "$PICKED" ] && [ -z "$CONFLICT" ]; then
+            echo "Nothing to forward."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git push --force-with-lease origin "$FORWARD"
+
+          {
+            echo "Automatic forward-port of \`$SOURCE\` to \`master\` (push \`${BEFORE:0:7}..${AFTER:0:7}\`)."
+            echo
+            if [ -n "$PICKED" ]; then echo "**Forwarded:**"; echo "$PICKED"; fi
+            if [ -n "$SKIPPED" ]; then echo "**Skipped:**"; echo "$SKIPPED"; fi
+            if [ -n "$CONFLICT" ]; then
+              echo "**Conflict** — committed with conflict markers, the build will fail until resolved:"
+              echo "$CONFLICT"
+              echo
+              echo '```bash'
+              echo "git fetch origin && git checkout $FORWARD"
+              echo "# resolve the conflict markers, then:"
+              echo "git commit -am \"fix: resolve forward-port conflict\""
+              if [ -n "$REMAINING" ]; then echo "git cherry-pick -x $REMAINING"; fi
+              echo "git push"
+              echo '```'
+              echo
+              echo "Then mark this PR as ready for review."
+              echo
+            fi
+            echo "Merge with **Rebase and merge** to keep each \`(cherry picked from commit …)\` line. Commits containing \`[no-forward]\` are never forwarded."
+          } > "$RUNNER_TEMP/body.md"
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "forward=$FORWARD" >> "$GITHUB_OUTPUT"
+          echo "open_pr=$OPEN_PR" >> "$GITHUB_OUTPUT"
+          echo "conflict=$([ -n "$CONFLICT" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Open or Update Pull Request
+        if: steps.pick.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE: ${{ github.ref_name }}
+          FORWARD: ${{ steps.pick.outputs.forward }}
+          OPEN_PR: ${{ steps.pick.outputs.open_pr }}
+          CONFLICT: ${{ steps.pick.outputs.conflict }}
+        run: |
+          set -euo pipefail
+          if [ -z "$OPEN_PR" ]; then
+            DRAFT=""; [ "$CONFLICT" = "true" ] && DRAFT="--draft"
+            gh pr create --base master --head "$FORWARD" \
+              --title "Forward $SOURCE to master" \
+              --body-file "$RUNNER_TEMP/body.md" $DRAFT
+          else
+            gh pr comment "$OPEN_PR" --body-file "$RUNNER_TEMP/body.md"
+            if [ "$CONFLICT" = "true" ]; then gh pr ready "$OPEN_PR" --undo; fi
+          fi
