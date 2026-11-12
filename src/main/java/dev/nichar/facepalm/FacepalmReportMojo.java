@@ -20,7 +20,7 @@ import org.apache.maven.reporting.MavenReportException;
  * Maven Site reporting Mojo for integrated security scan results.
  * Visualizes the JSON findings produced during the 'scan' phase.
  */
-@Mojo(name = "report", defaultPhase = LifecyclePhase.SITE)
+@Mojo(name = "report", defaultPhase = LifecyclePhase.SITE, threadSafe = true)
 public class FacepalmReportMojo extends AbstractMavenReport {
 
     /**
