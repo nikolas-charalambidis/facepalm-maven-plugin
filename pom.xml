@@ -65,7 +65,7 @@
         <guava.version>33.5.0-jre</guava.version>
         <maven-plugin-annotations.version>3.11.0</maven-plugin-annotations.version>
         <lombok.version>1.18.30</lombok.version>
-        <freemarker.version>2.3.32</freemarker.version>
+        <freemarker.version>2.3.35</freemarker.version>
         <jackson-databind.version>2.21.2</jackson-databind.version>
         <javax.inject.version>1</javax.inject.version>
         <jakarta.annotation.version>3.0.0</jakarta.annotation.version>
