@@ -56,8 +56,8 @@
         <!-- Reproducible builds: fixed timestamp for all archive entries, so the same sources produce byte-identical jars. -->
         <!-- The release workflow overrides it with the commit time (-Dproject.build.outputTimestamp=<git commit date>). -->
         <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <!-- Unlike source/target, "release" also restricts the JDK API to Java 17, so a build on a newer JDK cannot link against newer APIs. -->
+        <maven.compiler.release>17</maven.compiler.release>
 
         <maven-plugin-api.version>3.9.12</maven-plugin-api.version>
         <maven-reporting-api.version>3.1.1</maven-reporting-api.version>
@@ -74,6 +74,14 @@
         <guice.version>5.1.0</guice.version>
 
         <!-- Plugins. -->
+        <!-- Lifecycle plugins otherwise taken from the defaults of the running Maven version (pinned to the versions in use). -->
+        <maven-clean-plugin.version>3.2.0</maven-clean-plugin.version>
+        <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
+        <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
+        <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
+        <maven-site-plugin.version>3.12.1</maven-site-plugin.version>
         <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
@@ -244,6 +252,47 @@
     </dependencies>
 
     <build>
+        <!-- Explicit versions for the plugins bound by the packaging, so the build does not change with the Maven version (enforced by requirePluginVersions). -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${maven-clean-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven-jar-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>${maven-install-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>${maven-deploy-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${maven-site-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
             <!-- Fails fast with a clear message when the build runs on an unsupported Maven or Java version. -->
             <!-- Phase: validate - the very first phase, before any compilation. -->
@@ -265,6 +314,11 @@
                                 <requireJavaVersion>
                                     <version>[17,)</version>
                                 </requireJavaVersion>
+                                <!-- Every plugin, including the ones bound by the packaging, has an explicit version, so builds do not change with the Maven version. -->
+                                <requirePluginVersions>
+                                    <message>Pin every plugin version in pom.xml.</message>
+                                    <phases>clean,deploy,site</phases>
+                                </requirePluginVersions>
                             </rules>
                         </configuration>
                     </execution>
