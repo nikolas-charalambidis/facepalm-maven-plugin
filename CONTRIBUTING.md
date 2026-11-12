@@ -34,7 +34,7 @@ Before opening an issue, please:
 
 1. Search existing issues — many false positives are already known and tracked in `docs/faq.md`.
 2. Reproduce against the latest published version.
-3. Open the issue with the matching [template](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) (bug report, false positive / false negative, feature request) and include:
+3. Open the issue with the matching [template](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) (bug report, missed or wrong detection, feature request) and include:
    - Plugin version and Maven version (`mvn -v`).
    - JDK version (Java 17+ is required).
    - A **minimal reproducer**: ideally a snippet of the offending file (sanitized) and the `pom.xml` configuration.
