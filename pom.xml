@@ -62,11 +62,11 @@
         <maven-plugin-api.version>3.9.12</maven-plugin-api.version>
         <maven-reporting-api.version>3.1.1</maven-reporting-api.version>
         <maven-reporting-impl.version>3.2.0</maven-reporting-impl.version>
-        <guava.version>33.5.0-jre</guava.version>
+        <guava.version>33.7.1-jre</guava.version>
         <maven-plugin-annotations.version>3.11.0</maven-plugin-annotations.version>
         <lombok.version>1.18.30</lombok.version>
-        <freemarker.version>2.3.32</freemarker.version>
-        <jackson-databind.version>2.21.2</jackson-databind.version>
+        <freemarker.version>2.3.35</freemarker.version>
+        <jackson-databind.version>2.21.7</jackson-databind.version>
         <javax.inject.version>1</javax.inject.version>
         <jakarta.annotation.version>3.0.0</jakarta.annotation.version>
         <org.eclipse.sisu.inject.version>0.9.0.M2</org.eclipse.sisu.inject.version>
