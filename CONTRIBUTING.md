@@ -192,6 +192,8 @@ Guards: releases run only from `master` (`minor` or `major`) and `release/X.Y.x`
 
 Do not put a version in `pom.xml` — the version is derived from tags.
 
+Releases are reproducible: rebuilding a tag with `-Drevision=<version>` and the `project.build.outputTimestamp` from its GitHub Release notes yields byte-identical jars, provided you use the exact JDK named there (the javadoc jar bundles JDK-specific resources).
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [Apache License, Version 2.0](LICENSE), the same license as the project. Every Java file must carry the SPDX header shown above.
