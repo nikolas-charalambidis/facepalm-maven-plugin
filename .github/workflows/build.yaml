@@ -15,13 +15,13 @@ permissions:
 jobs:
   ci:
     name: CI / Verify & Build Site
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -38,7 +38,7 @@ jobs:
       # Upload the final HTML pages artifact immediately.
       - name: Upload Pages Artifact
         if: github.ref == 'refs/heads/master' && success() # CRITICAL: Only upload the site artifact if on master and the build passed.
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: target/site
 
@@ -46,7 +46,7 @@ jobs:
   # We do not need to set up Java or parse XMLs here. It just grabs the artifact and pushes it.
   site:
     name: Deploy Site to GitHub Pages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.ref == 'refs/heads/master' # Master branch only.
     needs: ci # It requires artifacts from the "ci" job to be downloaded and used for site report.
     environment:
@@ -56,4 +56,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         # This automatically pulls the artifact uploaded by 'actions/upload-pages-artifact' in the CI job.
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
