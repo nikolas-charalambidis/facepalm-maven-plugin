@@ -38,7 +38,7 @@ class FacepalmMojoIT {
         assertThat(result).isSuccessful();
 
         assertThat(result).out().info()
-            .contains("Discovered 5 files...")
+            .contains("Discovered 2 files...")
             .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : SUCCESS")
             .contains("No secrets or sensitive patterns detected. Your secrets are safe.")
@@ -68,7 +68,7 @@ class FacepalmMojoIT {
                 "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/dirty_project/project/src/main/resources/application.properties:2"));
 
         assertThat(result).out().info()
-            .contains("Discovered 5 files...")
+            .contains("Discovered 2 files...")
             .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : WARNINGS")
             .contains("Warnings detected. Review recommended.")
@@ -98,7 +98,7 @@ class FacepalmMojoIT {
                 "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/dirty_project_fail_on_warnings/project/src/main/resources/application.properties:2"));
 
         assertThat(result).out().info()
-            .contains("Discovered 5 files...")
+            .contains("Discovered 2 files...")
             .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : WARNINGS")
             .contains("Warnings detected. Review recommended.")
