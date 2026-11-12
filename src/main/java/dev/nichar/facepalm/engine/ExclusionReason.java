@@ -31,11 +31,6 @@ public enum ExclusionReason {
     SIZE_EXCEEDED("File size exceeds limit"),
 
     /**
-     * Hidden file or directory skipped by default.
-     */
-    HIDDEN_PATH("Hidden file or directory"),
-
-    /**
      * File could not be accessed due to filesystem constraints.
      */
     IO_ERROR("Unreadable/Access denied");

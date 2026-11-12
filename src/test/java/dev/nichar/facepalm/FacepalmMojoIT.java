@@ -39,7 +39,7 @@ class FacepalmMojoIT {
 
         assertThat(result).out().info()
             .contains("Discovered 5 files...")
-            .contains("Starting scan of 4 files...")
+            .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : SUCCESS")
             .contains("No secrets or sensitive patterns detected. Your secrets are safe.")
             .contains("BUILD SUCCESS");
@@ -69,7 +69,7 @@ class FacepalmMojoIT {
 
         assertThat(result).out().info()
             .contains("Discovered 5 files...")
-            .contains("Starting scan of 4 files...")
+            .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : WARNINGS")
             .contains("Warnings detected. Review recommended.")
             .contains("BUILD SUCCESS");
@@ -99,7 +99,7 @@ class FacepalmMojoIT {
 
         assertThat(result).out().info()
             .contains("Discovered 5 files...")
-            .contains("Starting scan of 4 files...")
+            .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : WARNINGS")
             .contains("Warnings detected. Review recommended.")
             .contains("BUILD FAILURE");
@@ -123,6 +123,9 @@ class FacepalmMojoIT {
         assertThat(result).out().error()
             .anyMatch(line -> line.contains(
                 "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
+        // The copy in target/classes is excluded by the default skipDirs (issue #61).
+        assertThat(result).out().error()
+            .noneMatch(line -> line.contains("/target/classes/server.key"));
 
         assertThat(result).out().info()
             .contains("SCAN RESULT : FAILURE")

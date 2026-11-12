@@ -113,7 +113,7 @@ chmod +x .git/hooks/pre-commit
 ```mermaid
 flowchart TD
     W[Walk repository] --> F{Filter}
-    F -- hidden / skipDirs / binary / too large --> S[Skipped]
+    F -- skipDirs / binary / too large --> S[Skipped]
     F -- candidate --> P[Parallel per-file scan]
     P --> X[Extract: regex patterns]
     X --> E[Evaluate: entropy, location, extension,<br/>placeholder, surrounding context, public exposure]
