@@ -1,0 +1,35 @@
+# Dependabot version updates. The configuration is read from master; target-branch decides where the PRs go.
+# Security updates (enabled in the repository settings) always target the default branch.
+version: 2
+updates:
+  # GitHub Actions: target the maintenance line, where the release workflow runs; merged bumps are forwarded to
+  # master by forward.yaml. Update target-branch when a new release/X.Y.x line is created.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: release/1.0.x
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: [ "*" ]
+
+  # Maven: dependency and plugin upgrades go into the next minor release on master; the patch line stays stable.
+  - package-ecosystem: maven
+    directory: /
+    target-branch: master
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # One PR for all minor and patch updates; major updates get their own PRs.
+      minor-and-patch:
+        update-types: [ "minor", "patch" ]
+    ignore:
+      # Pinned on purpose: newer versions clash with Maven's bundled Guava (Stopwatch ClassNotFoundException).
+      - dependency-name: com.google.guava:guava
