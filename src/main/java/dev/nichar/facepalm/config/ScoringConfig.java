@@ -26,7 +26,7 @@ public class ScoringConfig {
     /**
      * Minimum score to classify a finding as high-risk (Critical).
      */
-    private int errorThreshold = 70;
+    private int errorThreshold = 80;
 
     /**
      * Minimum score to classify a finding as moderate-risk (Warning).
