@@ -7,6 +7,7 @@ package dev.nichar.facepalm.engine;
 
 import jakarta.annotation.Nonnull;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -55,7 +56,7 @@ public class ScanStatistics {
         filesScanned.increment();
         final var fileName = path.getFileName().toString();
         final var lastDot = fileName.lastIndexOf('.');
-        final var suffix = (lastDot == -1) ? "no-extension" : fileName.substring(lastDot).toLowerCase();
+        final var suffix = (lastDot == -1) ? "no-extension" : fileName.substring(lastDot).toLowerCase(Locale.ROOT);
         suffixCounts.computeIfAbsent(suffix, k -> new LongAdder()).increment();
     }
 
