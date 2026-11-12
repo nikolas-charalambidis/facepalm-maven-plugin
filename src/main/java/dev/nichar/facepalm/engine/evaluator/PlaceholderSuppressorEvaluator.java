@@ -9,6 +9,7 @@ import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import jakarta.annotation.Nonnull;
+import java.util.Locale;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -35,7 +36,7 @@ class PlaceholderSuppressorEvaluator implements FindingEvaluator {
             return;
         }
 
-        final var lowerVal = value.toLowerCase().replace("-", "_").replace(" ", "_");
+        final var lowerVal = value.toLowerCase(Locale.ROOT).replace("-", "_").replace(" ", "_");
         // Penalize known dummy keywords to reduce false positives from sample data.
         if (conf.getDummyKeywords().stream().anyMatch(lowerVal::contains)) {
             finding.log("Dummy Keyword Discount", 0, -80);

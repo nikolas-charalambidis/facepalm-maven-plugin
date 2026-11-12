@@ -106,7 +106,7 @@ All of the following are enforced by `mvn verify`:
 
 Coding conventions:
 
-- Use `Locale.ROOT` in **every** `String.format` call. Locale-sensitive formatting is a known bug class in this project.
+- Use `Locale.ROOT` in **every** `String.format`, `toLowerCase` and `toUpperCase` call (enforced by PMD). Locale-sensitive formatting is a known bug class in this project.
 - Use `javax.inject.@Inject` / `@Named` — **not** `jakarta.inject`. The Maven Sisu container only sees the JSR-330 annotations.
 - Prefer Lombok (`@RequiredArgsConstructor`, `@Getter`, `@Value`) over hand-written boilerplate, but match the surrounding file's style.
 - Comma-separated CLI parameters must flow through `CommaSeparatedConfigurator` so `-DskipDirs=a,b` continues to work.

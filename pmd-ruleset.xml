@@ -14,6 +14,11 @@
     <rule ref="category/java/codestyle.xml/LocalVariableCouldBeFinal"/>
     <rule ref="category/java/codestyle.xml/MethodArgumentCouldBeFinal"/>
 
+    <!-- Flags toLowerCase()/toUpperCase() without an explicit Locale (e.g. "TITLE".toLowerCase() is "tıtle" under tr_TR). -->
+    <rule ref="category/java/errorprone.xml/UseLocaleWithCaseConversions">
+        <priority>2</priority>
+    </rule>
+
     <!-- Flags String.format calls without an explicit Locale. -->
     <rule name="UseLocaleWithStringFormat"
           language="java"
