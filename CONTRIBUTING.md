@@ -187,6 +187,7 @@ Releases are fully automated via `.github/workflows/deploy.yaml` (manual `workfl
 3. CI runs `mvn -P release clean verify -Dgpg.skip -Drevision=<version>` without any secrets (all tests and quality gates, sources and javadoc jars). Only then are the Central credentials and the GPG key installed, and `mvn -P release,central deploy -DskipTests` signs everything and uploads the bundle to the [Maven Central Portal](https://central.sonatype.com). Maven Central is the only repository; the GitHub Release attaches the same signed files. The site is published by `build.yaml`, not by the release.
 4. CI tags the built commit `v<version>`, pushes only the tag (no commits are pushed back), and creates a GitHub Release with notes generated from the merged PRs since the previous tag and the signed artifacts attached.
 5. While `autoPublish` is `false` in the `central` profile, the upload stops as *Validated* in the Portal under **Deployments**; the maintainer reviews it and clicks **Publish**. Maven Central releases are permanent — they can never be deleted or replaced.
+6. If the release is the highest version, facepalm-bot opens a PR into `master` (`docs: use version <version>`) that updates the plugin version in the `README.md` and `docs/*.md` install snippets. Merge it only after the deployment is published in step 5.
 
 Guards: releases run only from `master` (`minor` or `major`) and `release/X.Y.x` (`patch`, `X.Y.*` versions only); any other branch is rejected. An existing tag aborts the release, and only one release runs at a time.
 
