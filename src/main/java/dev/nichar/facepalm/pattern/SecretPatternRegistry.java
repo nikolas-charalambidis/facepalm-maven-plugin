@@ -20,7 +20,17 @@ import lombok.experimental.UtilityClass;
 public class SecretPatternRegistry {
 
     /**
+     * {@code user:password} part of a database connection URI. Both parts are bounded and exclude the delimiters
+     * ({@code :} in the user, {@code @} in both), so a long line without {@code @} is rejected in linear time instead
+     * of
+     * backtracking quadratically.
+     */
+    private static final String DB_CREDENTIALS = "[^/\\s:@]{1,256}:[^/\\s@]{1,256}";
+
+    /**
      * Immutable list of default patterns used by the scanner.
+     * Gaps between a keyword and the secret are bounded (e.g. {@code .{0,100}?}), never {@code .*}: an unbounded gap
+     * makes matching quadratic on long lines such as minified JavaScript.
      * Ordered from high-confidence specific signatures to generic fallback patterns.
      */
     public static final List<SecretPattern> DEFAULT_PATTERNS = List.of(
@@ -32,20 +42,24 @@ public class SecretPatternRegistry {
         new SecretPattern("Firebase Key", Pattern.compile("AAAA[A-Za-z0-9_\\-]{7}:[A-Za-z0-9_\\-]{140,}"), 75, 95,
             false),
         new SecretPattern("Heroku API Key", Pattern.compile(
-            "(?i)heroku.*[=:]\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"), 70,
+            "(?i)heroku.{0,100}?[=:]\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"),
+            70,
             85, false),
         new SecretPattern("Azure OpenAI Key", Pattern.compile(
-            "(?i)(?:azure|openai).*?key.{0,10}[=:]\\s*([a-zA-Z0-9]{32})"), 80, 85, false),
+            "(?i)(?:azure|openai).{0,100}?key.{0,10}[=:]\\s*([a-zA-Z0-9]{32})"), 80, 85, false),
 
         // Database Connection Strings
-        new SecretPattern("MongoDB Connection", Pattern.compile("(?i)mongodb(?:\\+srv)?://([^/\\s]+:[^/\\s]+)@"), 90,
+        new SecretPattern("MongoDB Connection", Pattern.compile("(?i)mongodb(?:\\+srv)?://(" + DB_CREDENTIALS + ")@"),
+            90,
             95, false),
-        new SecretPattern("PostgreSQL Connection", Pattern.compile("(?i)postgres(?:ql)?://([^/\\s]+:[^/\\s]+)@"), 90,
+        new SecretPattern("PostgreSQL Connection", Pattern.compile("(?i)postgres(?:ql)?://(" + DB_CREDENTIALS + ")@"),
+            90,
             95, false),
-        new SecretPattern("MySQL Connection", Pattern.compile("(?i)mysql://([^/\\s]+:[^/\\s]+)@"), 90, 95, false),
-        new SecretPattern("Redis Password", Pattern.compile("(?i)redis://[^/\\s]*:([^/\\s]+)@"), 80, 90, false),
+        new SecretPattern("MySQL Connection", Pattern.compile("(?i)mysql://(" + DB_CREDENTIALS + ")@"), 90, 95, false),
+        new SecretPattern("Redis Password", Pattern.compile("(?i)redis://[^/\\s:@]{0,256}:([^/\\s@]{1,256})@"), 80, 90,
+            false),
         new SecretPattern("SQL Server Password", Pattern.compile(
-            "(?i)(?:sql[_-]?server|mssql).*password\\s*[=:]\\s*([^\\s;]{8,})"), 80, 85, false),
+            "(?i)(?:sql[_-]?server|mssql).{0,100}?password\\s*[=:]\\s*([^\\s;]{8,})"), 80, 85, false),
 
         // AI & LLM Providers (High Risk)
         new SecretPattern("OpenAI Project Key", Pattern.compile("sk-proj-[A-Za-z0-9]{48,}"), 90, 100, false),
