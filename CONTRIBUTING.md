@@ -144,7 +144,7 @@ Issues are linked from the **PR description**, not the commit:
 Fixes #14
 ```
 
-PRs are merged with **Squash and merge** (except the bot's forward PRs, which use **Rebase and merge**), so GitHub turns the PR title into the commit subject and appends the PR number, e.g. `fix: compute multi-line line numbers via binary search (#39)`. The PR then links to the issue. `Fixes #NN` only auto-closes issues for PRs into `master`; for PRs into `release/X.Y.x`, the maintainer closes the issue after merging.
+PRs are merged with **Squash and merge** (except the bot's forward PRs, which use **Rebase and merge**), so GitHub turns the PR title into the commit subject and appends the PR number, e.g. `fix: compute multi-line line numbers via binary search (#39)`. The PR then links to the issue. `Fixes #NN` only auto-closes issues for PRs into `master`; for PRs into `release/X.Y.x`, the bot copies it into the forward PR, so the issue closes when that PR is merged into `master`.
 
 Pull request checklist:
 
@@ -167,7 +167,8 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 
 `master` requires linear history (merge commits are rejected), so fixes are forward-ported by cherry-picking with `-x`, which records the source commit. This is automated by `.github/workflows/forward.yaml`:
 
-- Every push to `release/X.Y.x` (e.g. a merged PR) is cherry-picked onto the branch `forward/release/X.Y.x`, and a PR into `master` is opened. While that PR is open, later pushes add their commits to it.
+- Every PR merged into `release/X.Y.x` gets its own forward PR into `master`: its commits are cherry-picked onto `forward/<pr>-to-master`, the PR is titled `[Forward master] <original title>`, links the source PR, and carries over its `Fixes #NN` lines.
+- Commits pushed directly (without a PR) are forwarded as one PR per push, without closing keywords.
 - Commits already on `master` are skipped. Add `[no-forward]` to a commit message to keep a release-only change off `master`.
 - On conflict, the commit is pushed with conflict markers and the PR becomes a draft; the PR description lists the commands to resolve it.
 - The maintainer merges the forward PR with **Rebase and merge**.
