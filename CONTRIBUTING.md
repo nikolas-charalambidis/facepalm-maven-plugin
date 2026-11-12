@@ -18,7 +18,7 @@ Thanks for taking the time to contribute. Facepalm is a small, focused security 
 
 ## Code of conduct
 
-Be respectful, assume good intent, and keep discussions technical. Harassment or personal attacks are not tolerated in issues, PRs, or any project space.
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold it.
 
 ## Ways to contribute
 
@@ -34,13 +34,15 @@ Before opening an issue, please:
 
 1. Search existing issues — many false positives are already known and tracked in `docs/faq.md`.
 2. Reproduce against the latest published version.
-3. Include:
+3. Open the issue with the matching [template](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) (bug report, false positive / false negative, feature request) and include:
    - Plugin version and Maven version (`mvn -v`).
    - JDK version (Java 17+ is required).
    - A **minimal reproducer**: ideally a snippet of the offending file (sanitized) and the `pom.xml` configuration.
    - The full `mvn -X facepalm:scan` output for scoring context, or `-DshowScoring=true -DshowDetails=true`.
 
 For suspected secret-detection misses, please **do not paste real secrets** — replace them with fake values that share the same structural shape.
+
+Security vulnerabilities in the plugin itself must not be reported as public issues; see [SECURITY.md](SECURITY.md).
 
 ## Proposing features
 

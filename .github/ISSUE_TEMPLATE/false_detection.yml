@@ -1,0 +1,58 @@
+name: False positive / false negative
+description: A secret is missed, or something that is not a secret is flagged.
+labels: [ "bug" ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are the most valuable for a secret scanner. **Never paste real secrets** — replace every character
+        with a fake one of the same kind (letter, digit, symbol) so the shape stays the same.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - False negative (a secret was not detected)
+        - False positive (not a secret, but flagged)
+        - Wrong severity (detected, but scored too high or too low)
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: "1.0.2"
+    validations:
+      required: true
+  - type: input
+    id: pattern
+    attributes:
+      label: Pattern name
+      description: As shown in the output, e.g. `Generic API Key Assignment`. Leave empty for a false negative.
+  - type: input
+    id: file
+    attributes:
+      label: File path and type
+      placeholder: "src/main/resources/application.yml"
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Redacted snippet
+      description: The line(s) around the value, with the value replaced by a fake of the same shape.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Scan output
+      description: The finding with `-DshowScoring=true`, including the score breakdown (for false positives and wrong severity).
+      render: text
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
