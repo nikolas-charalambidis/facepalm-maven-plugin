@@ -32,8 +32,8 @@ jobs:
   forward:
     name: Forward-port to master
     runs-on: ubuntu-26.04
-    # Skip branch creation pushes (no "before" commit to diff against).
-    if: github.event.before != '0000000000000000000000000000000000000000'
+    # Skip branch creations (no "before" commit to diff against) and branch deletions (nothing to forward).
+    if: github.event.before != '0000000000000000000000000000000000000000' && !github.event.deleted
     steps:
       - name: Create GitHub App Token
         id: app-token
@@ -94,8 +94,10 @@ jobs:
               KEYWORDS=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$KEY" --jq '.body // ""' | closing_keywords)
             fi
 
-            if git ls-remote --exit-code --heads origin "$FORWARD" >/dev/null; then
-              echo "::notice::$FORWARD already exists, skipping."
+            # Skip only if a forward PR exists (in any state). A branch without a PR is left over from a run that
+            # pushed but failed to open the PR, so it is rebuilt and the PR is opened now.
+            if [ -n "$(gh pr list --head "$FORWARD" --base master --state all --json number --jq '.[0].number // empty')" ]; then
+              echo "::notice::A forward PR for $FORWARD already exists, skipping."
               return
             fi
 
@@ -128,7 +130,7 @@ jobs:
               return
             fi
 
-            git push origin "$FORWARD"
+            git push --force origin "$FORWARD"
 
             {
               echo "$INTRO"
@@ -158,11 +160,39 @@ jobs:
             gh pr create --base master --head "$FORWARD" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md" $DRAFT
           }
 
+          # Merged PR (into this branch) a commit came from, or nothing for a direct push.
+          # 1. "(#N)" at the end of the subject, if PR N was merged into this branch.
+          # 2. The commits/{sha}/pulls API, retried because the association can lag right after a merge.
+          source_pr() {
+            local C=$1 N PR DELAY
+            N=$(git log -1 --format=%s "$C" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')
+            if [ -n "$N" ] && [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$N" \
+                --jq "select(.merged_at != null and .base.ref == \"$SOURCE\") | .number" 2>/dev/null)" = "$N" ]; then
+              echo "$N"; return
+            fi
+            for DELAY in 0 5 15; do
+              sleep "$DELAY"
+              PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$C/pulls" \
+                --jq "[.[] | select(.merged_at != null and .base.ref == \"$SOURCE\")][0].number // empty")
+              if [ -n "$PR" ]; then echo "$PR"; return; fi
+            done
+          }
+
+          # Commits of this push. After a force push (BEFORE is not an ancestor of AFTER, or no longer exists),
+          # BEFORE..AFTER is meaningless, so the commits listed in the push event are used instead.
+          if git merge-base --is-ancestor "$BEFORE" "$AFTER" 2>/dev/null; then
+            COMMITS=$(git rev-list --reverse --no-merges "$BEFORE..$AFTER")
+          else
+            echo "::warning::$BEFORE is not an ancestor of $AFTER (force push); forwarding the commits listed in the push event."
+            COMMITS=$(jq -r '.commits[].id' "$GITHUB_EVENT_PATH" | while read -r C; do
+              [ "$(git rev-list --no-merges -n1 "$C^!" 2>/dev/null)" = "$C" ] && echo "$C" || true
+            done)
+          fi
+
           # Group consecutive commits by the merged PR (into this branch) they came from.
           KEY=""; GROUP=()
-          for C in $(git rev-list --reverse --no-merges "$BEFORE..$AFTER"); do
-            PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$C/pulls" \
-              --jq "[.[] | select(.merged_at != null and .base.ref == \"$SOURCE\")][0].number // empty")
+          for C in $COMMITS; do
+            PR=$(source_pr "$C")
             NEXT="${PR:-push}"
             if [ ${#GROUP[@]} -gt 0 ] && [ "$NEXT" != "$KEY" ]; then
               forward_group "$KEY" "${GROUP[@]}"
