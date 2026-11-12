@@ -12,6 +12,8 @@ import com.soebes.itf.jupiter.extension.MavenJupiterExtension;
 import com.soebes.itf.jupiter.extension.MavenTest;
 import com.soebes.itf.jupiter.extension.MavenVerbose;
 import com.soebes.itf.jupiter.maven.MavenExecutionResult;
+import java.io.IOException;
+import java.nio.file.Files;
 
 /**
  * Integration tests for the Facepalm Maven Plugin.
@@ -107,6 +109,28 @@ class FacepalmMojoIT {
         final var targetDirectory = result.getMavenProjectResult().getTargetProjectDirectory();
         assertThat(targetDirectory.resolve("target/facepalm-report.html")).doesNotExist();
         assertThat(targetDirectory.resolve("target/facepalm-report.sarif")).doesNotExist();
+    }
+
+    /**
+     * Verifies that the report goal finds the scan results with a non-default build directory and reporting output
+     * directory (issue #71).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenGoal("facepalm:report")
+    @MavenVerbose
+    void custom_directories_project(final MavenExecutionResult result) throws IOException {
+        assertThat(result).isSuccessful();
+        assertThat(result).out().warn()
+            .noneMatch(line -> line.contains("Facepalm results not found"));
+
+        final var projectDirectory = result.getMavenProjectResult().getTargetProjectDirectory();
+        assertThat(projectDirectory.resolve("build-output/facepalm-findings.json")).exists();
+        final var report = projectDirectory.resolve("site-output/facepalm-report.html");
+        assertThat(report).exists();
+        assertThat(Files.readString(report))
+            .contains("Generic Password Assignment")
+            .doesNotContain("No scan data available");
     }
 
     /**

@@ -8,11 +8,13 @@ package dev.nichar.facepalm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.report.FindingReport;
 import jakarta.annotation.Nonnull;
+import java.io.File;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.reporting.AbstractMavenReport;
 import org.apache.maven.reporting.MavenReportException;
 
@@ -22,6 +24,12 @@ import org.apache.maven.reporting.MavenReportException;
  */
 @Mojo(name = "report", defaultPhase = LifecyclePhase.SITE, threadSafe = true)
 public class FacepalmReportMojo extends AbstractMavenReport {
+
+    /**
+     * Build directory where the scan goal writes {@code facepalm-findings.json}.
+     */
+    @Parameter(defaultValue = "${project.build.directory}", readonly = true)
+    private File buildDirectory;
 
     /**
      * Unique identifier for the report in Maven Site navigation.
@@ -55,9 +63,8 @@ public class FacepalmReportMojo extends AbstractMavenReport {
     protected void executeReport(@Nonnull final Locale locale) throws MavenReportException {
         getLog().debug("Facepalm report generation output directory: " + outputDirectory.getAbsolutePath());
 
-        // Resolve findings file relative to reporting output directory.
-        final var resultsFile = outputDirectory.toPath().resolve("..").resolve("facepalm-findings.json").normalize()
-            .toFile();
+        // The scan goal writes the findings into the build directory, independent of the reporting directory.
+        final var resultsFile = new File(buildDirectory, "facepalm-findings.json");
 
         if (!resultsFile.exists()) {
             getLog().warn("Facepalm results not found at " + resultsFile.getAbsolutePath() +
@@ -74,7 +81,8 @@ public class FacepalmReportMojo extends AbstractMavenReport {
                 resultsFile,
                 mapper.getTypeFactory().constructCollectionType(List.class, FindingReport.class));
         } catch (Exception e) {
-            throw new MavenReportException("Failed to read facepalm-results.json. Is the file corrupted?", e);
+            throw new MavenReportException(
+                "Failed to read " + resultsFile.getAbsolutePath() + ". Is the file corrupted?", e);
         }
 
         // Generate the HTML content using Maven's Doxia Sink API.
