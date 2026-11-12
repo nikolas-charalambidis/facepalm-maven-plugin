@@ -41,7 +41,9 @@ import org.apache.maven.plugin.logging.Log;
 @Singleton
 public class Reporter {
 
-    // Maven uses a standard 72-character line for separators.
+    /**
+     * Console separator line, matching Maven's standard 72-character width.
+     */
     private static final String SEPARATOR = "-".repeat(72);
 
     @Inject
