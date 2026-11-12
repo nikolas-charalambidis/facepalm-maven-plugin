@@ -71,6 +71,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
 - **Guava** is pinned to a specific version (see `pom.xml`) to avoid a `Stopwatch` `ClassNotFoundException` from Maven's bundled Guava. Don't bump it casually.
 - **Comma-separated parameters** (e.g. `skipDirs`) flow through `CommaSeparatedConfigurator` so CLI overrides like `-DskipDirs=a,b` work. Wire new collection-valued `@Parameter`s through it.
 - **Severity, scoring strategies, and thresholds** are defined in `engine/` — see `docs/configuration.md` before changing defaults; they are part of the public contract.
+- **Every static field (final or not) has a Javadoc comment** describing its purpose.
 
 ## Testing approach
 

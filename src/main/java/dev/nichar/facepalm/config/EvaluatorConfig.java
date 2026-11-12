@@ -22,8 +22,11 @@ public class EvaluatorConfig {
 
     /**
      * Regex for detecting interpolated values or variable placeholders.
+     * {@code ${VAR}} and {@code {{ var }}} may appear anywhere in the value; {@code %VAR%}, {@code <your-key>} and
+     * {@code [your-key]} must be the whole value, so real secrets containing {@code %}, {@code <} or {@code [} (e.g.
+     * URL-encoded passwords) are not suppressed.
      */
-    private String interpolationPatternRegex = ".*?(?:\\$\\{.*}|\\{\\{.*}|<.*>|%.*%|\\[.*]).*";
+    private String interpolationPatternRegex = ".*(?:\\$\\{[^}]+}|\\{\\{[^}]+}}).*|%[A-Za-z_][A-Za-z0-9_]*%|<[A-Za-z_][A-Za-z0-9_ .-]*>|\\[[A-Za-z_][A-Za-z0-9_ .-]*]";
 
     /**
      * Compiled pattern for efficient placeholder detection.

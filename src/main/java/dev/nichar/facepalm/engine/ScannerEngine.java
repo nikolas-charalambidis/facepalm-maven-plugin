@@ -83,7 +83,7 @@ public class ScannerEngine {
                     continue;
                 }
                 stats.recordScan(path);
-                tasks.add(() -> processFile(path));
+                tasks.add(() -> processFile(root, path));
             }
         }
 
@@ -173,7 +173,7 @@ public class ScannerEngine {
      * Executes the extraction, evaluation, and post-processing pipeline for a single file.
      */
     @Nonnull
-    private List<Finding> processFile(@Nonnull final Path path) {
+    private List<Finding> processFile(@Nonnull final Path root, @Nonnull final Path path) {
         final var engineConfig = context.getEngine();
 
         if (engineConfig.isShowProcessed()) {
@@ -183,7 +183,8 @@ public class ScannerEngine {
             // Load file into memory. Protected by size limits in shouldScan().
             final var content = Files.readString(path);
             // Initialize file context for the scanning pipeline.
-            final var context = new FileContext(path, content, Arrays.asList(content.split("\\R")));
+            final var context = new FileContext(path, root.relativize(path), content,
+                Arrays.asList(content.split("\\R")));
             final List<Finding> fileFindings = new ArrayList<>();
 
             // Execute regex-based secret extraction.
