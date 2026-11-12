@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import javax.inject.Inject;
@@ -106,14 +107,19 @@ public class ScannerEngine {
             for (final Callable<List<Finding>> ignored : tasks) {
                 try {
                     allFindings.addAll(service.take().get());
-                } catch (Exception e) {
-                    log.error("Error processing file", e);
+                } catch (ExecutionException e) {
+                    // processFile handles its own failures; this only covers errors such as OutOfMemoryError.
+                    log.warn("Error processing file: " + e.getCause(), e.getCause());
                 }
             }
             return allFindings;
+        } catch (InterruptedException e) {
+            // Restore the interrupt flag and abort: a partial result must not pass the build silently.
+            Thread.currentThread().interrupt();
+            throw e;
         } finally {
             // Shutdown the executor and await completion.
-            executor.shutdown();
+            executor.shutdownNow();
         }
     }
 
@@ -247,6 +253,11 @@ public class ScannerEngine {
             }
 
             return fileFindings;
+        } catch (RuntimeException e) {
+            // A failing extractor, evaluator or post-processor must not silently drop the file: report it.
+            log.warn("Failed to scan " + path + ": " + e, e);
+            stats.recordExclusion(ExclusionReason.PROCESSING_ERROR);
+            return Collections.emptyList();
         } catch (IOException e) {
             log.warn("Skipping unreadable file " + path + ": " + e.getMessage());
             return Collections.emptyList();

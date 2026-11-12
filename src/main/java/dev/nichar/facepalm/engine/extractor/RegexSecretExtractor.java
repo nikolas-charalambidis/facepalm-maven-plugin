@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -52,9 +53,10 @@ public class RegexSecretExtractor implements SecretExtractor {
                 }
                 final var m = sp.getPattern().matcher(normalizedLine);
                 while (m.find()) {
-                    // Extract group 1 if defined; otherwise return the full match.
-                    final var secretValue = m.groupCount() >= 1 ? m.group(1) : m.group();
-                    registerFinding(findings, localDedup, context, sp, secretValue, i + 1, rawLine);
+                    final var secretValue = secretValue(m);
+                    if (!secretValue.isEmpty()) {
+                        registerFinding(findings, localDedup, context, sp, secretValue, i + 1, rawLine);
+                    }
                 }
             }
         }
@@ -79,6 +81,17 @@ public class RegexSecretExtractor implements SecretExtractor {
             }
         }
         return findings;
+    }
+
+    /**
+     * Returns capture group 1 if the pattern defines it and it participated in the match; otherwise the full match.
+     * An optional group such as {@code (foo)?bar} can match without group 1, which must not yield a {@code null}
+     * secret.
+     */
+    @Nonnull
+    static String secretValue(@Nonnull final Matcher matcher) {
+        final var group = matcher.groupCount() >= 1 ? matcher.group(1) : null;
+        return group != null ? group : matcher.group();
     }
 
     /**
