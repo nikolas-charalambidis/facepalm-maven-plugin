@@ -7,6 +7,8 @@ package dev.nichar.facepalm.engine;
 
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.config.EngineConfig;
+import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
+import dev.nichar.facepalm.engine.extractor.SecretExtractor;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -144,6 +146,38 @@ class ScannerEngineTest {
         } finally {
             locked.toFile().setReadable(true, false);
         }
+    }
+
+    /**
+     * A failure while analysing one file is reported and counted; findings of other files are kept (issue #69).
+     */
+    @Test
+    void scan_keeps_other_findings_when_one_file_fails(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("good.properties"), "token=abc123");
+        Files.writeString(root.resolve("bad.properties"), "token=abc123");
+
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        final SecretExtractor extractor = context -> List.of(Finding.builder()
+            .patternName("Test")
+            .deduplicationHash(context.getPath().toString())
+            .secretValue("abc123")
+            .context(context)
+            .build());
+        final FindingEvaluator failing = (finding, context) -> {
+            if (context.getPath().endsWith("bad.properties")) {
+                throw new IllegalStateException("boom");
+            }
+        };
+        setField(scanner, "extractors", List.of(extractor));
+        setField(scanner, "evaluators", List.of(failing));
+
+        final List<Finding> findings = scanner.scan(root);
+
+        Assertions.assertEquals(1, findings.size());
+        Assertions.assertTrue(findings.get(0).getContext().getPath().endsWith("good.properties"));
+        Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.PROCESSING_ERROR));
     }
 
     private static long excluded(final ScannerEngine scanner, final ExclusionReason reason) {
