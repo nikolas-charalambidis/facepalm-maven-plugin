@@ -564,7 +564,7 @@
     <profiles>
         <!-- Release artifacts: sources + javadoc jars and GPG signatures, required by Maven Central. -->
         <!-- Activated only by the release workflow, so local builds and PR CI need no GPG key or token. -->
-        <!-- With "central": upload to Maven Central. Without it: maven-deploy-plugin uploads to distributionManagement (GitHub Packages backup). -->
+        <!-- Combine with "central" to upload to Maven Central. There is no other deployment repository, so a deploy without "central" fails. -->
         <profile>
             <id>release</id>
             <build>
@@ -653,13 +653,4 @@
             </build>
         </profile>
     </profiles>
-
-    <!-- Backup repository: the release workflow also deploys every release here (without the "central" profile). -->
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/nikolas-charalambidis/facepalm-maven-plugin</url>
-        </repository>
-    </distributionManagement>
 </project>
