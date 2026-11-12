@@ -184,10 +184,10 @@ Releases are fully automated via `.github/workflows/deploy.yaml` (manual `workfl
 
 1. Maintainer triggers the workflow, selects the branch to release (`master` or `release/X.Y.x`) in "Use workflow from", and picks `patch` / `minor` / `major`.
 2. CI finds the latest `vX.Y.Z` tag reachable from that branch and bumps it (e.g. `v1.0.1` + `patch` → `1.0.2`).
-3. CI runs `mvn clean deploy site:site -Drevision=<version>` and publishes to GitHub Packages.
+3. CI runs `mvn clean deploy -Drevision=<version>` and publishes to GitHub Packages. The site is published by `build.yaml`, not by the release.
 4. CI tags the built commit `v<version>` and pushes only the tag. No commits are pushed back.
 
-Guards: a `release/X.Y.x` branch can only publish `X.Y.*` versions (so only `patch` works there), and an existing tag aborts the release.
+Guards: releases run only from `master` (`minor` or `major`) and `release/X.Y.x` (`patch`, `X.Y.*` versions only); any other branch is rejected. An existing tag aborts the release, and only one release runs at a time.
 
 Do not put a version in `pom.xml` — the version is derived from tags.
 
