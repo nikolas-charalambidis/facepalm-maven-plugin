@@ -65,7 +65,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
 
 ## Conventions specific to this codebase
 
-- **Use `Locale.ROOT` in every `String.format` call.** This was a real bug fix (see `233c435`); do not regress.
+- **Use `Locale.ROOT` in every `String.format`, `toLowerCase` and `toUpperCase` call.** This was a real bug fix (see `233c435`); do not regress. PMD enforces it (`UseLocaleWithStringFormat`, `UseLocaleWithCaseConversions`).
 - **JSR-330 only.** Use `javax.inject.@Inject` / `@Named`. Switching to `jakarta.inject` will silently break Sisu wiring.
 - **Lombok** is on the classpath. Prefer `@RequiredArgsConstructor`, `@Getter`, `@Value` for records-of-records, but stay consistent with surrounding files.
 - **Guava** is pinned to a specific version (see `pom.xml`) to avoid a `Stopwatch` `ClassNotFoundException` from Maven's bundled Guava. Don't bump it casually.

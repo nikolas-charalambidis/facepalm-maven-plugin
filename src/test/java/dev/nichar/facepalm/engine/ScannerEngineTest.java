@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Assertions;
@@ -178,6 +179,29 @@ class ScannerEngineTest {
         Assertions.assertEquals(1, findings.size());
         Assertions.assertTrue(findings.get(0).getContext().getPath().endsWith("good.properties"));
         Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.PROCESSING_ERROR));
+    }
+
+    /**
+     * Under a Turkish default locale, "LOGO.GIF".toLowerCase() is "logo.gıf" (dotless i), which escaped the binary
+     * filter (issue #68).
+     */
+    @Test
+    void binary_filter_is_locale_independent(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("LOGO.GIF"), "GIF89a");
+
+        final Locale original = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+        try {
+            final ScannerEngine scanner = scannerWithMinimalContext();
+            scanner.scan(root);
+
+            Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.BINARY_FILE));
+            Assertions.assertEquals(0L, scanner.getStats().getFilesScanned().sum());
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     private static long excluded(final ScannerEngine scanner, final ExclusionReason reason) {
