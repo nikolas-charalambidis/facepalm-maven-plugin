@@ -133,13 +133,13 @@
 
         <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0;">${rule.description!""}</p>
 
-        <div class="secret-box">${leak.secret}</div>
+        <div class="secret-box">${leak.maskedSecret}</div>
 
         <#if leak.occurrences??>
             <#list leak.occurrences as occ>
                 <div class="occ">
                     <div class="occ-head"><span>📄 ${occ.relativePath}</span><span>Line ${occ.lineNumber}</span></div>
-                    <pre><code>${occ.snippet?html}</code></pre>
+                    <pre><code>${occ.snippet}</code></pre>
                 </div>
             </#list>
         </#if>

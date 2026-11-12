@@ -11,6 +11,7 @@ import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.ScanReport;
 import dev.nichar.facepalm.engine.ScanStatistics;
 import dev.nichar.facepalm.engine.Severity;
+import freemarker.core.HTMLOutputFormat;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import jakarta.annotation.Nonnull;
@@ -56,6 +57,8 @@ public class Reporter {
         cfg = new Configuration(Configuration.VERSION_2_3_32);
         cfg.setClassForTemplateLoading(Reporter.class, "/templates");
         cfg.setDefaultEncoding("UTF-8");
+        // Escape every interpolation: file paths and snippets come from the scanned repository.
+        cfg.setOutputFormat(HTMLOutputFormat.INSTANCE);
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
         cfg.setLogTemplateExceptions(false);
         cfg.setWrapUncheckedExceptions(true);
@@ -119,7 +122,7 @@ public class Reporter {
                 result.put("level", leak.getTotalRisk() > 80 ? "error" : "warning");
 
                 final var message = result.putObject("message");
-                message.put("text", "Secret detected: " + leak.getSecret());
+                message.put("text", "Secret detected: " + leak.getMaskedSecret());
 
                 final var locations = result.putArray("locations");
                 final var loc = locations.addObject();
@@ -177,7 +180,6 @@ public class Reporter {
                 .totalRisk(maxRisk)
                 .totalConfidence(maxConfidence)
                 .aggregateScore(maxScore)
-                .secret(primary.getSecretValue())
                 .maskedSecret(primary.getMaskedSecret())
                 .hash(deduplicationHash)
                 .scoreHistory(combinedHistory)
@@ -185,7 +187,7 @@ public class Reporter {
                     .relativePath(f.getContext().getPath().toString())
                     .absolutePath(f.getContext().getPath().toAbsolutePath().toString())
                     .lineNumber(f.getLineNumber())
-                    .snippet(f.getContextSnippet())
+                    .snippet(f.getMaskedSnippet())
                     .build()).collect(Collectors.toList()))
                 .build();
         })
