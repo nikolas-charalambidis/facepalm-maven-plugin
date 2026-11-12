@@ -28,7 +28,7 @@ Facepalm uses a scoring engine (0-100) to determine if a finding is critical.
 | `showScoring` | `showScoring` | `false` | Log detailed scoring breakdowns for each finding. |
 | `showDetails` | `showDetails` | `false` | Log discovery and exclusion statistics. |
 | `failOnError` | `failOnError` | `true` | Fail the build if any finding reaches the error threshold. |
-| `failOnWarnings` | `failOnWarnings` | `false` | Fail the build if any finding reaches the warning threshold. |
+| `failOnWarnings` | `failOnWarnings` | `false` | Fail the build if any finding reaches the warning threshold. Critical findings count too, also with `failOnError=false`. |
 
 ## Advanced Configuration
 

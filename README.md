@@ -123,7 +123,7 @@ flowchart TD
     SV -- WARNING --> FW{failOnWarnings}
     SV -- INFO --> OK[Build passes]
     FE -- true --> FAIL[Build fails]
-    FE -- false --> OK
+    FE -- false --> FW
     FW -- true --> FAIL
     FW -- false --> OK
 ```
