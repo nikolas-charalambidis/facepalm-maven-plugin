@@ -138,7 +138,7 @@ Commit messages and PR titles follow [Conventional Commits](https://www.conventi
 
 Keep the subject imperative, lowercase after the prefix, and under ~72 characters. Do not put issue numbers in the subject.
 
-Issues are linked from the **PR description**, not the commit:
+Issues are linked from the **PR description**, not the commit, with each closing keyword on its own line (the forward-port bot copies only such lines):
 
 ```
 Fixes #14
