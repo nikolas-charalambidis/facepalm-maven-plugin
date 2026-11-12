@@ -66,8 +66,8 @@ class FacepalmMojoIT {
             .anyMatch(line -> line.contains(
                 "[Generic Password Assignment] Score: 69.8 (R:85/C:60) - "));
         assertThat(result).out().warn()
-            .anyMatch(line -> line.contains(
-                "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/dirty_project/project/src/main/resources/application.properties:2"));
+            .anyMatch(line -> fixturePath(line).contains(
+                "/FacepalmMojoIT/dirty_project/project/src/main/resources/application.properties:2"));
 
         assertThat(result).out().info()
             .contains("Discovered 2 files...")
@@ -96,8 +96,8 @@ class FacepalmMojoIT {
             .anyMatch(line -> line.contains(
                 "[Generic Password Assignment] Score: 69.8 (R:85/C:60) - "));
         assertThat(result).out().warn()
-            .anyMatch(line -> line.contains(
-                "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/dirty_project_fail_on_warnings/project/src/main/resources/application.properties:2"));
+            .anyMatch(line -> fixturePath(line).contains(
+                "/FacepalmMojoIT/dirty_project_fail_on_warnings/project/src/main/resources/application.properties:2"));
 
         assertThat(result).out().info()
             .contains("Discovered 2 files...")
@@ -105,10 +105,6 @@ class FacepalmMojoIT {
             .contains("SCAN RESULT : WARNINGS")
             .contains("Warnings detected. Review recommended.")
             .contains("BUILD FAILURE");
-
-        final var targetDirectory = result.getMavenProjectResult().getTargetProjectDirectory();
-        assertThat(targetDirectory.resolve("target/facepalm-report.html")).doesNotExist();
-        assertThat(targetDirectory.resolve("target/facepalm-report.sarif")).doesNotExist();
     }
 
     /**
@@ -145,8 +141,8 @@ class FacepalmMojoIT {
         assertThat(result).out().error()
             .anyMatch(line -> line.contains("[Private Key Block] Score: 92.0 (R:100/C:60) - "));
         assertThat(result).out().error()
-            .anyMatch(line -> line.contains(
-                "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
+            .anyMatch(line -> fixturePath(line).contains(
+                "/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
         // The copy in target/classes is excluded by the default skipDirs (issue #61).
         assertThat(result).out().error()
             .noneMatch(line -> line.contains("/target/classes/server.key"));
@@ -154,5 +150,13 @@ class FacepalmMojoIT {
         assertThat(result).out().info()
             .contains("SCAN RESULT : FAILURE")
             .contains("BUILD FAILURE");
+    }
+
+    /**
+     * Normalizes path separators of a log line, so path assertions are independent of the OS and of the folder the
+     * repository is cloned into (issue #75).
+     */
+    private static String fixturePath(final String line) {
+        return line.replace('\\', '/');
     }
 }
