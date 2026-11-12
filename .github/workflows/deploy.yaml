@@ -137,7 +137,9 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 4: Upload the same signed artifacts to GitHub Packages (backup).
+      # Step 4: Upload the exact files sent to Maven Central to GitHub Packages (backup).
+      # deploy-file uploads the already built and signed files from target/: nothing is rebuilt or re-signed, so the
+      # backup, Maven Central and the GitHub Release carry identical jars and signatures.
       # setup-java can write only one <server>, so it is called again to replace "central" with "github".
       # A failed backup does not block tagging, since the Maven Central upload already succeeded.
       - name: Setup GitHub Packages Credentials
@@ -149,13 +151,22 @@ jobs:
 
       - name: Publish Backup to GitHub Packages
         continue-on-error: true
-        run: >-
-          mvn -B -P release deploy -DskipTests
-          -Drevision=${{ steps.release_version.outputs.version }}
-          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+        run: |
+          T="target/facepalm-maven-plugin-$VERSION"
+          # .flattened-pom.xml is the POM deployed (and signed as $T.pom.asc) in step 3.
+          mvn -B org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
+            -DrepositoryId=github \
+            -Durl="https://maven.pkg.github.com/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" \
+            -DpomFile=.flattened-pom.xml \
+            -Dfile="$T.jar" \
+            -Dsources="$T-sources.jar" \
+            -Djavadoc="$T-javadoc.jar" \
+            -Dfiles="$T.jar.asc,$T-sources.jar.asc,$T-javadoc.jar.asc,$T.pom.asc" \
+            -Dclassifiers=",sources,javadoc," \
+            -Dtypes="jar.asc,jar.asc,jar.asc,pom.asc"
 
       # Step 5: Tag the released commit and push only the tag (token passed to this command only)
       - name: Tag and Push Release
