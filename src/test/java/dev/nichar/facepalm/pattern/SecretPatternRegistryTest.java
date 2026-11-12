@@ -5,9 +5,12 @@
 
 package dev.nichar.facepalm.pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -67,9 +70,66 @@ class SecretPatternRegistryTest {
         assertFalse(privateKeyPattern().matcher(pem("RSA PRIVATE KEY", "EC PRIVATE KEY")).find());
     }
 
+    /**
+     * Long lines (e.g. minified JavaScript) must be matched in linear time. Before issue #63, unbounded gaps made a
+     * 100 KB line take seconds per pattern and the database URI patterns about 25 seconds.
+     */
+    @Test
+    void default_patterns_match_long_lines_in_linear_time() {
+        final int length = 500_000;
+        final List<String> lines = List.of(
+            "openai.apiKey(x);var y=1;".repeat(length / 25),
+            "heroku=x;".repeat(length / 9),
+            "mssql password ".repeat(length / 15),
+            "mongodb://" + "a:".repeat(length / 2),
+            "postgres://" + "a:".repeat(length / 2),
+            "mysql://" + "a:".repeat(length / 2),
+            "redis://" + "a:".repeat(length / 2),
+            "eyJ" + "a.".repeat(length / 2),
+            "token=".repeat(length / 6),
+            "a.b(c,d);".repeat(length / 9));
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+            for (final var line : lines) {
+                for (final var pattern : SecretPatternRegistry.DEFAULT_PATTERNS) {
+                    final var matcher = pattern.getPattern().matcher(line);
+                    while (matcher.find()) {
+                        // Exhaust all matches, as the extractor does.
+                    }
+                }
+            }
+        });
+    }
+
+    @Test
+    void bounded_patterns_still_detect_secrets() {
+        assertEquals("admin:p%40ss%21w0rd",
+            group("MongoDB Connection", "uri=mongodb+srv://admin:p%40ss%21w0rd@cluster0.example.net/db"));
+        assertEquals("app:s3cr3t:with:colons",
+            group("PostgreSQL Connection", "jdbc:postgresql://app:s3cr3t:with:colons@db.example.com:5432/app"));
+        assertEquals("root:hunter2hunter2", group("MySQL Connection", "mysql://root:hunter2hunter2@localhost/app"));
+        assertEquals("r3d1sP4ss", group("Redis Password", "REDIS_URL=redis://:r3d1sP4ss@cache:6379"));
+        assertEquals("01234567-89ab-cdef-0123-456789abcdef",
+            group("Heroku API Key", "HEROKU_API_KEY=01234567-89ab-cdef-0123-456789abcdef"));
+        assertEquals("0123456789abcdef0123456789abcdef",
+            group("Azure OpenAI Key", "azure.openai.api-key: 0123456789abcdef0123456789abcdef"));
+        assertEquals("Sup3rS3cret!",
+            group("SQL Server Password", "mssql.datasource.password=Sup3rS3cret!"));
+    }
+
+    private static String group(final String patternName, final String line) {
+        final var matcher = pattern(patternName).matcher(line);
+        assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
+        return matcher.group(1);
+    }
+
     private static Pattern privateKeyPattern() {
+        return pattern("Private Key Block");
+    }
+
+    private static Pattern pattern(final String name) {
         return SecretPatternRegistry.DEFAULT_PATTERNS.stream()
-            .filter(p -> "Private Key Block".equals(p.getName()))
+            .filter(p -> name.equals(p.getName()))
             .findFirst()
             .orElseThrow()
             .getPattern();
