@@ -81,7 +81,7 @@ public class FacepalmCLI {
         } catch (MojoFailureException e) {
             throw e;
         } catch (Exception e) {
-            throw new MojoExecutionException("Unknown exception", e);
+            throw FacepalmMojo.executionFailure(e);
         }
     }
 }
