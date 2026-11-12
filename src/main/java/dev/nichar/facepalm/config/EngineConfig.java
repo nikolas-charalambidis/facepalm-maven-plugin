@@ -22,7 +22,8 @@ public class EngineConfig {
     /**
      * Internal defaults for directories to ignore during discovery.
      */
-    public static final Set<String> SKIP_DIRS = Set.of(".git", ".idea", ".vscode", "target", ".mvn", ".gradle",
+    public static final Set<String> SKIP_DIRS = Set.of(".git", ".svn", ".hg", ".idea", ".vscode", "target", ".mvn",
+        ".gradle",
         "node_modules", "dist", ".next", "build", "out");
 
     /**
@@ -68,8 +69,9 @@ public class EngineConfig {
 
     /**
      * Returns the user-defined skip list or falls back to internal defaults.
+     * Maven injects an empty set when the parameter is not configured, so empty also means defaults.
      */
     public Set<String> getSkipDirs() {
-        return skipDirs != null ? skipDirs : SKIP_DIRS;
+        return skipDirs != null && !skipDirs.isEmpty() ? skipDirs : SKIP_DIRS;
     }
 }

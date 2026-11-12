@@ -125,22 +125,20 @@ public class ScannerEngine {
                                @Nonnull final ScanStatistics stats) {
         final var engineConfig = context.getEngine();
 
-        if (isHiddenPath(root, path)) {
-            if (engineConfig.isShowSkipped()) {
-                log.debug("Skipping hidden path: " + path);
-            }
-            stats.recordExclusion(ExclusionReason.HIDDEN_PATH);
-            return false;
-        }
-
+        // Match exclusions only against directories inside the scan root, so folders above the project
+        // (e.g. a checkout under /build/...) and the file name itself never exclude a file.
+        // Dotfiles such as .env are scanned; VCS and IDE directories are excluded through skipDirs.
         final var skipDirs = engineConfig.getSkipDirs();
-        for (final var element : path) {
-            if (skipDirs.contains(element.toString())) {
-                if (engineConfig.isShowSkipped()) {
-                    log.debug("Skipping excluded directory: " + path);
+        final var parent = root.relativize(path).getParent();
+        if (parent != null) {
+            for (final var element : parent) {
+                if (skipDirs.contains(element.toString())) {
+                    if (engineConfig.isShowSkipped()) {
+                        log.debug("Skipping excluded directory: " + path);
+                    }
+                    stats.recordExclusion(ExclusionReason.REGEX_MATCH);
+                    return false;
                 }
-                stats.recordExclusion(ExclusionReason.REGEX_MATCH);
-                return false;
             }
         }
 
@@ -169,28 +167,6 @@ public class ScannerEngine {
             return false;
         }
         return true;
-    }
-
-    /**
-     * Checks whether the file itself or any parent directory is hidden.
-     * Uses OS-specific hidden semantics (dot-prefix on Unix, file attributes on Windows).
-     */
-    private boolean isHiddenPath(@Nonnull final Path scanRoot, @Nonnull final Path path) {
-        try {
-            Path current = path;
-            while (current != null) {
-                if (Files.isHidden(current)) {
-                    return true;
-                }
-                if (current.equals(scanRoot)) {
-                    break;
-                }
-                current = current.getParent();
-            }
-        } catch (IOException e) {
-            return false;
-        }
-        return false;
     }
 
     /**
