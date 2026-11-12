@@ -30,17 +30,17 @@ permissions:
 jobs:
   release:
     name: Automate Release and Tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # Fetches all history and tags so git describe works
 
       # Writes <server id="central"> into settings.xml (credentials read from the env vars below at build time)
       # and imports the GPG signing key into the runner's keyring.
       - name: Setup Java 17, Maven Central Credentials & GPG Key
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -124,7 +124,7 @@ jobs:
       # setup-java can write only one <server>, so it is called again to replace "central" with "github".
       # A failed backup does not block tagging, since the Maven Central upload already succeeded.
       - name: Setup GitHub Packages Credentials
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -154,10 +154,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.release_version.outputs.version }}
           LAST_TAG: ${{ steps.release_version.outputs.last_tag }}
+          TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
         run: |
           HIGHEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           LATEST=$([ "$HIGHEST" = "v$VERSION" ] && echo true || echo false)
           START=()
           if [ "$LAST_TAG" != "v0.0.0" ]; then START=(--notes-start-tag "$LAST_TAG"); fi
+          # Byte-for-byte reproduction needs the same JDK patch version (javadoc bundles JDK-specific resources).
+          JDK=$(java -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vendor.version/ {v=$2} /java.runtime.version/ {r=$2} END {print (v != "" ? v : r)}')
           gh release create "v$VERSION" --verify-tag --title "$VERSION" --generate-notes "${START[@]}" --latest="$LATEST" \
+            --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
             target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc
