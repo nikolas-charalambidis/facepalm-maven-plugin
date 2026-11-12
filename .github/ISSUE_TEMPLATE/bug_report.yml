@@ -1,0 +1,45 @@
+name: Bug report
+description: The plugin fails, crashes or behaves differently from the documentation.
+labels: [ "bug" ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a secret that is missed or wrongly flagged, use the **False positive / false negative** template instead.
+        **Never paste real secrets** — replace them with fake values of the same shape.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: "1.0.2"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Maven and JDK version
+      description: Output of `mvn -v`.
+      placeholder: "Apache Maven 3.9.12, Java 17.0.21, Linux"
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Plugin configuration
+      description: The `<plugin>` block from your `pom.xml` and the command you ran.
+      render: xml
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the relevant output; rerun with `-DshowDetails=true -DshowScoring=true` or `-X` for more detail.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
