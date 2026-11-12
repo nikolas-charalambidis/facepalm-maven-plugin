@@ -108,4 +108,24 @@ class FacepalmMojoIT {
         assertThat(targetDirectory.resolve("target/facepalm-report.html")).doesNotExist();
         assertThat(targetDirectory.resolve("target/facepalm-report.sarif")).doesNotExist();
     }
+
+    /**
+     * Verifies that a PKCS#8 private key (no key type in the PEM label) is detected and fails the build (issue #45).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void private_key_project(final MavenExecutionResult result) {
+        assertThat(result).isFailure();
+
+        assertThat(result).out().error()
+            .anyMatch(line -> line.contains("[Private Key Block] Score: 92.0 (R:100/C:60) - "));
+        assertThat(result).out().error()
+            .anyMatch(line -> line.contains(
+                "facepalm-maven-plugin/target/maven-it/dev/nichar/facepalm/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
+
+        assertThat(result).out().info()
+            .contains("SCAN RESULT : FAILURE")
+            .contains("BUILD FAILURE");
+    }
 }

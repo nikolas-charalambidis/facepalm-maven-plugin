@@ -12,7 +12,7 @@ Facepalm includes a pre-defined set of "Gold Standard" patterns for detecting se
 | **Payments & Finance** | Stripe Live/Test Secret Keys. |
 | **VCS & Collaboration** | GitHub Tokens (Classic & Fine-grained), GitLab, Slack Tokens, Twilio, Mailgun. |
 | **Webhooks** | Slack, Discord. |
-| **Cryptographic Keys** | Private Key Blocks (RSA, EC, OPENSSH, PGP). |
+| **Cryptographic Keys** | Private Key Blocks: PKCS#8 (`PRIVATE KEY`), `ENCRYPTED PRIVATE KEY`, RSA, EC, DSA, OPENSSH, PGP (`PGP PRIVATE KEY BLOCK`). |
 | **Generic** | JWT Tokens, Basic Auth Headers, Generic API/Secret/Token/Password assignments. |
 
 ## How to Extend
