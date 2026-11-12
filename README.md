@@ -1,5 +1,10 @@
 # 🤦‍♂️ Facepalm Maven Plugin
 
+[![Maven Central](https://img.shields.io/maven-central/v/dev.nichar/facepalm-maven-plugin)](https://central.sonatype.com/artifact/dev.nichar/facepalm-maven-plugin)
+[![CI](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/actions/workflows/build.yaml)
+[![License](https://img.shields.io/github/license/nikolas-charalambidis/facepalm-maven-plugin)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/projects/jdk/17/)
+
 One commit.  
 One leaked API key.  
 One **$55,444.78 bill**.
@@ -59,7 +64,7 @@ Add it to your `pom.xml`:
 <plugin>
     <groupId>dev.nichar</groupId>
     <artifactId>facepalm-maven-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <executions>
         <execution>
             <goals>
@@ -68,15 +73,6 @@ Add it to your `pom.xml`:
         </execution>
     </executions>
 </plugin>
-```
-
-```xml
-<pluginRepositories>
-    <pluginRepository>
-        <id>nikolas-charalambidis-packages</id>
-        <url>https://maven.pkg.github.com/nikolas-charalambidis/*</url>
-    </pluginRepository>
-</pluginRepositories>
 ```
 
 To be effective, hook it into a Git pre-commit hook.
