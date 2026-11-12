@@ -111,7 +111,7 @@ Coding conventions:
 - Prefer Lombok (`@RequiredArgsConstructor`, `@Getter`, `@Value`) over hand-written boilerplate, but match the surrounding file's style.
 - Comma-separated CLI parameters must flow through `CommaSeparatedConfigurator` so `-DskipDirs=a,b` continues to work.
 - Public Mojo parameters belong in `docs/configuration.md`. Keep that table in sync.
-- Every static field (final or not) has a Javadoc comment describing its purpose.
+- Every static field (final or not) has a Javadoc comment describing its purpose (enforced by `StaticFieldJavadocTest`).
 
 ## Adding detection patterns
 
