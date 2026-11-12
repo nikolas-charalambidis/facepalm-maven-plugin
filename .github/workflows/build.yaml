@@ -7,10 +7,9 @@ on:
     branches: [ master, 'release/**' ]
   workflow_dispatch: # Manual trigger.
 
+# Read-only by default: the "ci" job builds pull request code. Only the "site" job gets Pages permissions.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   ci:
@@ -19,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
 
       - name: Setup Java 17
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -49,6 +50,9 @@ jobs:
     runs-on: ubuntu-26.04
     if: github.ref == 'refs/heads/master' # Master branch only.
     needs: ci # It requires artifacts from the "ci" job to be downloaded and used for site report.
+    permissions:
+      pages: write    # Deploy to GitHub Pages
+      id-token: write # Verify the deployment origin
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
