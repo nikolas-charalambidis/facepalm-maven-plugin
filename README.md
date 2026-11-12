@@ -88,7 +88,7 @@ Running it only in CI is too late: by then the secret may already be in Git hist
 ```sh
 #!/bin/sh
 
-mvn -q facepalm:scan
+mvn -B -ntp facepalm:scan
 RESULT=$?
 
 if [ $RESULT -ne 0 ]; then
