@@ -68,7 +68,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
 - **Use `Locale.ROOT` in every `String.format`, `toLowerCase` and `toUpperCase` call.** This was a real bug fix (see `233c435`); do not regress. PMD enforces it (`UseLocaleWithStringFormat`, `UseLocaleWithCaseConversions`).
 - **JSR-330 only.** Use `javax.inject.@Inject` / `@Named`. Switching to `jakarta.inject` will silently break Sisu wiring.
 - **Lombok** is on the classpath. Prefer `@RequiredArgsConstructor`, `@Getter`, `@Value` for records-of-records, but stay consistent with surrounding files.
-- **Guava** is pinned to a specific version (see `pom.xml`) to avoid a `Stopwatch` `ClassNotFoundException` from Maven's bundled Guava. Don't bump it casually.
+- **Guava** is declared explicitly in `pom.xml` (and excluded from Guice) to avoid a `Stopwatch` `ClassNotFoundException` from Maven's bundled Guava. Keep the dependency; updating its version is fine, but verify `facepalm:scan` and `facepalm:report` on the oldest supported Maven (3.6.3) as well as the current one.
 - **Comma-separated parameters** (e.g. `skipDirs`) flow through `CommaSeparatedConfigurator` so CLI overrides like `-DskipDirs=a,b` work. Wire new collection-valued `@Parameter`s through it.
 - **Severity, scoring strategies, and thresholds** are defined in `engine/` — see `docs/configuration.md` before changing defaults; they are part of the public contract.
 - **Every static field (final or not) has a Javadoc comment** describing its purpose.
