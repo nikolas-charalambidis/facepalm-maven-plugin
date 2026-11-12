@@ -184,8 +184,9 @@ Releases are fully automated via `.github/workflows/deploy.yaml` (manual `workfl
 
 1. Maintainer triggers the workflow, selects the branch to release (`master` or `release/X.Y.x`) in "Use workflow from", and picks `patch` / `minor` / `major`.
 2. CI finds the latest `vX.Y.Z` tag reachable from that branch and bumps it (e.g. `v1.0.1` + `patch` → `1.0.2`).
-3. CI runs `mvn clean deploy -Drevision=<version>` and publishes to GitHub Packages. The site is published by `build.yaml`, not by the release.
-4. CI tags the built commit `v<version>` and pushes only the tag. No commits are pushed back.
+3. CI runs `mvn -P release,central clean deploy -Drevision=<version>`: the `release` profile attaches sources and javadoc jars and signs everything with GPG, the `central` profile uploads the bundle to the [Maven Central Portal](https://central.sonatype.com). A second run with `-P release` (tests skipped) deploys the same version to GitHub Packages as a backup; its failure does not block the release. The site is published by `build.yaml`, not by the release.
+4. CI tags the built commit `v<version>`, pushes only the tag (no commits are pushed back), and creates a GitHub Release with notes generated from the merged PRs since the previous tag and the signed artifacts attached.
+5. While `autoPublish` is `false` in the `central` profile, the upload stops as *Validated* in the Portal under **Deployments**; the maintainer reviews it and clicks **Publish**. Maven Central releases are permanent — they can never be deleted or replaced.
 
 Guards: releases run only from `master` (`minor` or `major`) and `release/X.Y.x` (`patch`, `X.Y.*` versions only); any other branch is rejected. An existing tag aborts the release, and only one release runs at a time.
 
