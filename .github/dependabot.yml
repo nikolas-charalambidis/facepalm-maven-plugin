@@ -30,6 +30,3 @@ updates:
       # One PR for all minor and patch updates; major updates get their own PRs.
       minor-and-patch:
         update-types: [ "minor", "patch" ]
-    ignore:
-      # Pinned on purpose: newer versions clash with Maven's bundled Guava (Stopwatch ClassNotFoundException).
-      - dependency-name: com.google.guava:guava
