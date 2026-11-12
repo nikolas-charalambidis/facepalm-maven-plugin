@@ -148,6 +148,7 @@ jobs:
       # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
       - name: Create GitHub Release
+        id: github_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.release_version.outputs.version }}
@@ -156,6 +157,7 @@ jobs:
         run: |
           HIGHEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           LATEST=$([ "$HIGHEST" = "v$VERSION" ] && echo true || echo false)
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           START=()
           if [ "$LAST_TAG" != "v0.0.0" ]; then START=(--notes-start-tag "$LAST_TAG"); fi
           # Byte-for-byte reproduction needs the same JDK patch version (javadoc bundles JDK-specific resources).
@@ -163,3 +165,54 @@ jobs:
           gh release create "v$VERSION" --verify-tag --title "$VERSION" --generate-notes "${START[@]}" --latest="$LATEST" \
             --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
             target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc
+
+      # Step 6: Propose the new version in the documentation (README and docs/*.md install snippets).
+      # Only for the highest version, so a patch on an older line (e.g. 1.0.3 after 1.1.0) leaves master alone.
+      # The PR targets master directly (forward.yaml is not involved). Merge it after publishing the deployment in the
+      # Maven Central Portal, so the documentation never points to an unpublished version.
+      # The facepalm-bot App token is used because pull requests opened with GITHUB_TOKEN do not trigger build.yaml,
+      # whose check is required on master.
+      - name: Create GitHub App Token
+        id: app-token
+        if: steps.github_release.outputs.latest == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.FORWARD_APP_ID }}
+          private-key: ${{ secrets.FORWARD_APP_PRIVATE_KEY }}
+
+      - name: Open Documentation Version PR
+        if: steps.github_release.outputs.latest == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SLUG: ${{ steps.app-token.outputs.app-slug }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="docs/version-$VERSION"
+          USER_ID=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${USER_ID}+${SLUG}[bot]@users.noreply.github.com"
+
+          git fetch origin master
+          git checkout -B "$BRANCH" origin/master
+          # Replace only the version that directly follows this plugin's artifactId.
+          for f in README.md docs/*.md; do
+            perl -0pi -e 's#(<artifactId>facepalm-maven-plugin</artifactId>\s*<version>)[^<]+(</version>)#${1}'"$VERSION"'${2}#g' "$f"
+          done
+          if git diff --quiet; then
+            echo "Documentation already uses $VERSION."
+            exit 0
+          fi
+          git commit -am "docs: use version $VERSION"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+
+          if [ -n "$(gh pr list --head "$BRANCH" --base master --state open --json number --jq '.[0].number // empty')" ]; then
+            echo "Pull request for $BRANCH already open; branch updated."
+            exit 0
+          fi
+          gh pr create --base master --head "$BRANCH" --title "docs: use version $VERSION" --body "$(cat <<EOF2
+          Updates the plugin version in the README and docs install snippets to \`$VERSION\` (released by the release workflow).
+
+          **Merge only after the $VERSION deployment is published in the [Maven Central Portal](https://central.sonatype.com/publishing/deployments)**, so the documentation never points to an unpublished version. Check: https://repo1.maven.org/maven2/dev/nichar/facepalm-maven-plugin/$VERSION/
+          EOF2
+          )"
