@@ -32,24 +32,20 @@ jobs:
     name: Automate Release and Tag
     runs-on: ubuntu-26.04
     steps:
+      # Secrets never coexist with test execution: tests run first without any credentials, GPG key or persisted
+      # git token; the signing key and Central credentials are installed only afterwards, and the deploy skips tests.
       - name: Checkout Source Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # Fetches all history and tags so git describe works
+          persist-credentials: false # The token is passed to the tag push only, not stored in .git/config.
 
-      # Writes <server id="central"> into settings.xml (credentials read from the env vars below at build time)
-      # and imports the GPG signing key into the runner's keyring.
-      - name: Setup Java 17, Maven Central Credentials & GPG Key
+      - name: Setup Java 17
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'maven'
-          server-id: central
-          server-username: CENTRAL_TOKEN_USERNAME
-          server-password: CENTRAL_TOKEN_PASSWORD
-          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Configure Git Bot User
         run: |
@@ -107,12 +103,33 @@ jobs:
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
           echo "Last tag: $LAST_TAG, release version: $VERSION, output timestamp: $TIMESTAMP"
 
-      # Step 2: Verify, sign, and upload to the Maven Central Portal with the resolved version (primary).
+      # Step 2: Build and run all tests and quality gates without any secrets in the environment.
+      # The release profile also builds the sources and javadoc jars here (signing skipped).
       # No site:site here: it ran after the upload, so a site failure left a published but untagged version.
       # The site is built and published by build.yaml.
-      - name: Build, Verify, Sign, and Publish to Maven Central
+      - name: Build and Verify
         run: >-
-          mvn -B -P release,central clean deploy
+          mvn -B -P release clean verify -Dgpg.skip
+          -Drevision=${{ steps.release_version.outputs.version }}
+          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+
+      # Writes <server id="central"> into settings.xml (credentials read from the env vars below at build time)
+      # and imports the GPG signing key into the runner's keyring, only after the tests have run.
+      - name: Setup Maven Central Credentials & GPG Key
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          server-id: central
+          server-username: CENTRAL_TOKEN_USERNAME
+          server-password: CENTRAL_TOKEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      # Step 3: Sign and upload to the Maven Central Portal (primary). Tests already passed in step 2.
+      - name: Sign and Publish to Maven Central
+        run: >-
+          mvn -B -P release,central deploy -DskipTests
           -Drevision=${{ steps.release_version.outputs.version }}
           -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
         env:
@@ -120,7 +137,7 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 3: Upload the same signed artifacts to GitHub Packages (backup).
+      # Step 4: Upload the same signed artifacts to GitHub Packages (backup).
       # setup-java can write only one <server>, so it is called again to replace "central" with "github".
       # A failed backup does not block tagging, since the Maven Central upload already succeeded.
       - name: Setup GitHub Packages Credentials
@@ -140,14 +157,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 4: Tag the released commit and push only the tag
+      # Step 5: Tag the released commit and push only the tag (token passed to this command only)
       - name: Tag and Push Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release_version.outputs.version }}
         run: |
-          VERSION=${{ steps.release_version.outputs.version }}
           git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push origin "v$VERSION"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
 
-      # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
+      # Step 6: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
       - name: Create GitHub Release
         env:
