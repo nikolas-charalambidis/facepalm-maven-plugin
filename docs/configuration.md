@@ -12,7 +12,7 @@ These parameters control the basic execution of the scan.
 | `threads` | `threads` | Available Processors | Concurrent threads for scanning. |
 | `maxFileSizeBytes` | `maxFileSizeBytes` | `5242880` (5MB) | Maximum file size in bytes; larger files are ignored. |
 | `skipBinaryRegex` | `skipBinaryRegex` | `.*\\.(png\|jpg\|jpeg\|gif\|pdf\|zip\|jar\|class\|tar\|gz\|exe\|dll)$` | Regex to identify binary files to skip. |
-| `skipDirs` | `skipDirs` | `.git, .svn, .hg, .idea, .vscode, .mvn, .gradle, target, node_modules, dist, build, out, .next` | Directories to exclude from scanning (comma-separated via CLI). Matched against directory names inside the scanned project only. Dotfiles such as `.env` are scanned. |
+| `skipDirs` | `skipDirs` | `.git, .svn, .hg, .idea, .vscode, .mvn, .gradle, target, node_modules, dist, build, out, .next` | Directories to exclude from scanning (comma-separated via CLI). Matched against directory names inside the scanned project only; excluded directories are not entered. Dotfiles such as `.env` are scanned. **A configured value replaces the defaults** (repeat the ones you want to keep); an empty value (`-DskipDirs=`) uses the defaults. |
 | `showProcessed` | `showProcessed` | `false` | Log every processed file at debug level. |
 | `showSkipped` | `showSkipped` | `false` | Log every skipped file at debug level. |
 
@@ -22,7 +22,7 @@ Facepalm uses a scoring engine (0-100) to determine if a finding is critical.
 
 | Parameter | Property | Default | Description |
 |-----------|----------|---------|-------------|
-| `strategy` | `scoring.strategy` | `WEIGHTED_QUADRATIC` | Strategy used to combine risk and confidence. Available values: `AVERAGE`, `GEOMETRIC`, `ROOT_MEAN_SQUARE`, `WEIGHTED_QUADRATIC`, `GATEKEEPER`. |
+| `scoringStrategy` | `scoring.strategy` | `WEIGHTED_QUADRATIC` | Strategy used to combine risk and confidence. Available values: `AVERAGE`, `GEOMETRIC`, `ROOT_MEAN_SQUARE`, `WEIGHTED_QUADRATIC`, `GATEKEEPER`. |
 | `errorThreshold` | `errorThreshold` | `80` | Score threshold for high-risk findings (Critical). |
 | `warningThreshold` | `warningThreshold` | `40` | Score threshold for moderate-risk findings (Warning). |
 | `showScoring` | `showScoring` | `false` | Log detailed scoring breakdowns for each finding. |
@@ -58,7 +58,7 @@ Noise reduction settings.
 
 | Sub-parameter | Default | Description |
 |---------------|---------|-------------|
-| `highVolumeThreshold` | `15` | Max occurrences allowed before a secret is suppressed as noise. |
+| `highVolumeThreshold` | `15` | Maximum number of findings in a single file. When a file has more, every finding in it gets a score penalty (risk -25, confidence -30), because such files are usually logs or datasets. Findings are not removed. |
 
 ---
 
@@ -68,11 +68,12 @@ Noise reduction settings.
 <plugin>
     <groupId>dev.nichar</groupId>
     <artifactId>facepalm-maven-plugin</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.2</version>
     <configuration>
         <errorThreshold>85</errorThreshold>
         <failOnWarnings>true</failOnWarnings>
-        <skipDirs>target,bin,logs</skipDirs>
+        <!-- Replaces the defaults, so the default directories are repeated. -->
+        <skipDirs>.git,.idea,target,node_modules,dist,build,out,bin,logs</skipDirs>
         <evaluators>
             <dummyKeywords>
                 <keyword>test_key</keyword>
@@ -88,5 +89,5 @@ Noise reduction settings.
 You can override parameters directly from the command line:
 
 ```bash
-mvn facepalm:scan -DskipDirs=target,dist -DfailOnWarnings=true -DshowDetails=true
+mvn facepalm:scan -Dscoring.strategy=GATEKEEPER -DfailOnWarnings=true -DshowDetails=true
 ```

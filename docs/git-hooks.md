@@ -20,7 +20,7 @@ Create (or edit):
 ```sh
 #!/bin/sh
 
-mvn -q facepalm:scan
+mvn -B -ntp facepalm:scan
 RESULT=$?
 
 if [ $RESULT -ne 0 ]; then
@@ -52,7 +52,7 @@ Create (or edit):
 ```sh
 #!/bin/sh
 
-mvn -q facepalm:scan
+mvn -B -ntp facepalm:scan
 RESULT=$?
 
 if [ $RESULT -ne 0 ]; then
@@ -66,6 +66,14 @@ exit 0
 ------------------------------------------------------------------------
 
 ## Important notes
+
+-   The hooks use `mvn -B -ntp` (batch mode, no download progress) rather than
+    `mvn -q`: quiet mode hides warnings, so with `failOnWarnings=true` a
+    blocked commit would show no file or line.
+
+-   The scan covers the **working tree**, not only the staged changes:
+    unstaged edits and untracked files are scanned too, and a secret in an
+    unrelated file blocks the commit.
 
 -   Git hooks are **not shared by default**. Each developer must install
     them locally.
