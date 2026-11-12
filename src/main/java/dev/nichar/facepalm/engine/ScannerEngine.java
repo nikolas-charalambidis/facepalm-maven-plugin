@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -186,7 +187,7 @@ public class ScannerEngine {
 
         final var fileName = path.getFileName().toString();
         // Skip binary and non-text assets to reduce noise.
-        if (fileName.toLowerCase().matches(engineConfig.getSkipBinaryRegex())) {
+        if (fileName.toLowerCase(Locale.ROOT).matches(engineConfig.getSkipBinaryRegex())) {
             if (engineConfig.isShowSkipped()) {
                 log.debug("Skipping binary file: " + path);
             }

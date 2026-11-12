@@ -9,6 +9,7 @@ import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import jakarta.annotation.Nonnull;
+import java.util.Locale;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -30,7 +31,7 @@ class SurroundingContextEvaluator implements FindingEvaluator {
         // Analyze a window of neighboring lines for environmental clues.
         final var chunk = (context.getLineOrEmpty(idx - 1) + " " +
             context.getLineOrEmpty(idx) + " " +
-            context.getLineOrEmpty(idx + 1)).toLowerCase();
+            context.getLineOrEmpty(idx + 1)).toLowerCase(Locale.ROOT);
 
         final var conf = config.getEvaluators();
         // Reduce confidence if mock or test keywords are found in the immediate vicinity.
