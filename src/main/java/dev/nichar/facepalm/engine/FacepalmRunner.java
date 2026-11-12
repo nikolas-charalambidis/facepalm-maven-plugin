@@ -77,7 +77,10 @@ public class FacepalmRunner {
         final var scoring = context.getScoring();
         final long errors = findings.stream().filter(f -> f.getSeverity(scoring) == Severity.ERROR).count();
         final long warnings = findings.stream().filter(f -> f.getSeverity(scoring) == Severity.WARNING).count();
-        checkFailureConditions(errors, warnings);
+        final var failure = failureMessage(scoring, errors, warnings);
+        if (failure != null) {
+            throw new MojoFailureException(failure);
+        }
     }
 
     /**
@@ -116,19 +119,25 @@ public class FacepalmRunner {
     }
 
     /**
-     * Terminates the build if findings exceed configured threat thresholds.
+     * Decides whether the build fails for the given finding counts.
+     * {@code failOnError} fails on findings at the error threshold; {@code failOnWarnings} fails on any finding at the
+     * warning threshold or above, so critical findings count too, independent of {@code failOnError}.
+     *
+     * @param scoring Failure flags.
+     * @param errors Number of findings with severity {@link Severity#ERROR}.
+     * @param warnings Number of findings with severity {@link Severity#WARNING}.
+     * @return The failure message, or {@code null} if the build passes.
      */
-    private void checkFailureConditions(final long errors, final long warnings) throws MojoFailureException {
-        final var scoring = context.getScoring();
-        if (!scoring.isFailOnError() && scoring.isFailOnWarnings()) {
-            getLog().warn("Unusual configuration: failOnError=false with failOnWarnings=true");
-        }
+    @Nullable
+    static String failureMessage(@Nonnull final ScoringConfig scoring, final long errors, final long warnings) {
         if (scoring.isFailOnError() && errors > 0) {
-            throw new MojoFailureException("Facepalm scan failed: " + errors + " critical findings detected.");
+            return "Facepalm scan failed: " + errors + " critical findings detected.";
         }
-        if (scoring.isFailOnWarnings() && warnings > 0) {
-            throw new MojoFailureException("Facepalm scan failed: " + warnings
-                + " warnings detected and failOnWarnings is true.");
+        final long atOrAboveWarning = errors + warnings;
+        if (scoring.isFailOnWarnings() && atOrAboveWarning > 0) {
+            return "Facepalm scan failed: " + atOrAboveWarning + " findings at or above the warning threshold ("
+                + errors + " critical, " + warnings + " warnings) and failOnWarnings is true.";
         }
+        return null;
     }
 }
