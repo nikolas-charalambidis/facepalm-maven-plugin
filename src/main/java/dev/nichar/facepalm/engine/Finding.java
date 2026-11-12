@@ -84,10 +84,25 @@ public class Finding {
 
     /**
      * Returns a masked version of the secret for safe logging and reporting.
+     * At most a quarter of the secret is revealed (up to 4 characters at each end); secrets shorter than 8
+     * characters are fully masked.
      */
     @Nonnull
     public String getMaskedSecret() {
-        return secretValue.length() <= 8 ? "****"
-            : secretValue.substring(0, 4) + "..." + secretValue.substring(secretValue.length() - 4);
+        final int reveal = Math.min(4, secretValue.length() / 8);
+        return reveal == 0 ? "****"
+            : secretValue.substring(0, reveal) + "..." + secretValue.substring(secretValue.length() - reveal);
+    }
+
+    /**
+     * Returns the context snippet with every occurrence of the secret replaced by its masked form.
+     * The raw snippet must never leave the process (logs, JSON, HTML, SARIF).
+     */
+    @Nonnull
+    public String getMaskedSnippet() {
+        if (contextSnippet == null) {
+            return "";
+        }
+        return secretValue.isEmpty() ? contextSnippet : contextSnippet.replace(secretValue, getMaskedSecret());
     }
 }

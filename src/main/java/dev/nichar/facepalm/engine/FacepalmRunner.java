@@ -107,7 +107,7 @@ public class FacepalmRunner {
             .fileAbsolutePath(finding.getContext().getPath().toAbsolutePath().toString())
             .lineNumber(finding.getLineNumber())
             .maskedSecret(finding.getMaskedSecret())
-            .contextSnippet(finding.getContextSnippet())
+            .contextSnippet(finding.getMaskedSnippet())
             .finalScore(finding.getNumericScore(config))
             .finalSeverity(finding.getSeverity(config).name())
             .riskScore(finding.getRiskScore())

@@ -77,8 +77,9 @@ public class ScanReport {
          */
         private double aggregateScore;
 
-        private String secret;
-
+        /**
+         * Masked secret value; the raw value is never part of the report model.
+         */
         private String maskedSecret;
 
         /**
