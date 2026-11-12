@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,8 +50,9 @@ class ScannerEngineTest {
         final ScannerEngine scanner = scannerWithMinimalContext();
         scanner.scan(root);
 
+        // Excluded directories are not entered, so their files are neither discovered nor scanned.
         Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
-        Assertions.assertEquals(2L, excluded(scanner, ExclusionReason.REGEX_MATCH));
+        Assertions.assertEquals(1L, scanner.getStats().getFilesDiscovered().sum());
     }
 
     /**
@@ -97,6 +99,51 @@ class ScannerEngineTest {
         scanner.scan(root);
 
         Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
+    }
+
+    /**
+     * An unreadable directory must be skipped with a warning instead of aborting the whole scan (issue #64).
+     */
+    @Test
+    void scan_continues_past_unreadable_directory(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        final Path locked = root.resolve("pgdata");
+        Files.createDirectories(locked);
+        Files.createDirectories(root.resolve("src"));
+        Files.writeString(root.resolve("src/app.properties"), "token=abc123");
+        Assumptions.assumeTrue(locked.toFile().setReadable(false, false), "Cannot change permissions");
+        try {
+            Assumptions.assumeFalse(Files.isReadable(locked), "Running with privileges that ignore permissions");
+
+            final ScannerEngine scanner = scannerWithMinimalContext();
+            scanner.scan(root);
+
+            Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
+            Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.IO_ERROR));
+        } finally {
+            locked.toFile().setReadable(true, false);
+        }
+    }
+
+    /**
+     * Directories in skipDirs are not entered at all, so an unreadable excluded directory causes no error.
+     */
+    @Test
+    void scan_does_not_enter_skip_dirs(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        final Path locked = root.resolve("node_modules");
+        Files.createDirectories(locked);
+        Files.writeString(locked.resolve("lib.js"), "token=abc123");
+        Assumptions.assumeTrue(locked.toFile().setReadable(false, false), "Cannot change permissions");
+        try {
+            final ScannerEngine scanner = scannerWithMinimalContext();
+            scanner.scan(root);
+
+            Assertions.assertEquals(0L, scanner.getStats().getFilesScanned().sum());
+            Assertions.assertEquals(0L, excluded(scanner, ExclusionReason.IO_ERROR));
+        } finally {
+            locked.toFile().setReadable(true, false);
+        }
     }
 
     private static long excluded(final ScannerEngine scanner, final ExclusionReason reason) {
