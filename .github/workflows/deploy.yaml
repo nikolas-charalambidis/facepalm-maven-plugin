@@ -25,7 +25,6 @@ concurrency:
 
 permissions:
   contents: write # REQUIRED: Allows the bot to push the release tag
-  packages: write  # REQUIRED: Allows uploading the backup copy to GitHub Packages
 
 jobs:
   release:
@@ -137,38 +136,7 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 4: Upload the exact files sent to Maven Central to GitHub Packages (backup).
-      # deploy-file uploads the already built and signed files from target/: nothing is rebuilt or re-signed, so the
-      # backup, Maven Central and the GitHub Release carry identical jars and signatures.
-      # setup-java can write only one <server>, so it is called again to replace "central" with "github".
-      # A failed backup does not block tagging, since the Maven Central upload already succeeded.
-      - name: Setup GitHub Packages Credentials
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          server-id: github
-
-      - name: Publish Backup to GitHub Packages
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.release_version.outputs.version }}
-        run: |
-          T="target/facepalm-maven-plugin-$VERSION"
-          # .flattened-pom.xml is the POM deployed (and signed as $T.pom.asc) in step 3.
-          mvn -B org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
-            -DrepositoryId=github \
-            -Durl="https://maven.pkg.github.com/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" \
-            -DpomFile=.flattened-pom.xml \
-            -Dfile="$T.jar" \
-            -Dsources="$T-sources.jar" \
-            -Djavadoc="$T-javadoc.jar" \
-            -Dfiles="$T.jar.asc,$T-sources.jar.asc,$T-javadoc.jar.asc,$T.pom.asc" \
-            -Dclassifiers=",sources,javadoc," \
-            -Dtypes="jar.asc,jar.asc,jar.asc,pom.asc"
-
-      # Step 5: Tag the released commit and push only the tag (token passed to this command only)
+      # Step 4: Tag the released commit and push only the tag (token passed to this command only)
       - name: Tag and Push Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -177,7 +145,7 @@ jobs:
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
 
-      # Step 6: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
+      # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
       - name: Create GitHub Release
         env:
