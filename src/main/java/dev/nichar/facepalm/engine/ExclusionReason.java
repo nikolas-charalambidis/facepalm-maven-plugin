@@ -33,7 +33,12 @@ public enum ExclusionReason {
     /**
      * File could not be accessed due to filesystem constraints.
      */
-    IO_ERROR("Unreadable/Access denied");
+    IO_ERROR("Unreadable/Access denied"),
+
+    /**
+     * File was read but failed during extraction, evaluation or post-processing.
+     */
+    PROCESSING_ERROR("Failed during analysis");
 
     /**
      * Localized description for reporting and diagnostic logging.
