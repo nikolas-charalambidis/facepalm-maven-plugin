@@ -15,7 +15,7 @@ permissions:
 jobs:
   ci:
     name: CI / Verify & Build Site
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,7 +46,7 @@ jobs:
   # We do not need to set up Java or parse XMLs here. It just grabs the artifact and pushes it.
   site:
     name: Deploy Site to GitHub Pages
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: github.ref == 'refs/heads/master' # Master branch only.
     needs: ci # It requires artifacts from the "ci" job to be downloaded and used for site report.
     environment:
