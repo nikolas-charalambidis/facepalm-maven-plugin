@@ -12,6 +12,7 @@
     <name>Facepalm Maven Plugin</name>
     <description>A security-first Maven plugin that scans for leaked secrets, API keys, and credentials.</description>
     <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin</url>
+    <inceptionYear>2026</inceptionYear>
 
     <licenses>
         <license>
@@ -31,10 +32,20 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/nikolas-charalambidis/facepalm-maven-plugin.git</connection>
-        <developerConnection>scm:git:ssh://github.com:nikolas-charalambidis/facepalm-maven-plugin.git</developerConnection>
-        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/tree/main</url>
+        <connection>scm:git:https://github.com/nikolas-charalambidis/facepalm-maven-plugin.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/nikolas-charalambidis/facepalm-maven-plugin.git</developerConnection>
+        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/tree/master</url>
     </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues</url>
+    </issueManagement>
+
+    <ciManagement>
+        <system>GitHub Actions</system>
+        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/actions</url>
+    </ciManagement>
 
     <properties>
         <!-- CI-friendly version placeholder. Identical on every branch so release branches merge into master without conflicts. -->
@@ -42,6 +53,9 @@
         <revision>0.0.0-SNAPSHOT</revision>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Reproducible builds: fixed timestamp for all archive entries, so the same sources produce byte-identical jars. -->
+        <!-- The release workflow overrides it with the commit time (-Dproject.build.outputTimestamp=<git commit date>). -->
+        <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 
@@ -60,6 +74,7 @@
         <guice.version>5.1.0</guice.version>
 
         <!-- Plugins. -->
+        <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
@@ -71,6 +86,9 @@
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
         <maven-jxr-plugin.version>3.3.0</maven-jxr-plugin.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.2.5</maven-surefire-report-plugin.version>
     </properties>
 
@@ -227,6 +245,32 @@
 
     <build>
         <plugins>
+            <!-- Fails fast with a clear message when the build runs on an unsupported Maven or Java version. -->
+            <!-- Phase: validate - the very first phase, before any compilation. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-build-environment</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[3.9.0,)</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[17,)</version>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Replaces ${revision} with its resolved value in the installed and deployed POM, so consumers never see the placeholder. -->
             <!-- Phase: process-resources - it must run before install/deploy pick up the POM; flatten.clean removes the generated file on clean. -->
             <plugin>
@@ -517,6 +561,100 @@
         </plugins>
     </reporting>
 
+    <profiles>
+        <!-- Release artifacts: sources + javadoc jars and GPG signatures, required by Maven Central. -->
+        <!-- Activated only by the release workflow, so local builds and PR CI need no GPG key or token. -->
+        <!-- With "central": upload to Maven Central. Without it: maven-deploy-plugin uploads to distributionManagement (GitHub Packages backup). -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <!-- Attaches the -sources.jar required by Maven Central. -->
+                    <!-- Phase: package - jar-no-fork avoids re-running the lifecycle. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>${maven-source-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Attaches the -javadoc.jar required by Maven Central. -->
+                    <!-- Phase: package - same doclint settings as the site report. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>${maven-javadoc-plugin.version}</version>
+                        <configuration>
+                            <doclint>all,-missing</doclint>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Signs every artifact (.asc) as required by Maven Central. -->
+                    <!-- Phase: verify - the passphrase comes from the MAVEN_GPG_PASSPHRASE environment variable; loopback pinentry allows non-interactive CI signing. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <configuration>
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                            </gpgArguments>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Maven Central upload. Used together with "release": mvn -P release,central deploy. -->
+        <profile>
+            <id>central</id>
+            <build>
+                <plugins>
+                    <!-- Uploads the signed bundle to the Sonatype Central Portal; replaces maven-deploy-plugin. -->
+                    <!-- Phase: deploy - credentials come from the <server id="central"> written by actions/setup-java. -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <!-- First release: stop at "validated" and publish manually in the Portal. Switch to true afterwards. -->
+                            <autoPublish>false</autoPublish>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <!-- Backup repository: the release workflow also deploys every release here (without the "central" profile). -->
     <distributionManagement>
         <repository>
             <id>github</id>

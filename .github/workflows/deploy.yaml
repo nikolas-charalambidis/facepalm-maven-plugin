@@ -25,7 +25,7 @@ concurrency:
 
 permissions:
   contents: write # REQUIRED: Allows the bot to push the release tag
-  packages: write  # REQUIRED: Allows uploading the JAR to GitHub Packages
+  packages: write  # REQUIRED: Allows uploading the backup copy to GitHub Packages
 
 jobs:
   release:
@@ -37,13 +37,19 @@ jobs:
         with:
           fetch-depth: 0 # Fetches all history and tags so git describe works
 
-      - name: Setup Java 17 & Package Registry Credentials
+      # Writes <server id="central"> into settings.xml (credentials read from the env vars below at build time)
+      # and imports the GPG signing key into the runner's keyring.
+      - name: Setup Java 17, Maven Central Credentials & GPG Key
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'maven'
-          server-id: github
+          server-id: central
+          server-username: CENTRAL_TOKEN_USERNAME
+          server-password: CENTRAL_TOKEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Configure Git Bot User
         run: |
@@ -93,20 +99,65 @@ jobs:
             exit 1
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Last tag: $LAST_TAG, release version: $VERSION"
+          # Commit time in UTC for reproducible builds (project.build.outputTimestamp).
+          TIMESTAMP=$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%dT%H:%M:%SZ)
 
-      # Step 2: Run verification and deploy the stable JAR with the resolved version.
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "Last tag: $LAST_TAG, release version: $VERSION, output timestamp: $TIMESTAMP"
+
+      # Step 2: Verify, sign, and upload to the Maven Central Portal with the resolved version (primary).
       # No site:site here: it ran after the upload, so a site failure left a published but untagged version.
       # The site is built and published by build.yaml.
-      - name: Build, Verify, and Deploy Stable JAR
-        run: mvn -B clean deploy -Drevision=${{ steps.release_version.outputs.version }}
+      - name: Build, Verify, Sign, and Publish to Maven Central
+        run: >-
+          mvn -B -P release,central clean deploy
+          -Drevision=${{ steps.release_version.outputs.version }}
+          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+        env:
+          CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      # Step 3: Upload the same signed artifacts to GitHub Packages (backup).
+      # setup-java can write only one <server>, so it is called again to replace "central" with "github".
+      # A failed backup does not block tagging, since the Maven Central upload already succeeded.
+      - name: Setup GitHub Packages Credentials
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          server-id: github
+
+      - name: Publish Backup to GitHub Packages
+        continue-on-error: true
+        run: >-
+          mvn -B -P release deploy -DskipTests
+          -Drevision=${{ steps.release_version.outputs.version }}
+          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 3: Tag the released commit and push only the tag
+      # Step 4: Tag the released commit and push only the tag
       - name: Tag and Push Release
         run: |
           VERSION=${{ steps.release_version.outputs.version }}
           git tag -a "v$VERSION" -m "Release v$VERSION"
           git push origin "v$VERSION"
+
+      # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
+      # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+          LAST_TAG: ${{ steps.release_version.outputs.last_tag }}
+        run: |
+          HIGHEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          LATEST=$([ "$HIGHEST" = "v$VERSION" ] && echo true || echo false)
+          START=()
+          if [ "$LAST_TAG" != "v0.0.0" ]; then START=(--notes-start-tag "$LAST_TAG"); fi
+          gh release create "v$VERSION" --verify-tag --title "$VERSION" --generate-notes "${START[@]}" --latest="$LATEST" \
+            target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc
