@@ -78,8 +78,10 @@ public class SecretPatternRegistry {
             "https://discord\\.com/api/webhooks/[0-9]{18,19}/[A-Za-z0-9\\-_]{68}"), 70, 100, false),
 
         // Cryptographic Keys
+        // Any PEM/PGP private key label (PKCS#8, ENCRYPTED, RSA, EC, DSA, OPENSSH, PGP ... BLOCK); END must match
+        // BEGIN.
         new SecretPattern("Private Key Block", Pattern.compile(
-            "(?s)-----BEGIN (?:RSA|EC|OPENSSH|PGP)? PRIVATE KEY-----.*?-----END (?:RSA|EC|OPENSSH|PGP)? PRIVATE KEY-----"),
+            "(?s)-----BEGIN ((?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?)-----.*?-----END \\1-----"),
             100, 100, true),
 
         // Generic & Fallback Patterns
