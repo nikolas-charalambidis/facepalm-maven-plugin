@@ -17,7 +17,7 @@ Fixes are released as patch versions of the latest minor line and published to [
 - The plugin can be made to **execute code, read or write files** outside the scanned project, or inject content into reports.
 - A problem in the **release pipeline or published artifacts** (signatures, build integrity).
 
-A secret the scanner **does not detect** (false negative) or flags wrongly (false positive) is not a vulnerability: please open a [false positive / false negative issue](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) with a redacted example.
+A secret the scanner **does not detect** (false negative) or flags wrongly (false positive) is not a vulnerability: please open a [missed or wrong detection issue](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) with a redacted example.
 
 ## Reporting a vulnerability
 
