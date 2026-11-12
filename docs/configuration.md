@@ -38,14 +38,19 @@ Refine how Facepalm evaluates risk and legitimacy.
 
 | Sub-parameter | Default                                         | Description |
 |---------------|-------------------------------------------------|-------------|
-| `interpolationPatternRegex` | `.*?(?:\$\{.*}\|\{\{.*\}\|<.*>\|%.*%\|\[.*]).*` | Regex to detect placeholders like `${API_KEY}`. |
+| `interpolationPatternRegex` | `.*(?:\$\{[^}]+}\|\{\{[^}]+}}).*\|%[A-Za-z_][A-Za-z0-9_]*%\|<[A-Za-z_][A-Za-z0-9_ .-]*>\|\[[A-Za-z_][A-Za-z0-9_ .-]*]` | Regex to detect placeholders. `${VAR}` and `{{ var }}` may appear anywhere in the value; `%VAR%`, `<your-key>` and `[your-key]` must be the whole value, so URL-encoded passwords are not suppressed. |
 | `highRiskExtensions` | `.env, .properties, .yml, .yaml, .conf, .ini`   | Extensions that increase the risk score. |
 | `lowRiskExtensions` | `.md, .txt, .csv, .log, .example, .sample`      | Extensions that decrease the risk score. |
 | `dummyKeywords` | `dummy, your_api_key, insert_here, ...`         | Keywords indicating fake data. |
-| `prodPathMarkers` | `src/main/, .env, config`                       | Path segments indicating production environments. |
-| `testPathMarkers` | `test, mock, spec`                              | Path segments indicating test environments. |
+| `prodPathMarkers` | `src/main/, .env, config`                       | Path markers indicating production environments. Matched against the path relative to the scanned project (see below). |
+| `testPathMarkers` | `test, mock, spec`                              | Path markers indicating test environments. Matched against the path relative to the scanned project (see below). |
 | `prodContextMarkers` | `prod, live`                                    | Surrounding code keywords indicating production use. |
 | `mockContextMarkers` | `example, dummy, fake, mock`                    | Surrounding code keywords indicating mock use. |
+
+Path markers are matched against the path relative to the scanned project, so directories above it (for example a CI workspace named `test-env`) never affect scoring, and `/` and `\` separators behave the same:
+
+- A marker made of letters and digits only (`test`, `mock`, `spec`, `config`) matches a whole word of a path segment, split at punctuation and camelCase boundaries, optionally plural: `src/test/`, `__tests__`, `FooTest.java` and `app.spec.ts` match, `latest` and `contest` do not.
+- Any other marker (`src/main/`, `.env`) matches at the start of a path segment: `.env` matches `.env` and `.env.local`.
 
 ### Post-Processing (`<postProcessing>`)
 
