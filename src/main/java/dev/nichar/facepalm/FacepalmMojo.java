@@ -17,6 +17,7 @@ import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.ScoringStrategy;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
+import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.util.Set;
 import org.apache.maven.plugin.AbstractMojo;
@@ -202,7 +203,17 @@ public class FacepalmMojo extends AbstractMojo {
         } catch (MojoFailureException e) {
             throw e;
         } catch (Exception e) {
-            throw new MojoExecutionException("Unknown exception", e);
+            throw executionFailure(e);
         }
+    }
+
+    /**
+     * Wraps an unexpected scan error so that the build error states its cause (e.g. an invalid
+     * {@code skipBinaryRegex} or an unwritable output directory) without rerunning Maven with {@code -e}.
+     */
+    @Nonnull
+    static MojoExecutionException executionFailure(@Nonnull final Exception e) {
+        final var reason = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+        return new MojoExecutionException("Facepalm scan failed: " + reason, e);
     }
 }
