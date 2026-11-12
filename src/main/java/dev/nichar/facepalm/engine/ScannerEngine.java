@@ -12,9 +12,11 @@ import dev.nichar.facepalm.engine.postprocessor.FileFindingsPostProcessor;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.nio.charset.MalformedInputException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -74,17 +76,15 @@ public class ScannerEngine {
 
         final List<Callable<List<Finding>>> tasks = new ArrayList<>();
         // Walk the filesystem and identify candidate files.
-        try (final var paths = Files.walk(root)) {
-            final var discoveredPaths = paths.filter(Files::isRegularFile).toList();
-            log.info("Discovered " + discoveredPaths.size() + " files...");
-            for (final var path : discoveredPaths) {
-                stats.recordDiscovery();
-                if (!shouldScan(root, path, stats)) {
-                    continue;
-                }
-                stats.recordScan(path);
-                tasks.add(() -> processFile(root, path));
+        final var discoveredPaths = discover(root);
+        log.info("Discovered " + discoveredPaths.size() + " files...");
+        for (final var path : discoveredPaths) {
+            stats.recordDiscovery();
+            if (!shouldScan(path, stats)) {
+                continue;
             }
+            stats.recordScan(path);
+            tasks.add(() -> processFile(root, path));
         }
 
         if (tasks.isEmpty()) {
@@ -118,29 +118,65 @@ public class ScannerEngine {
     }
 
     /**
-     * Checks if a file qualifies for scanning based on size, type, and exclusion rules.
+     * Collects regular files below the root. Directories listed in {@code skipDirs} are not entered at all, and
+     * unreadable files or directories are logged and skipped instead of aborting the scan.
+     *
+     * <p>
+     * Exclusions match only directories inside the scan root, so folders above the project (e.g. a checkout under
+     * {@code /build/...}) and file names never exclude anything. Dotfiles such as {@code .env} are scanned; VCS and IDE
+     * directories are excluded through {@code skipDirs}.
      */
-    private boolean shouldScan(@Nonnull final Path root,
-                               @Nonnull final Path path,
-                               @Nonnull final ScanStatistics stats) {
+    @Nonnull
+    private List<Path> discover(@Nonnull final Path root) throws IOException {
         final var engineConfig = context.getEngine();
-
-        // Match exclusions only against directories inside the scan root, so folders above the project
-        // (e.g. a checkout under /build/...) and the file name itself never exclude a file.
-        // Dotfiles such as .env are scanned; VCS and IDE directories are excluded through skipDirs.
         final var skipDirs = engineConfig.getSkipDirs();
-        final var parent = root.relativize(path).getParent();
-        if (parent != null) {
-            for (final var element : parent) {
-                if (skipDirs.contains(element.toString())) {
+        final List<Path> files = new ArrayList<>();
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+
+            @Override
+            public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) {
+                if (isSkipDir(dir)) {
                     if (engineConfig.isShowSkipped()) {
-                        log.debug("Skipping excluded directory: " + path);
+                        log.debug("Skipping excluded directory: " + dir);
                     }
-                    stats.recordExclusion(ExclusionReason.REGEX_MATCH);
-                    return false;
+                    return FileVisitResult.SKIP_SUBTREE;
                 }
+                return FileVisitResult.CONTINUE;
             }
-        }
+
+            @Override
+            public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
+                // Follows symbolic links to files, like the previous Files.walk + Files::isRegularFile.
+                if (attrs.isRegularFile() || Files.isRegularFile(file)) {
+                    files.add(file);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(final Path file, final IOException exc) {
+                // An unreadable directory fails before preVisitDirectory is called; excluded ones stay silent.
+                if (isSkipDir(file)) {
+                    return FileVisitResult.CONTINUE;
+                }
+                log.warn("Skipping unreadable path " + file + ": " + exc.getMessage());
+                stats.recordExclusion(ExclusionReason.IO_ERROR);
+                return FileVisitResult.CONTINUE;
+            }
+
+            private boolean isSkipDir(final Path dir) {
+                return !dir.equals(root) && dir.getFileName() != null
+                    && skipDirs.contains(dir.getFileName().toString());
+            }
+        });
+        return files;
+    }
+
+    /**
+     * Checks if a file qualifies for scanning based on size and type.
+     */
+    private boolean shouldScan(@Nonnull final Path path, @Nonnull final ScanStatistics stats) {
+        final var engineConfig = context.getEngine();
 
         final var fileName = path.getFileName().toString();
         // Skip binary and non-text assets to reduce noise.
@@ -181,7 +217,13 @@ public class ScannerEngine {
         }
         try {
             // Load file into memory. Protected by size limits in shouldScan().
-            final var content = Files.readString(path);
+            final var content = TextDecoder.decode(Files.readAllBytes(path));
+            if (content == null) {
+                if (engineConfig.isShowSkipped()) {
+                    log.debug("Skipping " + path + " - binary content");
+                }
+                return Collections.emptyList();
+            }
             // Initialize file context for the scanning pipeline.
             final var context = new FileContext(path, root.relativize(path), content,
                 Arrays.asList(content.split("\\R")));
@@ -205,13 +247,8 @@ public class ScannerEngine {
             }
 
             return fileFindings;
-        } catch (MalformedInputException e) {
-            if (engineConfig.isShowSkipped()) {
-                log.warn("Skipping " + path + " - file is not valid UTF-8 text:" + e.getMessage());
-            }
-            return Collections.emptyList();
         } catch (IOException e) {
-            log.error("Failed to read " + path + ": " + e.getMessage());
+            log.warn("Skipping unreadable file " + path + ": " + e.getMessage());
             return Collections.emptyList();
         }
     }

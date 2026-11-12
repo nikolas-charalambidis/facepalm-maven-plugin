@@ -8,10 +8,14 @@ package dev.nichar.facepalm.engine;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,9 +50,23 @@ public class GitIgnoreService {
      * Discovers and parses all {@code .gitignore} files within the target project.
      */
     public void loadAllGitIgnores(@Nonnull final Path root) {
-        try (var paths = Files.walk(root)) {
-            paths.filter(p -> p.getFileName() != null && ".gitignore".equals(p.getFileName().toString()))
-                .forEach(this::parseGitIgnoreFile);
+        try {
+            Files.walkFileTree(root, new SimpleFileVisitor<>() {
+
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
+                    if (file.getFileName() != null && ".gitignore".equals(file.getFileName().toString())) {
+                        parseGitIgnoreFile(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(final Path file, final IOException exc) {
+                    // Unreadable directories are reported by the scanner; keep looking elsewhere.
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             log.warn("Error walking for .gitignores: " + e.getMessage());
         }
@@ -71,8 +89,11 @@ public class GitIgnoreService {
         final var directory = ignoreFile.getParent();
         final List<PathMatcher> matchers = new ArrayList<>();
 
-        try (final var lines = Files.lines(ignoreFile)) {
-            lines.map(String::trim)
+        try {
+            // Decode leniently: a .gitignore in a legacy encoding must not abort the scan.
+            final var content = new String(Files.readAllBytes(ignoreFile), StandardCharsets.UTF_8);
+            content.lines()
+                .map(String::trim)
                 // Skip empty lines and comments per Git specification.
                 .filter(line -> !line.isEmpty() && !line.startsWith("#"))
                 .forEach(pattern -> {
@@ -87,11 +108,34 @@ public class GitIgnoreService {
                     }
                     // Construct OS-agnostic glob strings.
                     // See: https://en.wikipedia.org/wiki/Glob_(programming)
-                    final var fullGlob = "glob:" + directory.toString().replace("\\", "/") + "/" + glob;
-                    matchers.add(FileSystems.getDefault().getPathMatcher(fullGlob));
+                    final var fullGlob = "glob:" + escapeGlob(directory.toString().replace("\\", "/")) + "/" + glob;
+                    try {
+                        matchers.add(FileSystems.getDefault().getPathMatcher(fullGlob));
+                    } catch (IllegalArgumentException e) {
+                        // PatternSyntaxException for lines like "foo[" or "a{b": skip the line, keep the rest.
+                        log.warn("Ignoring unsupported pattern '" + pattern + "' in " + ignoreFile + ": "
+                            + e.getMessage());
+                    }
                 });
             registry.put(directory, matchers);
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            log.warn("Could not read " + ignoreFile + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Escapes glob metacharacters in a literal path, so a project directory like {@code my[app]} or {@code {x}}
+     * is matched literally.
+     */
+    @Nonnull
+    static String escapeGlob(@Nonnull final String literal) {
+        final var escaped = new StringBuilder(literal.length());
+        for (final char c : literal.toCharArray()) {
+            if ("\\*?[]{}".indexOf(c) >= 0) {
+                escaped.append('\\');
+            }
+            escaped.append(c);
+        }
+        return escaped.toString();
     }
 }
