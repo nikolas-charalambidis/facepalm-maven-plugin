@@ -23,8 +23,9 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+# Read-only by default; write access is granted on the job that needs it (OpenSSF Scorecard Token-Permissions).
 permissions:
-  contents: write # REQUIRED: Allows the bot to push the release tag
+  contents: read
 
 jobs:
   release:
