@@ -63,8 +63,8 @@ class FacepalmMojoIT {
         assertThat(result).isSuccessful();
 
         assertThat(result).out().warn()
-            .anyMatch(line -> line.contains(
-                "[Generic Password Assignment] Score: 69.8 (R:85/C:60) - "));
+            .anyMatch(line -> line.startsWith("[Generic Password Assignment] ") && line.endsWith(
+                " - Score: 69.8 (R:85/C:60)"));
         assertThat(result).out().warn()
             .anyMatch(line -> fixturePath(line).contains(
                 "/FacepalmMojoIT/dirty_project/project/src/main/resources/application.properties:2"));
@@ -93,8 +93,8 @@ class FacepalmMojoIT {
         assertThat(result).isFailure();
 
         assertThat(result).out().warn()
-            .anyMatch(line -> line.contains(
-                "[Generic Password Assignment] Score: 69.8 (R:85/C:60) - "));
+            .anyMatch(line -> line.startsWith("[Generic Password Assignment] ") && line.endsWith(
+                " - Score: 69.8 (R:85/C:60)"));
         assertThat(result).out().warn()
             .anyMatch(line -> fixturePath(line).contains(
                 "/FacepalmMojoIT/dirty_project_fail_on_warnings/project/src/main/resources/application.properties:2"));
@@ -139,7 +139,7 @@ class FacepalmMojoIT {
         assertThat(result).isFailure();
 
         assertThat(result).out().error()
-            .anyMatch(line -> line.contains("[Private Key Block] Score: 92.0 (R:100/C:60) - "));
+            .anyMatch(line -> line.startsWith("[Private Key Block] ") && line.endsWith(" - Score: 92.0 (R:100/C:60)"));
         assertThat(result).out().error()
             .anyMatch(line -> fixturePath(line).contains(
                 "/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
