@@ -23,6 +23,28 @@ import javax.inject.Singleton;
 @Singleton
 class EntropyEvaluator implements FindingEvaluator {
 
+    /**
+     * Entropy (bits per character) above which a long value counts as random.
+     */
+    private static final double HIGH_ENTROPY = 4.5;
+
+    /**
+     * Share of the maximum possible entropy ({@code log2(length)}) above which a shorter value counts as random. A
+     * value of {@code n} characters can never exceed {@code log2(n)} bits, so a fixed 4.5 would never reward a
+     * 20-character key such as an AWS access key ID (at most 4.32).
+     */
+    private static final double HIGH_ENTROPY_RATIO = 0.9;
+
+    /**
+     * Minimum length for the high entropy bonus, so short words such as {@code password1} do not earn it.
+     */
+    private static final int HIGH_ENTROPY_MIN_LENGTH = 12;
+
+    /**
+     * Entropy below which a value counts as repetitive or predictable.
+     */
+    private static final double LOW_ENTROPY = 3.0;
+
     @Override
     public void evaluate(@Nonnull final Finding finding, @Nonnull final FileContext context) {
         // Skip entropy checks for high-signal formats like Private Keys.
@@ -30,14 +52,23 @@ class EntropyEvaluator implements FindingEvaluator {
             return;
         }
 
-        final var entropy = getShannonEntropy(finding.getSecretValue());
-        if (entropy > 4.5) {
+        final var value = finding.getSecretValue();
+        final var entropy = getShannonEntropy(value);
+        if (value.length() >= HIGH_ENTROPY_MIN_LENGTH && entropy > highEntropyThreshold(value.length())) {
             // Random strings typical of API keys or passwords.
             finding.log(String.format(Locale.ROOT, "High Entropy (%.2f)", entropy), 10, 20);
-        } else if (entropy < 3.0) {
+        } else if (entropy < LOW_ENTROPY) {
             // Repetitive or predictable strings likely to be noise.
             finding.log(String.format(Locale.ROOT, "Low Entropy (%.2f)", entropy), 0, -40);
         }
+    }
+
+    /**
+     * Entropy a value of the given length needs for the high entropy bonus: {@value #HIGH_ENTROPY} bits, or 90% of
+     * the maximum {@code log2(length)} for values too short to ever reach it.
+     */
+    static double highEntropyThreshold(final int length) {
+        return Math.min(HIGH_ENTROPY, HIGH_ENTROPY_RATIO * Math.log(length) / Math.log(2));
     }
 
     /**
