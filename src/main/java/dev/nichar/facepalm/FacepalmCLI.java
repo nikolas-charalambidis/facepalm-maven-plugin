@@ -14,7 +14,10 @@ import dev.nichar.facepalm.config.ScoringConfig;
 import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Properties;
 import org.apache.maven.monitor.logging.DefaultLog;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -32,14 +35,39 @@ import org.eclipse.sisu.wire.WireModule;
 public class FacepalmCLI {
 
     /**
+     * Usage shown when the arguments are invalid.
+     */
+    static final String USAGE = "Usage: FacepalmCLI [--debug] [--output <dir>] [<directory>]";
+
+    /**
+     * Maven metadata packaged in the plugin jar, used to read the version.
+     */
+    private static final String POM_PROPERTIES = "/META-INF/maven/dev.nichar/facepalm-maven-plugin/pom.properties";
+
+    /**
+     * Parsed command-line options.
+     *
+     * @param root directory to scan
+     * @param output directory for the reports
+     * @param debug whether to log at DEBUG level
+     */
+    record Options(Path root, Path output, boolean debug) {
+    }
+
+    /**
      * Bootstraps the Guice container and executes a scan on the specified directory.
      *
-     * @param args Command-line arguments. args[0] is the target directory (default: current).
+     * @param args Command-line arguments: {@code [--debug] [--output <dir>] [<directory>]}. The directory defaults to
+     * the current one, the output to {@code <directory>/target}.
      */
     public static void main(final String[] args) throws MojoFailureException, MojoExecutionException {
+        final var options = parse(args);
 
         // Assemble baseline configuration with default settings.
         final var engineConfig = new EngineConfig();
+        // --debug also lists processed and skipped files (logged at DEBUG level).
+        engineConfig.setShowProcessed(options.debug());
+        engineConfig.setShowSkipped(options.debug());
         final var scoringConfig = new ScoringConfig();
         final var evaluatorConfig = new EvaluatorConfig();
         final var postProcessorConfig = new PostProcessorConfig();
@@ -59,7 +87,8 @@ public class FacepalmCLI {
                 // Bridge Maven logging to the console.
                 new FacepalmLogModule(
                     new DefaultLog(
-                        new ConsoleLogger(Logger.LEVEL_DEBUG, "facepalm-cli"))),
+                        new ConsoleLogger(options.debug() ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO,
+                            "facepalm-cli"))),
                 // Bind the active configuration to the container.
                 new FacepalmConfigModule(effectiveConfig)));
 
@@ -73,15 +102,58 @@ public class FacepalmCLI {
                 "runner=" + runner + ", config=" + config + ", log=" + log);
         }
 
-        // Normalize the target scan path from arguments.
-        final var root = Paths.get(args.length > 0 ? args[0] : ".").toAbsolutePath().normalize();
+        final var version = version();
+        log.info("Starting facepalm-maven-plugin " + version);
 
         try {
-            runner.run(root, Paths.get("target"), "SNAPSHOT");
+            runner.run(options.root(), options.output(), version);
         } catch (MojoFailureException e) {
             throw e;
         } catch (Exception e) {
             throw FacepalmMojo.executionFailure(e);
+        }
+    }
+
+    /**
+     * Parses {@code [--debug] [--output
+     *
+    <dir>
+     * ] [<directory>]}.
+     */
+    static Options parse(final String[] args) throws MojoExecutionException {
+        var debug = false;
+        String output = null;
+        String directory = null;
+        for (int i = 0; i < args.length; i++) {
+            final var arg = args[i];
+            if ("--debug".equals(arg)) {
+                debug = true;
+            } else if ("--output".equals(arg) && i + 1 < args.length) {
+                output = args[++i];
+            } else if (arg.startsWith("-") || directory != null) {
+                throw new MojoExecutionException("Unexpected argument: " + arg + System.lineSeparator() + USAGE);
+            } else {
+                directory = arg;
+            }
+        }
+        final var root = Paths.get(directory == null ? "." : directory).toAbsolutePath().normalize();
+        final var outputDir = output == null ? root.resolve("target") : Paths.get(output).toAbsolutePath().normalize();
+        return new Options(root, outputDir, debug);
+    }
+
+    /**
+     * Plugin version from the jar's Maven metadata, or {@code unknown} when run from unpackaged classes.
+     */
+    static String version() {
+        try (var in = FacepalmCLI.class.getResourceAsStream(POM_PROPERTIES)) {
+            if (in == null) {
+                return "unknown";
+            }
+            final var properties = new Properties();
+            properties.load(in);
+            return properties.getProperty("version", "unknown");
+        } catch (IOException e) {
+            return "unknown";
         }
     }
 }
