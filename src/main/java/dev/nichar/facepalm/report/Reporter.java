@@ -222,27 +222,29 @@ public class Reporter {
     public void printLogs(@Nonnull final ScanStatistics stats, @Nonnull final List<Finding> findings) {
         final var scoringConfig = context.getScoring();
 
-        if (scoringConfig.isShowScoring()) {
+        // Always list ERROR and WARNING findings with their location, so a failed build or a blocked commit shows
+        // where the secret is. showScoring only adds the score breakdown.
+        final var reported = findings.stream()
+            .filter(f -> f.getSeverity(scoringConfig) != Severity.INFO)
+            .sorted(Comparator.comparing((Finding f) -> f.getNumericScore(scoringConfig)).reversed())
+            .toList();
+        if (!reported.isEmpty()) {
             log.info(SEPARATOR);
-            findings.stream()
-                .filter(f -> f.getSeverity(scoringConfig) != Severity.INFO)
-                .sorted(Comparator.comparing((Finding f) -> f.getNumericScore(scoringConfig)).reversed())
-                .forEach(f -> {
-                    final var severity = f.getSeverity(scoringConfig);
+        }
+        for (final var f : reported) {
+            var message = String.format(Locale.ROOT, "[%s] %s:%d (%s)",
+                f.getPatternName(), f.getContext().getPath(), f.getLineNumber(), f.getMaskedSecret());
+            if (scoringConfig.isShowScoring()) {
+                message += String.format(Locale.ROOT, " - Score: %.1f (R:%d/C:%d)",
+                    f.getNumericScore(scoringConfig), f.getRiskScore(), f.getConfidenceScore());
+            }
 
-                    final var message = String.format(
-                        Locale.ROOT,
-                        "[%s] Score: %.1f (R:%d/C:%d) - %s",
-                        f.getPatternName(), f.getNumericScore(scoringConfig),
-                        f.getRiskScore(), f.getConfidenceScore(),
-                        f.getContext().getPath() + ":" + f.getLineNumber());
-
-                    // Emit high-risk findings at the error level for visibility.
-                    switch (severity) {
-                        case ERROR -> log.error(message);
-                        case WARNING, INFO -> log.warn(message);
-                    }
-                });
+            // Emit high-risk findings at the error level for visibility.
+            if (f.getSeverity(scoringConfig) == Severity.ERROR) {
+                log.error(message);
+            } else {
+                log.warn(message);
+            }
         }
 
         final long info = findings.stream().filter(f -> f.getSeverity(scoringConfig) == Severity.INFO).count();
