@@ -59,14 +59,14 @@
         <!-- Unlike source/target, "release" also restricts the JDK API to Java 17, so a build on a newer JDK cannot link against newer APIs. -->
         <maven.compiler.release>17</maven.compiler.release>
 
-        <maven-plugin-api.version>3.9.12</maven-plugin-api.version>
+        <maven-plugin-api.version>3.10.0</maven-plugin-api.version>
         <maven-reporting-api.version>3.1.1</maven-reporting-api.version>
         <maven-reporting-impl.version>3.2.0</maven-reporting-impl.version>
-        <guava.version>33.7.1-jre</guava.version>
-        <maven-plugin-annotations.version>3.11.0</maven-plugin-annotations.version>
-        <lombok.version>1.18.30</lombok.version>
+        <guava.version>33.8.0-jre</guava.version>
+        <maven-plugin-annotations.version>3.16.0</maven-plugin-annotations.version>
+        <lombok.version>1.18.48</lombok.version>
         <freemarker.version>2.3.35</freemarker.version>
-        <jackson-databind.version>2.21.7</jackson-databind.version>
+        <jackson-databind.version>2.23.0</jackson-databind.version>
         <javax.inject.version>1</javax.inject.version>
         <jakarta.annotation.version>3.0.0</jakarta.annotation.version>
         <org.eclipse.sisu.inject.version>0.9.0.M2</org.eclipse.sisu.inject.version>
@@ -75,29 +75,29 @@
 
         <!-- Plugins. -->
         <!-- Lifecycle plugins otherwise taken from the defaults of the running Maven version (pinned to the versions in use). -->
-        <maven-clean-plugin.version>3.2.0</maven-clean-plugin.version>
-        <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
-        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
-        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
-        <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
-        <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
-        <maven-site-plugin.version>3.12.1</maven-site-plugin.version>
+        <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+        <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
+        <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+        <maven-install-plugin.version>3.2.0</maven-install-plugin.version>
+        <maven-deploy-plugin.version>3.2.0</maven-deploy-plugin.version>
+        <maven-site-plugin.version>3.22.0</maven-site-plugin.version>
         <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
-        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
-        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
-        <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+        <flatten-maven-plugin.version>1.9.0</flatten-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
+        <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
         <sisu-maven-plugin.version>0.9.0.M2</sisu-maven-plugin.version>
-        <plexus-component-metadata.version>2.1.1</plexus-component-metadata.version>
-        <maven-plugin-plugin.version>3.11.0</maven-plugin-plugin.version>
-        <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+        <plexus-component-metadata.version>2.2.0</plexus-component-metadata.version>
+        <maven-plugin-plugin.version>3.16.0</maven-plugin-plugin.version>
+        <maven-failsafe-plugin.version>3.6.1</maven-failsafe-plugin.version>
         <spotless-maven-plugin.version>2.44.0</spotless-maven-plugin.version>
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
-        <maven-jxr-plugin.version>3.3.0</maven-jxr-plugin.version>
-        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-jxr-plugin.version>3.6.0</maven-jxr-plugin.version>
+        <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
-        <maven-surefire-report-plugin.version>3.2.5</maven-surefire-report-plugin.version>
+        <maven-surefire-report-plugin.version>3.6.1</maven-surefire-report-plugin.version>
     </properties>
 
     <dependencies>
