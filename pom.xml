@@ -86,7 +86,7 @@
         <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
         <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
-        <sisu-maven-plugin.version>0.9.0.M2</sisu-maven-plugin.version>
+        <sisu-maven-plugin.version>1.1.2</sisu-maven-plugin.version>
         <plexus-component-metadata.version>2.1.1</plexus-component-metadata.version>
         <maven-plugin-plugin.version>3.11.0</maven-plugin-plugin.version>
         <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
