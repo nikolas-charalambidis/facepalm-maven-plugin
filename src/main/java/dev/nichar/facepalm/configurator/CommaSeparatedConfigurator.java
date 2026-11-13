@@ -26,15 +26,21 @@ public class CommaSeparatedConfigurator extends BasicComponentConfigurator {
      */
     public static final String COMMA_SEPARATED_CONFIGURATOR = "comma-separated-configurator";
 
+    /**
+     * Registers the converter for Set-based parameters once. The configurator is a singleton, so registering it on
+     * every execution would grow the converter list without bound (large reactors, mvnd).
+     */
+    public CommaSeparatedConfigurator() {
+        super();
+        converterLookup.registerConverter(new CommaSeparatedSetConverter());
+    }
+
     @Override
     public void configureComponent(final Object component,
                                    final PlexusConfiguration configuration,
                                    final ExpressionEvaluator evaluator,
                                    final ClassRealm realm,
                                    final ConfigurationListener listener) throws ComponentConfigurationException {
-
-        // Register the specialized converter for Set-based parameters.
-        converterLookup.registerConverter(new CommaSeparatedSetConverter());
 
         // Delegate component configuration to the base Plexus logic.
         super.configureComponent(component, configuration, evaluator, realm, listener);
