@@ -10,6 +10,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.engine.Finding;
+import dev.nichar.facepalm.engine.Severity;
 import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -203,6 +206,27 @@ class SecretPatternRegistryTest {
         for (final var line : List.of("bypass=Xk9mQ2vLp7zR4wq", "compass: Xk9mQ2vLp7zR4wq")) {
             assertFalse(pattern("Generic Password Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
         }
+    }
+
+    /**
+     * Issue #206: an AWS access key ID is a key by format, so its base score alone reaches ERROR with the default
+     * scoring, wherever the file is.
+     */
+    @Test
+    void aws_access_key_base_score_reaches_error() {
+        final var aws = SecretPatternRegistry.DEFAULT_PATTERNS.stream()
+            .filter(p -> "AWS Access Key".equals(p.getName()))
+            .findFirst()
+            .orElseThrow();
+        final var finding = Finding.builder()
+            .patternName(aws.getName())
+            .deduplicationHash("hash")
+            .secretValue("AKIAQ7XKZ3M4PL2NWR8T")
+            .riskScore(aws.getBaseRisk())
+            .confidenceScore(aws.getBaseConfidence())
+            .build();
+
+        assertEquals(Severity.ERROR, finding.getSeverity(new ScoringConfig()));
     }
 
     private static String group(final String patternName, final String line) {
