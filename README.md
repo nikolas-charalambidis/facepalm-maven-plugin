@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/github/license/nikolas-charalambidis/facepalm-maven-plugin)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/projects/jdk/17/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/nikolas-charalambidis/facepalm-maven-plugin/badge)](https://scorecard.dev/viewer/?uri=github.com/nikolas-charalambidis/facepalm-maven-plugin)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16636/badge)](https://www.bestpractices.dev/projects/16636)
 
 One commit.  
 One leaked API key.  
