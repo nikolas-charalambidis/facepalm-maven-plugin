@@ -90,7 +90,7 @@
         <plexus-component-metadata.version>2.1.1</plexus-component-metadata.version>
         <maven-plugin-plugin.version>3.11.0</maven-plugin-plugin.version>
         <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
-        <spotless-maven-plugin.version>2.44.0</spotless-maven-plugin.version>
+        <spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
         <maven-jxr-plugin.version>3.3.0</maven-jxr-plugin.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
