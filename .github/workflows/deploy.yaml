@@ -29,6 +29,10 @@ permissions:
 jobs:
   release:
     name: Automate Release and Tag
+    permissions:
+      contents: write     # Push the release tag and create the GitHub Release
+      id-token: write     # Sign the build provenance attestation (Sigstore)
+      attestations: write # Store the attestation on GitHub
     runs-on: ubuntu-26.04
     steps:
       # Secrets never coexist with test execution: tests run first without any credentials, GPG key or persisted
@@ -137,6 +141,15 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       # Step 4: Tag the released commit and push only the tag (token passed to this command only)
+      # SLSA build provenance for the released jars: records which workflow, commit and runner built them.
+      # Stored as a GitHub attestation and attached to the GitHub Release (*.intoto.jsonl).
+      # Verify with: gh attestation verify <jar> --repo nikolas-charalambidis/facepalm-maven-plugin
+      - name: Attest Build Provenance
+        id: provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}*.jar
+
       - name: Tag and Push Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -154,7 +167,9 @@ jobs:
           VERSION: ${{ steps.release_version.outputs.version }}
           LAST_TAG: ${{ steps.release_version.outputs.last_tag }}
           TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
+          PROVENANCE: ${{ steps.provenance.outputs.bundle-path }}
         run: |
+          cp "$PROVENANCE" "target/facepalm-maven-plugin-$VERSION.intoto.jsonl"
           HIGHEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           LATEST=$([ "$HIGHEST" = "v$VERSION" ] && echo true || echo false)
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
@@ -164,7 +179,8 @@ jobs:
           JDK=$(java -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vendor.version/ {v=$2} /java.runtime.version/ {r=$2} END {print (v != "" ? v : r)}')
           gh release create "v$VERSION" --verify-tag --title "$VERSION" --generate-notes "${START[@]}" --latest="$LATEST" \
             --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
-            target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc
+            target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc \
+            target/facepalm-maven-plugin-"$VERSION".intoto.jsonl
 
       # Step 6: Propose the new version in the documentation (README and docs/*.md install snippets).
       # Only for the highest version, so a patch on an older line (e.g. 1.0.3 after 1.1.0) leaves master alone.

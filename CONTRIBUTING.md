@@ -195,6 +195,8 @@ Guards: releases run only from `master` (`minor` or `major`) and `release/X.Y.x`
 
 Do not put a version in `pom.xml` — the version is derived from tags.
 
+Each release has SLSA build provenance, attached to the GitHub Release as `*.intoto.jsonl` and stored as a GitHub attestation. Verify a downloaded jar with `gh attestation verify facepalm-maven-plugin-<version>.jar --repo nikolas-charalambidis/facepalm-maven-plugin`.
+
 Releases are reproducible: rebuilding a tag with `-Drevision=<version>` and the `project.build.outputTimestamp` from its GitHub Release notes yields byte-identical jars, provided you use the exact JDK named there (the javadoc jar bundles JDK-specific resources).
 
 ## License
