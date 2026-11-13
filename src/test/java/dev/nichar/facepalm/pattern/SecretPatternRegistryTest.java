@@ -117,6 +117,38 @@ class SecretPatternRegistryTest {
             group("SQL Server Password", "mssql.datasource.password=Sup3rS3cret!"));
     }
 
+    /**
+     * Issue #204: code that reads a secret is not a secret. The extractor strips quotes before matching.
+     */
+    @Test
+    void generic_patterns_ignore_method_calls() {
+        for (final var line : List.of(
+            "String secret = env.getProperty(STRIPE_WEBHOOK_SECRET);",
+            "String token = Objects.requireNonNull(System.getenv(GITHUB_TOKEN));",
+            "String accessToken = jwtService.generateToken(userDetails);",
+            "String apiKey = System.getenv(OPENAI_API_KEY);",
+            "String clientSecret = properties.getClientSecret();",
+            "val token = $tokenProvider.issueToken(user)")) {
+            assertFalse(pattern("Generic API Key Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+        for (final var line : List.of(
+            "String password = env.getProperty(spring.datasource.password);",
+            "char[] password = console.readPassword();")) {
+            assertFalse(pattern("Generic Password Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+    }
+
+    @Test
+    void generic_patterns_still_detect_values_that_are_not_calls() {
+        assertEquals("Zq8vLm3NpR7tXw2YkB9cHd4F", group("Generic API Key Assignment",
+            "api_key=Zq8vLm3NpR7tXw2YkB9cHd4F"));
+        assertEquals("s3cr3t.value.with.dots1", group("Generic API Key Assignment", "secret: s3cr3t.value.with.dots1"));
+        assertEquals("aGVsbG8+d29ybGQ/Zm9vYmFyMTI=", group("Generic API Key Assignment",
+            "token=aGVsbG8+d29ybGQ/Zm9vYmFyMTI="));
+        assertEquals("P@ss(word)1", group("Generic Password Assignment", "password=P@ss(word)1"));
+        assertEquals("hunter2hunter2", group("Generic Password Assignment", "db.password=hunter2hunter2"));
+    }
+
     private static String group(final String patternName, final String line) {
         final var matcher = pattern(patternName).matcher(line);
         assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
