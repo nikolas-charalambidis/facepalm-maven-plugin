@@ -28,6 +28,13 @@ public class SecretPatternRegistry {
     private static final String DB_CREDENTIALS = "[^/\\s:@]{1,256}:[^/\\s@]{1,256}";
 
     /**
+     * A value that starts like a method call ({@code getSecret(}, {@code env.getProperty(},
+     * {@code System.getenv(}): the code reads a secret instead of containing one. The extractor strips quotes
+     * before matching, so string arguments do not break this up.
+     */
+    private static final String METHOD_CALL = "[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*\\(";
+
+    /**
      * Immutable list of default patterns used by the scanner.
      * Gaps between a keyword and the secret are bounded (e.g. {@code .{0,100}?}), never {@code .*}: an unbounded gap
      * makes matching quadratic on long lines such as minified JavaScript.
@@ -104,8 +111,11 @@ public class SecretPatternRegistry {
         new SecretPattern("JWT Token", Pattern.compile(
             "eyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}"), 30, 40, false),
         new SecretPattern("Generic API Key Assignment", Pattern.compile(
-            "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{)([^'\"\\s}]{16,})['\"]?"),
+            "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
+                + ")([^'\"\\s}]{16,})['\"]?"),
             65, 70, false),
         new SecretPattern("Generic Password Assignment", Pattern.compile(
-            "(?i)(?:password|passwd|pwd)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{)([^'\"\\s}]{8,})['\"]?"), 50, 40, false));
+            "(?i)(?:password|passwd|pwd)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
+                + ")([^'\"\\s}]{8,})['\"]?"),
+            50, 40, false));
 }
