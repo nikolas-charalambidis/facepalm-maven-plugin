@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine;
 
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.TestContainer;
 import dev.nichar.facepalm.config.EngineConfig;
 import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
 import dev.nichar.facepalm.engine.extractor.SecretExtractor;
@@ -15,7 +16,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.LongAdder;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -208,13 +208,16 @@ class ScannerEngineTest {
         return scanner.getStats().getExclusionBreakdown().getOrDefault(reason, new LongAdder()).sum();
     }
 
+    /**
+     * Engine wired by the real container (so new dependencies are injected), with an empty pipeline: these tests
+     * cover discovery and exclusions only.
+     */
     private ScannerEngine scannerWithMinimalContext() throws Exception {
-        final ScannerEngine scanner = new ScannerEngine(new SystemStreamLog());
         final FacepalmConfig config = new FacepalmConfig();
         final EngineConfig engine = new EngineConfig();
         engine.setThreads(1);
         config.setEngine(engine);
-        setField(scanner, "context", config);
+        final ScannerEngine scanner = TestContainer.create(config).getInstance(ScannerEngine.class);
         setField(scanner, "extractors", List.of());
         setField(scanner, "evaluators", List.of());
         setField(scanner, "fileProcessors", List.of());
