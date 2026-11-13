@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine.evaluator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
@@ -55,6 +56,33 @@ class EntropyEvaluatorTest {
 
         assertThat(finding.getConfidenceScore()).isEqualTo(50);
         assertThat(finding.getScoreHistory()).isEmpty();
+    }
+
+    /**
+     * Issue #206: a 20-character value can never exceed log2(20) = 4.32 bits, so a fixed 4.5 threshold never
+     * rewarded short random keys such as AWS access key IDs.
+     */
+    @Test
+    void short_random_value_gets_the_high_entropy_bonus() {
+        final var finding = evaluate("AWS Access Key", "AKIAQ7XKZ3M4PL2NWR8T");
+
+        assertThat(finding.getRiskScore()).isEqualTo(60);
+        assertThat(finding.getConfidenceScore()).isEqualTo(70);
+        assertThat(finding.getScoreHistory()).singleElement().asString().startsWith("High Entropy");
+    }
+
+    @Test
+    void values_shorter_than_twelve_characters_get_no_high_entropy_bonus() {
+        final var finding = evaluate("Generic Password Assignment", "Xk9#mQ2vLp7");
+
+        assertThat(finding.getScoreHistory()).isEmpty();
+    }
+
+    @Test
+    void high_entropy_threshold_is_relative_to_length_and_capped() {
+        assertThat(EntropyEvaluator.highEntropyThreshold(20)).isCloseTo(3.89, within(0.01));
+        assertThat(EntropyEvaluator.highEntropyThreshold(32)).isEqualTo(4.5);
+        assertThat(EntropyEvaluator.highEntropyThreshold(1024)).isEqualTo(4.5);
     }
 
     private Finding evaluate(final String patternName, final String secret) {

@@ -70,7 +70,8 @@ public class SecretPatternRegistry {
      */
     public static final List<SecretPattern> DEFAULT_PATTERNS = List.of(
         // Cloud & Infrastructure Providers
-        new SecretPattern("AWS Access Key", Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"), 70, 95, false),
+        // Risk 90: a match is a real key ID by format, so it reaches ERROR on its own (#206).
+        new SecretPattern("AWS Access Key", Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"), 90, 95, false),
         new SecretPattern("AWS Secret Key", Pattern.compile(
             "(?i)aws_(?:secret|access|key)[\\w.-]{0,30}\\s*[=:]\\s*([^\\s]{40})"),
             85, 80, false),
