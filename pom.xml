@@ -644,10 +644,18 @@
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
-                    <doclint>all,-missing</doclint> <detectLinks>true</detectLinks>
+                    <doclint>all,-missing</doclint>
                     <detectLinks>true</detectLinks>
                     <detectJavaApiLink>true</detectJavaApiLink>
                     <show>public</show>
+                    <!-- Dependencies whose project URL is not their Javadoc (detectLinks would fail the site). -->
+                    <dependencyLinks>
+                        <dependencyLink>
+                            <groupId>org.assertj</groupId>
+                            <artifactId>assertj-core</artifactId>
+                            <url>https://javadoc.io/doc/org.assertj/assertj-core/${assertj-core.version}</url>
+                        </dependencyLink>
+                    </dependencyLinks>
                 </configuration>
                 <reportSets>
                     <reportSet>
