@@ -1,0 +1,47 @@
+name: CodeQL
+
+# CodeQL code scanning (advanced setup) for the Java sources and the GitHub Actions workflows.
+# Results appear in the Security tab and as annotations on pull requests.
+# build-mode "none" analyses Java without compiling it, so no Maven build is needed here.
+# Repository default setup must stay disabled; it cannot run alongside this workflow.
+
+on:
+  push:
+    branches: [ master, 'release/**' ]
+  pull_request:
+    branches: [ master, 'release/**' ]
+  schedule:
+    - cron: '30 5 * * 1' # Weekly, Monday 05:30 UTC, to pick up new queries
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-26.04
+    permissions:
+      security-events: write # Upload results to code scanning
+      actions: read          # Read workflow run metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ java-kotlin, actions ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-and-quality
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:${{ matrix.language }}
