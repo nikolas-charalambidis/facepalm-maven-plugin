@@ -71,7 +71,7 @@
         <jakarta.annotation.version>3.0.0</jakarta.annotation.version>
         <org.eclipse.sisu.inject.version>0.9.0.M2</org.eclipse.sisu.inject.version>
         <itf.version>0.13.1</itf.version>
-        <guice.version>5.1.0</guice.version>
+        <guice.version>7.0.0</guice.version>
 
         <!-- Plugins. -->
         <!-- Lifecycle plugins otherwise taken from the defaults of the running Maven version (pinned to the versions in use). -->
