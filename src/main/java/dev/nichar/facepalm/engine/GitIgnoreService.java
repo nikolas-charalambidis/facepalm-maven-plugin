@@ -10,12 +10,9 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,32 +44,6 @@ public class GitIgnoreService {
     }
 
     /**
-     * Discovers and parses all {@code .gitignore} files within the target project.
-     */
-    public void loadAllGitIgnores(@Nonnull final Path root) {
-        try {
-            Files.walkFileTree(root, new SimpleFileVisitor<>() {
-
-                @Override
-                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
-                    if (file.getFileName() != null && ".gitignore".equals(file.getFileName().toString())) {
-                        parseGitIgnoreFile(file);
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFileFailed(final Path file, final IOException exc) {
-                    // Unreadable directories are reported by the scanner; keep looking elsewhere.
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("Error walking for .gitignores: " + e.getMessage());
-        }
-    }
-
-    /**
      * Returns true if the specified path matches any registered ignore patterns.
      */
     public boolean isIgnored(@Nonnull final Path filePath) {
@@ -83,9 +54,10 @@ public class GitIgnoreService {
     }
 
     /**
-     * Translates raw ignore patterns into functional {@link PathMatcher}s.
+     * Parses a {@code .gitignore} file into {@link PathMatcher}s for its directory. The scanner calls this for every
+     * {@code .gitignore} it finds while walking the project, so the tree is walked only once.
      */
-    private void parseGitIgnoreFile(@Nonnull final Path ignoreFile) {
+    public void load(@Nonnull final Path ignoreFile) {
         final var directory = ignoreFile.getParent();
         final List<PathMatcher> matchers = new ArrayList<>();
 

@@ -40,9 +40,6 @@ public class FacepalmRunner {
     private ScannerEngine engine;
 
     @Inject
-    private GitIgnoreService gitIgnoreService;
-
-    @Inject
     private Reporter reporter;
 
     private Log getLog() {
@@ -63,7 +60,6 @@ public class FacepalmRunner {
 
         getLog().info("Scanning " + root);
 
-        gitIgnoreService.loadAllGitIgnores(root);
         final var findings = engine.scan(root);
         final var stats = engine.getStats();
 

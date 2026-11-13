@@ -42,10 +42,18 @@ import org.apache.maven.plugin.logging.SystemStreamLog;
 @Singleton
 public class ScannerEngine {
 
+    /**
+     * File name of Git ignore rules, loaded while walking the project.
+     */
+    private static final String GITIGNORE = ".gitignore";
+
     private final Log log;
 
     @Inject
     private FacepalmConfig context;
+
+    @Inject
+    private GitIgnoreService gitIgnoreService;
 
     @Inject
     private List<SecretExtractor> extractors;
@@ -125,7 +133,8 @@ public class ScannerEngine {
     }
 
     /**
-     * Collects regular files below the root. Directories listed in {@code skipDirs} are not entered at all, and
+     * Collects regular files below the root and loads every {@code .gitignore} found on the way, in one walk.
+     * Directories listed in {@code skipDirs} are not entered at all, and
      * unreadable files or directories are logged and skipped instead of aborting the scan.
      *
      * <p>
@@ -155,6 +164,11 @@ public class ScannerEngine {
             public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
                 // Follows symbolic links to files, like the previous Files.walk + Files::isRegularFile.
                 if (attrs.isRegularFile() || Files.isRegularFile(file)) {
+                    // Load ignore rules in the same walk (no separate walk for .gitignore files). All rules are
+                    // loaded before any file is evaluated, because evaluation starts after the walk.
+                    if (GITIGNORE.equals(file.getFileName().toString())) {
+                        gitIgnoreService.load(file);
+                    }
                     files.add(file);
                 }
                 return FileVisitResult.CONTINUE;
