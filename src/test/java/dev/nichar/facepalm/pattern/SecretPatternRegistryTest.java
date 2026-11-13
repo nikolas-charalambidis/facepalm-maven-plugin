@@ -165,6 +165,46 @@ class SecretPatternRegistryTest {
         assertTrue(pattern("Generic Password Assignment").matcher("password = encrypt(Xk9mQ2vLp7zR4wq)").find());
     }
 
+    /**
+     * Issue #205: keywords followed by a suffix, as in the most common environment variable names.
+     */
+    @Test
+    void keyword_with_suffix_is_detected() {
+        final var key = "Zq8vLm3NpR7tXw2YkB9cHd4FAb1/Cd2+Ef3=Gh4Ij5Kl";
+        assertEquals(key.substring(0, 40), group("AWS Secret Key", "AWS_SECRET_ACCESS_KEY=" + key));
+        assertEquals(key.substring(0, 40), group("AWS Secret Key", "aws_secret_access_key = " + key));
+        assertEquals("rk_live_Zq8vLm3NpR7tXw2YkB9c",
+            group("Generic API Key Assignment", "STRIPE_SECRET_KEY=rk_live_Zq8vLm3NpR7tXw2YkB9c"));
+        assertEquals("q8Zr4vLm3NpR7tXw2YkB9cHd",
+            group("Generic API Key Assignment", "JWT_SECRET_KEY=q8Zr4vLm3NpR7tXw2YkB9cHd"));
+        assertEquals("SG.Zq8vLm3NpR7tXw2YkB9c",
+            group("Generic API Key Assignment", "SENDGRID_API_KEY_ID=SG.Zq8vLm3NpR7tXw2YkB9c"));
+        assertEquals("django-insecure-q8Zr4vLm3NpR7tXw",
+            group("Generic API Key Assignment", "SECRET_KEY = django-insecure-q8Zr4vLm3NpR7tXw"));
+        assertEquals("Zq8vLm3NpR7tXw2YkB9cHd4F",
+            group("Generic API Key Assignment", "github.token.value=Zq8vLm3NpR7tXw2YkB9cHd4F"));
+        assertEquals("Xk9mQ2vLp7zR4wq", group("Generic Password Assignment", "DB_PASS=Xk9mQ2vLp7zR4wq"));
+        assertEquals("correct-horse-battery", group("Generic Password Assignment",
+            "gpg.passphrase=correct-horse-battery"));
+    }
+
+    @Test
+    void keyword_suffix_describing_metadata_or_other_words_is_not_detected() {
+        for (final var line : List.of(
+            "SECRET_NAME=my-kubernetes-secret-prod",
+            "secret.name.prefix=my-kubernetes-secret",
+            "token.ttl=86400000000000000",
+            "JWT_TOKEN_HEADER=Authorization-Bearer-Token",
+            "api_key_url=https://api.example.com/v1/keys",
+            "secretary=Zq8vLm3NpR7tXw2YkB9cHd4F",
+            "tokenizer=Zq8vLm3NpR7tXw2YkB9cHd4F")) {
+            assertFalse(pattern("Generic API Key Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+        for (final var line : List.of("bypass=Xk9mQ2vLp7zR4wq", "compass: Xk9mQ2vLp7zR4wq")) {
+            assertFalse(pattern("Generic Password Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+    }
+
     private static String group(final String patternName, final String line) {
         final var matcher = pattern(patternName).matcher(line);
         assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
