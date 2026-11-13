@@ -9,9 +9,9 @@ import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.GitIgnoreService;
 import jakarta.annotation.Nonnull;
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Evaluates findings based on their visibility in Git history.
@@ -19,10 +19,17 @@ import lombok.RequiredArgsConstructor;
  */
 @Named
 @Singleton
-@RequiredArgsConstructor
 class PublicExposureEvaluator implements FindingEvaluator {
 
     private final GitIgnoreService gitIgnoreService;
+
+    /**
+     * Requires {@code @Inject}: without it Sisu cannot create this component and silently drops it (issue #194).
+     */
+    @Inject
+    PublicExposureEvaluator(@Nonnull final GitIgnoreService gitIgnoreService) {
+        this.gitIgnoreService = gitIgnoreService;
+    }
 
     @Override
     public void evaluate(@Nonnull final Finding finding, @Nonnull final FileContext context) {
