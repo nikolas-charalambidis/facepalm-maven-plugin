@@ -334,7 +334,9 @@
                 </executions>
             </plugin>
 
-            <!-- Replaces ${revision} with its resolved value in the installed and deployed POM, so consumers never see the placeholder. -->
+            <!-- Generates the installed and deployed POM: ${revision} and all versions resolved, and only what consumers need -->
+            <!-- (coordinates, Maven Central metadata, dependencies with their exclusions); build, reporting, profiles, properties -->
+            <!-- and test dependencies are left out. -->
             <!-- Phase: process-resources - it must run before install/deploy pick up the POM; flatten.clean removes the generated file on clean. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -342,7 +344,13 @@
                 <version>${flatten-maven-plugin.version}</version>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
-                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <flattenMode>ossrh</flattenMode>
+                    <!-- Project metadata that the ossrh mode drops but that is useful on Maven Central. -->
+                    <pomElements>
+                        <inceptionYear>keep</inceptionYear>
+                        <issueManagement>keep</issueManagement>
+                        <ciManagement>keep</ciManagement>
+                    </pomElements>
                 </configuration>
                 <executions>
                     <execution>
