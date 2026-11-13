@@ -28,6 +28,14 @@ public class SecretPatternRegistry {
     private static final String DB_CREDENTIALS = "[^/\\s:@]{1,256}:[^/\\s@]{1,256}";
 
     /**
+     * Up to three separated segments after a keyword, so names such as {@code STRIPE_SECRET_KEY},
+     * {@code AWS_SECRET_ACCESS_KEY} or {@code SENDGRID_API_KEY_ID} match. Segments that describe metadata of a
+     * secret ({@code SECRET_NAME}, {@code token.ttl}) do not.
+     */
+    private static final String KEYWORD_SUFFIX = "(?:[_.-](?!(?:name|path|file|type|url|uri|header|ttl|expiry|expires|"
+        + "timeout|validity|length|prefix|ref|location|enabled)(?![A-Za-z0-9]))[A-Za-z0-9]+){0,3}";
+
+    /**
      * Argument that names a secret instead of containing one: {@code UPPER_SNAKE} with at least one underscore
      * ({@code GITHUB_TOKEN}), a dotted key ({@code spring.datasource.password}) or a camelCase identifier of letters
      * only ({@code userDetails}). Random secrets mix letters and digits and match none of these.
@@ -63,7 +71,8 @@ public class SecretPatternRegistry {
     public static final List<SecretPattern> DEFAULT_PATTERNS = List.of(
         // Cloud & Infrastructure Providers
         new SecretPattern("AWS Access Key", Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"), 70, 95, false),
-        new SecretPattern("AWS Secret Key", Pattern.compile("(?i)aws_(?:secret|access|key).{0,10}[=:]\\s*([^\\s]{40})"),
+        new SecretPattern("AWS Secret Key", Pattern.compile(
+            "(?i)aws_(?:secret|access|key)[\\w.-]{0,30}\\s*[=:]\\s*([^\\s]{40})"),
             85, 80, false),
         new SecretPattern("Google API Key", Pattern.compile("\\bAIza[0-9A-Za-z\\-_]{35}\\b"), 60, 90, false),
         new SecretPattern("Firebase Key", Pattern.compile("AAAA[A-Za-z0-9_\\-]{7}:[A-Za-z0-9_\\-]{140,}"), 75, 95,
@@ -131,11 +140,12 @@ public class SecretPatternRegistry {
         new SecretPattern("JWT Token", Pattern.compile(
             "eyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}"), 30, 40, false),
         new SecretPattern("Generic API Key Assignment", Pattern.compile(
-            "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
+            "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)" + KEYWORD_SUFFIX
+                + "\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
                 + ")([^'\"\\s}]{16,})['\"]?"),
             65, 70, false),
         new SecretPattern("Generic Password Assignment", Pattern.compile(
-            "(?i)(?:password|passwd|pwd)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
+            "(?i)(?:password|passwd|pwd|(?<![a-z])pass(?:phrase)?)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
                 + ")([^'\"\\s}]{8,})['\"]?"),
             50, 40, false));
 }
