@@ -12,7 +12,7 @@ Facepalm provides integrated reporting to help you visualize and track potential
         <plugin>
             <groupId>dev.nichar</groupId>
             <artifactId>facepalm-maven-plugin</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.3</version>
         </plugin>
     </plugins>
 </reporting>
