@@ -176,6 +176,17 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 - On conflict, the commit is pushed with conflict markers and the PR becomes a draft; the PR description lists the commands to resolve it.
 - The maintainer merges the forward PR with **Rebase and merge**.
 
+### Branch protection
+
+`master` and `release/**` are protected by repository rulesets that apply to everyone, including administrators:
+
+- Changes only via pull request, merged with **Squash and merge** or **Rebase and merge**; the `CI / Verify & Build Site` check must pass.
+- Linear history; no force pushes or branch deletions.
+- Approvals are dismissed when new commits are pushed.
+- No approving review is required: the project has a single maintainer, so a required review could never be given. This is a deliberate trade-off (OpenSSF Scorecard's Branch-Protection check cannot reach its maximum).
+
+Release tags `v*` cannot be moved or deleted.
+
 **Contributors never forward-port.** Open your PR against the oldest affected branch; forwarding is the maintainer's job.
 
 The released version exists only as a git tag `vX.Y.Z`. To build a specific version locally, pass it explicitly: `mvn install -Drevision=1.2.3`.
