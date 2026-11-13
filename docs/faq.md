@@ -44,7 +44,19 @@ No. Facepalm currently only scans the **working directory**. It's designed as a 
 
 ## Can I use it outside of Maven?
 
-Not yet. The source contains a command-line entry point (`dev.nichar.facepalm.FacepalmCLI`) used for development, but it is not published as a runnable JAR and its defaults differ from the Maven goal. Use `mvn facepalm:scan`. A supported CLI is tracked in [#84](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/84).
+Use `mvn facepalm:scan`; that is the supported way. For development, the source also contains a command-line entry point (`dev.nichar.facepalm.FacepalmCLI`). It is not published as a runnable JAR, so run it from a checkout with the project's classpath:
+
+```bash
+mvn -q package -DskipTests -DskipITs
+mvn -q dependency:build-classpath -Dmdep.outputFile=cp.txt
+java -cp "target/facepalm-maven-plugin-0.0.0-SNAPSHOT.jar:$(cat cp.txt)" dev.nichar.facepalm.FacepalmCLI [--debug] [--output <dir>] [<directory>]
+```
+
+- `<directory>`: directory to scan (default: the current one).
+- `--output <dir>`: where `facepalm-findings.json` is written (default: `<directory>/target`).
+- `--debug`: log at DEBUG level and list processed and skipped files.
+
+It uses the default configuration of the Maven goal; parameters such as `skipDirs` cannot be changed.
 
 ---
 
