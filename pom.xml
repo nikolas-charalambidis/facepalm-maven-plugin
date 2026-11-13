@@ -72,6 +72,12 @@
         <org.eclipse.sisu.inject.version>0.9.0.M2</org.eclipse.sisu.inject.version>
         <itf.version>0.13.1</itf.version>
         <guice.version>5.1.0</guice.version>
+        <!-- Patched versions of transitive dependencies (see dependencyManagement). -->
+        <commons-beanutils.version>1.11.0</commons-beanutils.version>
+        <commons-io.version>2.22.0</commons-io.version>
+        <commons-lang3.version>3.21.0</commons-lang3.version>
+        <plexus-utils.version>3.6.2</plexus-utils.version>
+        <assertj-core.version>3.27.7</assertj-core.version>
 
         <!-- Plugins. -->
         <!-- Lifecycle plugins otherwise taken from the defaults of the running Maven version (pinned to the versions in use). -->
@@ -99,6 +105,44 @@
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.2.5</maven-surefire-report-plugin.version>
     </properties>
+
+    <!-- Patched versions of vulnerable transitive dependencies (OpenSSF Scorecard / OSV, issue #173). -->
+    <!-- Kept in the published POM (flatten pomElements), so they also apply when Maven resolves the plugin for consumers. -->
+    <!-- Velocity, velocity-tools and dom4j (via doxia-site-renderer) need the Doxia 2 migration (#168). -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- GHSA-6phf-73q6-gh87, GHSA-wxr5-93ph-8wr9; via velocity-tools. -->
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>${commons-beanutils.version}</version>
+            </dependency>
+            <!-- GHSA-78wr-2p64-hpwj, GHSA-gwrp-pvrq-jmwv; via maven-shared-utils. -->
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <!-- GHSA-j288-q9x7-2f5v; via doxia-core. -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <!-- GHSA-6fmv-xxpf-w3cw; via Doxia and the Maven API. -->
+            <dependency>
+                <groupId>org.codehaus.plexus</groupId>
+                <artifactId>plexus-utils</artifactId>
+                <version>${plexus-utils.version}</version>
+            </dependency>
+            <!-- GHSA-rqfh-9r24-8c9r; via itf-assertj (tests only). -->
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj-core.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Provides core Maven interfaces and logging classes. -->
@@ -350,6 +394,8 @@
                         <inceptionYear>keep</inceptionYear>
                         <issueManagement>keep</issueManagement>
                         <ciManagement>keep</ciManagement>
+                        <!-- Applies the patched transitive versions (#173) when consumers resolve the plugin. -->
+                        <dependencyManagement>interpolate</dependencyManagement>
                     </pomElements>
                 </configuration>
                 <executions>
