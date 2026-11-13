@@ -102,12 +102,21 @@
 
     <dependencies>
         <!-- Provides core Maven interfaces and logging classes. -->
+        <!-- Provided: the running Maven supplies its own API; bundling it triggers Maven's plugin validation warning. -->
+        <!-- FacepalmCLI (development only) needs provided dependencies on its classpath when run from the IDE. -->
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
             <version>${maven-plugin-api.version}</version>
-            <!-- Compile scope needed because plugin is also run via PSVM/CLI outside Maven runtime -->
-            <scope>compile</scope>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Provided: replaces the outdated maven-core 3.1.0 (and its settings, model-builder and aether subtree) that -->
+        <!-- maven-reporting-impl pulls in, so no Maven core classes are bundled into the plugin. -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+            <version>${maven-plugin-api.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
