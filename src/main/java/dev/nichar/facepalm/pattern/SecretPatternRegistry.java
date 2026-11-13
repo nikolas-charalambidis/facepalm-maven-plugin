@@ -28,11 +28,31 @@ public class SecretPatternRegistry {
     private static final String DB_CREDENTIALS = "[^/\\s:@]{1,256}:[^/\\s@]{1,256}";
 
     /**
-     * A value that starts like a method call ({@code getSecret(}, {@code env.getProperty(},
-     * {@code System.getenv(}): the code reads a secret instead of containing one. The extractor strips quotes
-     * before matching, so string arguments do not break this up.
+     * Argument that names a secret instead of containing one: {@code UPPER_SNAKE} with at least one underscore
+     * ({@code GITHUB_TOKEN}), a dotted key ({@code spring.datasource.password}) or a camelCase identifier of letters
+     * only ({@code userDetails}). Random secrets mix letters and digits and match none of these.
      */
-    private static final String METHOD_CALL = "[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*\\(";
+    private static final String NAME_ARGUMENT = "(?:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+|[a-z]+(?:[A-Z][a-z]+)*)";
+
+    /**
+     * Method or function name, optionally qualified ({@code getenv}, {@code env.getProperty}, {@code $svc.issue}).
+     */
+    private static final String CALLEE = "[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*";
+
+    /**
+     * Call whose arguments are only names: {@code getSecret()}, {@code env.getProperty(STRIPE_WEBHOOK_SECRET)},
+     * {@code jwt.generateToken(userDetails)}, with one level of nesting
+     * ({@code Objects.requireNonNull(System.getenv(GITHUB_TOKEN))}). Such code reads a secret instead of containing
+     * one. A call with a literal secret argument ({@code wrap("Zq8vLm3N...")}) is not matched and stays detected. The
+     * extractor strips quotes before matching, so quoted names look like the forms above.
+     */
+    private static final String METHOD_CALL;
+
+    static {
+        final var names = "(?:" + NAME_ARGUMENT + "(?:\\s*,\\s*" + NAME_ARGUMENT + ")*)?";
+        final var argument = "(?:" + CALLEE + "\\(\\s*" + names + "\\s*\\)|" + NAME_ARGUMENT + ")";
+        METHOD_CALL = CALLEE + "\\(\\s*(?:" + argument + "(?:\\s*,\\s*" + argument + ")*)?\\s*\\)";
+    }
 
     /**
      * Immutable list of default patterns used by the scanner.

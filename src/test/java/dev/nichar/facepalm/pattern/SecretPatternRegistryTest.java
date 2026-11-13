@@ -128,6 +128,7 @@ class SecretPatternRegistryTest {
             "String accessToken = jwtService.generateToken(userDetails);",
             "String apiKey = System.getenv(OPENAI_API_KEY);",
             "String clientSecret = properties.getClientSecret();",
+            "String token = tokens.issue(userDetails, ACCESS_TOKEN_TTL);",
             "val token = $tokenProvider.issueToken(user)")) {
             assertFalse(pattern("Generic API Key Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
         }
@@ -147,6 +148,21 @@ class SecretPatternRegistryTest {
             "token=aGVsbG8+d29ybGQ/Zm9vYmFyMTI="));
         assertEquals("P@ss(word)1", group("Generic Password Assignment", "password=P@ss(word)1"));
         assertEquals("hunter2hunter2", group("Generic Password Assignment", "db.password=hunter2hunter2"));
+    }
+
+    /**
+     * A call with a literal secret argument still contains the secret, unlike a call that only names it (#204).
+     */
+    @Test
+    void generic_patterns_detect_calls_with_literal_secret_arguments() {
+        for (final var line : List.of(
+            "String token = env.setVariable(Zq8vLm3NpR7tXw2YkB9cHd4F);",
+            "String token = wrap(Zq8vLm3NpR7tXw2YkB9cHd4F);",
+            "String apiKey = Objects.requireNonNull(decode(Zq8vLm3NpR7tXw2YkB9cHd4F));",
+            "String secret = totp(JBSWY3DPEHPK3PXP);")) {
+            assertTrue(pattern("Generic API Key Assignment").matcher(line).find(), () -> "Not detected: " + line);
+        }
+        assertTrue(pattern("Generic Password Assignment").matcher("password = encrypt(Xk9mQ2vLp7zR4wq)").find());
     }
 
     private static String group(final String patternName, final String line) {
