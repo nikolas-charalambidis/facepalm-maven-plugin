@@ -11,7 +11,11 @@ import dev.nichar.facepalm.config.EngineConfig;
 import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
 import dev.nichar.facepalm.engine.extractor.SecretExtractor;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -201,6 +205,78 @@ class ScannerEngineTest {
             Assertions.assertEquals(0L, scanner.getStats().getFilesScanned().sum());
         } finally {
             Locale.setDefault(original);
+        }
+    }
+
+    /**
+     * Issue #219: a single NUL byte made a text file binary, so its secrets were skipped silently while the file was
+     * counted as scanned.
+     */
+    @Test
+    void scan_detects_secret_in_text_file_with_nul_byte(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Files.write(root.resolve("nul.properties"),
+            ("github.token=ghp_" + "Ab".repeat(18) + "\n\0\n").getBytes(StandardCharsets.UTF_8));
+
+        final ScannerEngine scanner = TestContainer.create(new FacepalmConfig()).getInstance(ScannerEngine.class);
+        final List<Finding> findings = scanner.scan(root);
+
+        Assertions.assertFalse(findings.isEmpty());
+        Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
+    }
+
+    /**
+     * Issue #219: content skipped as binary counts as excluded, not as scanned.
+     */
+    @Test
+    void scan_counts_binary_content_as_excluded(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        final var binary = new byte[1024];
+        for (int i = 0; i < binary.length; i++) {
+            binary[i] = (byte) (i % 7 == 0 ? 'x' : i % 32);
+        }
+        Files.write(root.resolve("blob.dat"), binary);
+
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        scanner.scan(root);
+
+        Assertions.assertEquals(0L, scanner.getStats().getFilesScanned().sum());
+        Assertions.assertEquals(1L, excluded(scanner, ExclusionReason.BINARY_FILE));
+    }
+
+    /**
+     * Issue #219: a mistyped root scanned nothing and passed the build.
+     */
+    @Test
+    void scan_fails_when_root_is_missing(@TempDir final Path tempDir) throws Exception {
+        final ScannerEngine scanner = scannerWithMinimalContext();
+
+        final var e = Assertions.assertThrows(NoSuchFileException.class, () -> scanner.scan(tempDir.resolve("srcc")));
+        Assertions.assertTrue(e.getMessage().contains("Scan root does not exist"), e.getMessage());
+    }
+
+    @Test
+    void scan_fails_when_root_is_a_file(@TempDir final Path tempDir) throws Exception {
+        final Path file = Files.writeString(tempDir.resolve("pom.xml"), "<project/>");
+        final ScannerEngine scanner = scannerWithMinimalContext();
+
+        Assertions.assertThrows(NotDirectoryException.class, () -> scanner.scan(file));
+    }
+
+    @Test
+    void scan_fails_when_root_is_unreadable(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Assumptions.assumeTrue(root.toFile().setReadable(false, false), "Cannot change permissions");
+        try {
+            Assumptions.assumeFalse(Files.isReadable(root), "Running with privileges that ignore permissions");
+            final ScannerEngine scanner = scannerWithMinimalContext();
+
+            Assertions.assertThrows(AccessDeniedException.class, () -> scanner.scan(root));
+        } finally {
+            root.toFile().setReadable(true, false);
         }
     }
 
