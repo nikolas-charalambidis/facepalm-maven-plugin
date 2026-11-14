@@ -42,6 +42,8 @@ class ScannerEngineTest {
         scanner.scan(root);
 
         Assertions.assertEquals(2L, scanner.getStats().getFilesScanned().sum());
+        // Issue #244: the scanned bytes feed the throughput.
+        Assertions.assertEquals(18L + 25L, scanner.getStats().getBytesScanned().sum());
     }
 
     @Test

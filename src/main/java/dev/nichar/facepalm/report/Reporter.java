@@ -295,6 +295,7 @@ public class Reporter {
             scanResult = "SUCCESS";
         }
 
+        log.info(ScanStatisticsReport.from(stats).toLogLine());
         log.info("SCAN RESULT : " + scanResult);
         log.info(SEPARATOR);
         log.info(statusMessage);

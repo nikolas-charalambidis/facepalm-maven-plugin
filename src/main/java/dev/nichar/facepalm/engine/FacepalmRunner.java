@@ -10,6 +10,7 @@ import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.config.ScoringConfig;
 import dev.nichar.facepalm.report.FindingReport;
 import dev.nichar.facepalm.report.Reporter;
+import dev.nichar.facepalm.report.ScanStatisticsReport;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.File;
@@ -68,6 +69,9 @@ public class FacepalmRunner {
         // Persist findings for downstream report generation.
         final var resultsFile = new File(outputDir.toFile(), "facepalm-findings.json");
         saveFindingsToJson(findings, resultsFile);
+        // A separate file: facepalm-findings.json is a JSON array that consumers read as a list of findings.
+        new ObjectMapper().writerWithDefaultPrettyPrinter()
+            .writeValue(new File(outputDir.toFile(), ScanStatisticsReport.FILE_NAME), ScanStatisticsReport.from(stats));
 
         // Enforce build failure policies based on finding severity.
         final var scoring = context.getScoring();
