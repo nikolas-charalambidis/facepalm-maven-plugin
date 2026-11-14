@@ -39,13 +39,21 @@ public class SecretPatternRegistry {
      * Argument that names a secret instead of containing one: {@code UPPER_SNAKE} with at least one underscore
      * ({@code GITHUB_TOKEN}), a dotted key ({@code spring.datasource.password}) or a camelCase identifier of letters
      * only ({@code userDetails}). Random secrets mix letters and digits and match none of these.
+     * <p>
+     * Repeated groups here and in {@link #CALLEE} and {@link #METHOD_CALL} are bounded to 16 repetitions: Java's regex
+     * engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line such as
+     * {@code token=f(A_B, C_D, ...)} with thousands of arguments, and the whole file is dropped (#243). The runs and
+     * groups are possessive: a name is always followed by a delimiter ({@code ,}, {@code )}, {@code (} or whitespace),
+     * so giving characters back never helps, and the patterns using it are case-insensitive, which turns the camelCase
+     * part into "letters split into up to 17 runs" and backtracks exponentially without possessive quantifiers.
      */
-    private static final String NAME_ARGUMENT = "(?:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+|[a-z]+(?:[A-Z][a-z]+)*)";
+    private static final String NAME_ARGUMENT = "(?:[A-Z][A-Z0-9]*+(?:_[A-Z0-9]++){1,16}+|[a-z][a-z0-9-]*+(?:\\.[a-z][a-z0-9-]*+){1,16}+|[a-z]++(?:[A-Z][a-z]++){0,16}+)";
 
     /**
      * Method or function name, optionally qualified ({@code getenv}, {@code env.getProperty}, {@code $svc.issue}).
+     * Possessive for the same reason as {@link #NAME_ARGUMENT}: it is always followed by {@code (}.
      */
-    private static final String CALLEE = "[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*";
+    private static final String CALLEE = "[A-Za-z_$][\\w$]*+(?:\\.[A-Za-z_$][\\w$]*+){0,16}+";
 
     /**
      * Call whose arguments are only names: {@code getSecret()}, {@code env.getProperty(STRIPE_WEBHOOK_SECRET)},
@@ -57,9 +65,9 @@ public class SecretPatternRegistry {
     private static final String METHOD_CALL;
 
     static {
-        final var names = "(?:" + NAME_ARGUMENT + "(?:\\s*,\\s*" + NAME_ARGUMENT + ")*)?";
+        final var names = "(?:" + NAME_ARGUMENT + "(?:\\s*,\\s*" + NAME_ARGUMENT + "){0,16})?";
         final var argument = "(?:" + CALLEE + "\\(\\s*" + names + "\\s*\\)|" + NAME_ARGUMENT + ")";
-        METHOD_CALL = CALLEE + "\\(\\s*(?:" + argument + "(?:\\s*,\\s*" + argument + ")*)?\\s*\\)";
+        METHOD_CALL = CALLEE + "\\(\\s*(?:" + argument + "(?:\\s*,\\s*" + argument + "){0,16})?\\s*\\)";
     }
 
     /**
@@ -130,16 +138,22 @@ public class SecretPatternRegistry {
 
         // Cryptographic Keys
         // Any PEM/PGP private key label (PKCS#8, ENCRYPTED, RSA, EC, DSA, OPENSSH, PGP ... BLOCK); END must match
-        // BEGIN.
+        // BEGIN. The body runs to the next "-----", which must start the END line: a lazy ".*?" made every BEGIN
+        // without a matching END scan to the end of the file, quadratic in the number of such headers (#243). Single
+        // dashes in the body (legacy "Proc-Type"/"DEK-Info" headers) are allowed; the group is bounded and its runs
+        // possessive, so it neither backtracks nor overflows the stack.
         new SecretPattern("Private Key Block", Pattern.compile(
-            "(?s)-----BEGIN ((?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?)-----.*?-----END \\1-----"),
+            "-----BEGIN ((?:[A-Z0-9]+ ){0,4}PRIVATE KEY(?: BLOCK)?)-----(?:[^-]++|-(?!----)){0,64}+-----END \\1-----"),
             100, 100, true),
 
         // Generic & Fallback Patterns
         new SecretPattern("Basic Auth Header", Pattern.compile(
             "(?i)Authorization:\\s*Basic\\s+(?!\\{\\{|\\$\\{)([A-Za-z0-9+/=]{20,})"), 60, 75, false),
+        // A token starts where a base64url run starts: otherwise every "eyJ" inside a long run without a dot scans to
+        // the end of the run, which is quadratic (#243).
         new SecretPattern("JWT Token", Pattern.compile(
-            "eyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}"), 30, 40, false),
+            "(?<![A-Za-z0-9_\\-])eyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}"), 30, 40,
+            false),
         new SecretPattern("Generic API Key Assignment", Pattern.compile(
             "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)" + KEYWORD_SUFFIX
                 + "\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
