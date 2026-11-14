@@ -86,7 +86,19 @@ public class ScannerEngine {
     @Nonnull
     public List<Finding> scan(@Nonnull final Path root) throws InterruptedException, IOException {
         requireReadableDirectory(root);
+        stats.markStarted();
+        try {
+            return scanRoot(root);
+        } finally {
+            stats.markFinished();
+        }
+    }
 
+    /**
+     * Discovers the files below the root and scans those that qualify.
+     */
+    @Nonnull
+    private List<Finding> scanRoot(@Nonnull final Path root) throws InterruptedException, IOException {
         // Capture configuration on the main thread for thread safety.
         final var currentConfig = context;
         final var engineConfig = currentConfig.getEngine();
@@ -270,7 +282,8 @@ public class ScannerEngine {
         }
         try {
             // Load file into memory. Protected by size limits in shouldScan().
-            final var content = TextDecoder.decode(Files.readAllBytes(path));
+            final var bytes = Files.readAllBytes(path);
+            final var content = TextDecoder.decode(bytes);
             if (content == null) {
                 if (engineConfig.isShowSkipped()) {
                     log.debug("Skipping " + path + " - binary content");
@@ -301,7 +314,7 @@ public class ScannerEngine {
             }
 
             // Counted only now: binary content, read errors and analysis failures are exclusions, not scans (#219).
-            stats.recordScan(path);
+            stats.recordScan(path, bytes.length);
             return fileFindings;
         } catch (RuntimeException e) {
             // A failing extractor, evaluator or post-processor must not silently drop the file: report it.
