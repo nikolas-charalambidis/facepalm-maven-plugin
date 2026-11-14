@@ -32,7 +32,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 Before opening an issue, please:
 
-1. Search existing issues — many false positives are already known and tracked in `docs/faq.md`.
+1. Search existing issues — many false positives are already reported there. Ways to handle false positives are in [docs/faq.md](docs/faq.md#how-do-i-handle-false-positives).
 2. Reproduce against the latest published version.
 3. Open the issue with the matching [template](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) (bug report, missed or wrong detection, feature request) and include:
    - Plugin version and Maven version (`mvn -v`).
@@ -83,7 +83,7 @@ The first build runs unit tests, integration tests (which spawn real Maven proce
 |------|---------|
 | Full build (tests + quality gates) | `mvn clean verify` |
 | Unit tests only | `mvn test` |
-| Integration tests only | `mvn verify -DskipUnitTests` (or `mvn failsafe:integration-test failsafe:verify`) |
+| Integration tests only | `mvn verify -Dtest=None -Dsurefire.failIfNoSpecifiedTests=false` |
 | Apply formatting | `mvn spotless:apply` |
 | Check formatting | `mvn spotless:check` |
 | Run the plugin against this repo | `mvn facepalm:scan` |

@@ -41,7 +41,7 @@ Refine how Facepalm evaluates risk and legitimacy.
 | `interpolationPatternRegex` | `.*(?:\$\{[^}]+}\|\{\{[^}]+}}).*\|%[A-Za-z_][A-Za-z0-9_]*%\|<[A-Za-z_][A-Za-z0-9_ .-]*>\|\[[A-Za-z_][A-Za-z0-9_ .-]*]` | Regex to detect placeholders. `${VAR}` and `{{ var }}` may appear anywhere in the value; `%VAR%`, `<your-key>` and `[your-key]` must be the whole value, so URL-encoded passwords are not suppressed. |
 | `highRiskExtensions` | `.env, .properties, .yml, .yaml, .conf, .ini`   | Extensions that increase the risk score. |
 | `lowRiskExtensions` | `.md, .txt, .csv, .log, .example, .sample`      | Extensions that decrease the risk score. |
-| `dummyKeywords` | `dummy, your_api_key, insert_here, ...`         | Keywords indicating fake data. |
+| `dummyKeywords` | `dummy, your_api_key, insert_here, placeholder, place_holder, replace_me, changeme, change_me` | Keywords indicating fake data. A value containing one loses 80 confidence points; its risk stays, so it is not ignored (see the [FAQ](faq.md#how-do-i-handle-false-positives)). A configured list replaces the defaults. |
 | `prodPathMarkers` | `src/main/, .env, config`                       | Path markers indicating production environments. Matched against the path relative to the scanned project (see below). |
 | `testPathMarkers` | `test, mock, spec`                              | Path markers indicating test environments. Matched against the path relative to the scanned project (see below). |
 | `prodContextMarkers` | `prod, live`                                    | Surrounding code keywords indicating production use. |
@@ -72,10 +72,19 @@ Noise reduction settings.
     <configuration>
         <errorThreshold>85</errorThreshold>
         <failOnWarnings>true</failOnWarnings>
-        <!-- Replaces the defaults, so the default directories are repeated. -->
-        <skipDirs>.git,.idea,target,node_modules,dist,build,out,bin,logs</skipDirs>
+        <!-- Replaces the defaults, so all default directories are repeated before the added bin and logs. -->
+        <skipDirs>.git,.svn,.hg,.idea,.vscode,.mvn,.gradle,target,node_modules,dist,build,out,.next,bin,logs</skipDirs>
         <evaluators>
+            <!-- Replaces the default keywords, so the defaults are repeated before the added test_key and fake_secret. -->
             <dummyKeywords>
+                <keyword>dummy</keyword>
+                <keyword>your_api_key</keyword>
+                <keyword>insert_here</keyword>
+                <keyword>placeholder</keyword>
+                <keyword>place_holder</keyword>
+                <keyword>replace_me</keyword>
+                <keyword>changeme</keyword>
+                <keyword>change_me</keyword>
                 <keyword>test_key</keyword>
                 <keyword>fake_secret</keyword>
             </dummyKeywords>

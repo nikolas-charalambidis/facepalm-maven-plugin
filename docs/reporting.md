@@ -4,7 +4,30 @@ Facepalm provides integrated reporting to help you visualize and track potential
 
 ## How to Generate Reports
 
-### 1. Add the Report Plugin
+### 1. Add the Scan Plugin to the Build
+
+The report shows the results of the `scan` goal, so the plugin must also be in `<build>` with the `scan` execution, as in the [recommended setup](../README.md#recommended-setup-important). Without it, `mvn verify` never scans and the report always says that no scan data is available. Also, `mvn facepalm:scan` and `mvn facepalm:report` fail with "No plugin found for prefix 'facepalm'".
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>dev.nichar</groupId>
+            <artifactId>facepalm-maven-plugin</artifactId>
+            <version>1.0.2</version>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>scan</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
+```
+
+### 2. Add the Report Plugin
 
 ```xml
 <reporting>
@@ -18,7 +41,7 @@ Facepalm provides integrated reporting to help you visualize and track potential
 </reporting>
 ```
 
-### 2. Run the Site Goal
+### 3. Run the Site Goal
 
 To generate the reports, run:
 
