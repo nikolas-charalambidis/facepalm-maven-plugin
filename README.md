@@ -1,9 +1,11 @@
 # 🤦‍♂️ Facepalm Maven Plugin
 
-[![Maven Central](https://img.shields.io/maven-central/v/dev.nichar/facepalm-maven-plugin)](https://central.sonatype.com/artifact/dev.nichar/facepalm-maven-plugin)
 [![CI](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/actions/workflows/build.yaml/badge.svg?branch=master)](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/actions/workflows/build.yaml)
-[![License](https://img.shields.io/github/license/nikolas-charalambidis/facepalm-maven-plugin)](LICENSE)
+[![Coverage](https://www.nikolas-charalambidis.com/facepalm-maven-plugin/badges/jacoco.svg)](https://www.nikolas-charalambidis.com/facepalm-maven-plugin/jacoco/index.html)
+[![Maven Central](https://img.shields.io/maven-central/v/dev.nichar/facepalm-maven-plugin)](https://central.sonatype.com/artifact/dev.nichar/facepalm-maven-plugin)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://openjdk.org/projects/jdk/17/)
+[![License](https://img.shields.io/github/license/nikolas-charalambidis/facepalm-maven-plugin)](LICENSE)
+
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/nikolas-charalambidis/facepalm-maven-plugin/badge)](https://scorecard.dev/viewer/?uri=github.com/nikolas-charalambidis/facepalm-maven-plugin)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16636/badge)](https://www.bestpractices.dev/projects/16636)
 
