@@ -35,6 +35,16 @@ jobs:
       - name: Build, Verify, & Generate Site
         run: mvn -B clean verify site
 
+      # Coverage badges (jacoco.svg, branches.svg) from the JaCoCo CSV of the site, published with the site under badges/.
+      # Self-hosted: no third-party coverage service, no secret, no commit from CI.
+      - name: Generate Coverage Badge
+        if: github.ref == 'refs/heads/master' && success()
+        uses: cicirello/jacoco-badge-generator@72266185b7ee48a6fd74eaf0238395cc8b14fef8 # v2.12.1
+        with:
+          jacoco-csv-file: target/site/jacoco/jacoco.csv
+          badges-directory: target/site/badges
+          generate-branches-badge: true
+
       # We don't need to manually upload raw XMLs anymore since Maven Site built the HTML locally in the step above.
       # Upload the final HTML pages artifact immediately.
       - name: Upload Pages Artifact
