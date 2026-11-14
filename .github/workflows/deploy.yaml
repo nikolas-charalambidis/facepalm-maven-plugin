@@ -51,12 +51,13 @@ jobs:
           fetch-depth: 0 # Fetches all history and tags so git describe works
           persist-credentials: false # The token is passed to the tag push only, not stored in .git/config.
 
+      # No Maven cache: the release job must not restore a ~/.m2 shared with pull request builds before it imports
+      # the signing key and uploads to Central. Resolving the dependencies afresh costs about a minute per release.
       - name: Setup Java 17
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'maven'
 
       - name: Configure Git Bot User
         run: |
@@ -131,11 +132,15 @@ jobs:
       # The release profile also builds the sources and javadoc jars here (signing skipped).
       # No site:site here: it ran after the upload, so a site failure left a published but untagged version.
       # The site is built and published by build.yaml.
+      # Step outputs reach the shell through env, never through ${{ }} inside run (no script injection).
       - name: Build and Verify
+        env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+          TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
         run: >-
           mvn -B -P release clean verify -Dgpg.skip
-          -Drevision=${{ steps.release_version.outputs.version }}
-          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+          -Drevision="$VERSION"
+          -Dproject.build.outputTimestamp="$TIMESTAMP"
 
       # Writes <server id="central"> into settings.xml (credentials read from the env vars below at build time)
       # and imports the GPG signing key into the runner's keyring, only after the tests have run.
@@ -155,9 +160,11 @@ jobs:
         if: steps.release_version.outputs.resume == 'false'
         run: >-
           mvn -B -P release,central deploy -DskipTests
-          -Drevision=${{ steps.release_version.outputs.version }}
-          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+          -Drevision="$VERSION"
+          -Dproject.build.outputTimestamp="$TIMESTAMP"
         env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+          TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
           CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -179,19 +186,25 @@ jobs:
         if: steps.release_version.outputs.resume == 'true'
         run: >-
           mvn -B -P release verify -DskipTests
-          -Drevision=${{ steps.release_version.outputs.version }}
-          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+          -Drevision="$VERSION"
+          -Dproject.build.outputTimestamp="$TIMESTAMP"
         env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+          TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # SLSA build provenance for the released jars: records which workflow, commit and runner built them.
+      # SLSA build provenance for the released jars and POM: records which workflow, commit and runner built them.
+      # The POM is target/<artifact>-<version>.pom: the gpg plugin copies the published (flattened) POM there and
+      # signs that copy, so it is exactly the file next to its .asc.
       # Stored as a GitHub attestation and attached to the GitHub Release (*.intoto.jsonl).
       # Verify with: gh attestation verify <jar> --repo nikolas-charalambidis/facepalm-maven-plugin
       - name: Attest Build Provenance
         id: provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}*.jar
+          subject-path: |
+            target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}*.jar
+            target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}.pom
 
       # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
@@ -217,10 +230,12 @@ jobs:
           if [ "$LAST_TAG" != "v0.0.0" ]; then START=(--notes-start-tag "$LAST_TAG"); fi
           # Byte-for-byte reproduction needs the same JDK patch version (javadoc bundles JDK-specific resources).
           JDK=$(java -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vendor.version/ {v=$2} /java.runtime.version/ {r=$2} END {print (v != "" ? v : r)}')
-          gh release create "v$VERSION" --verify-tag --title "$VERSION" --generate-notes "${START[@]}" --latest="$LATEST" \
+          # --target records the released branch; without it, GitHub shows the default branch (master) as the target.
+          gh release create "v$VERSION" --verify-tag --target "$GITHUB_REF_NAME" --title "$VERSION" --generate-notes \
+            "${START[@]}" --latest="$LATEST" \
             --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
-            target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION"*.asc \
-            target/facepalm-maven-plugin-"$VERSION".intoto.jsonl
+            target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION".pom \
+            target/facepalm-maven-plugin-"$VERSION"*.asc target/facepalm-maven-plugin-"$VERSION".intoto.jsonl
 
       # Step 6: Propose the new version in the documentation (README and docs/*.md install snippets).
       # Only for the highest version, so a patch on an older line (e.g. 1.0.3 after 1.1.0) leaves master alone.
