@@ -52,7 +52,7 @@ class RegexSecretExtractorTest {
             assertThat(finding.getPatternName()).isEqualTo("Generic Password Assignment");
             assertThat(finding.getSecretValue()).isEqualTo("Sup3rS3cretValue1");
             assertThat(finding.getLineNumber()).isEqualTo(2);
-            assertThat(finding.getContextSnippet()).isEqualTo("db.password=\"Sup3rS3cretValue1\"");
+            assertThat(finding.getContextSnippet()).isEqualTo("db.password=\"Su...e1\"");
         });
     }
 

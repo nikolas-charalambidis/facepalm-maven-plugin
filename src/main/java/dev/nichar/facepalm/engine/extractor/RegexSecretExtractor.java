@@ -44,8 +44,11 @@ public class RegexSecretExtractor implements SecretExtractor {
         // Single-Line Scanning.
         for (int i = 0; i < context.getLines().size(); i++) {
             final var rawLine = context.getLines().get(i);
-            final var normalizedLine = rawLine.replace("\"", "").replace("'", "");
+            final var normalizedLine = SnippetMasker.normalize(rawLine);
 
+            // Collect every capture of the line first, so the snippet masks all of them, including values whose
+            // finding is dropped as a duplicate (#218).
+            final List<Capture> captures = new ArrayList<>();
             for (final var sp : activePatterns) {
                 if (sp.isMultiLine()) {
                     // Skip multi-line patterns to avoid redundant processing here.
@@ -53,11 +56,25 @@ public class RegexSecretExtractor implements SecretExtractor {
                 }
                 final var m = sp.getPattern().matcher(normalizedLine);
                 while (m.find()) {
-                    final var secretValue = secretValue(m);
-                    if (!secretValue.isEmpty()) {
-                        registerFinding(findings, localDedup, context, sp, secretValue, i + 1, rawLine);
+                    final var group = m.groupCount() >= 1 && m.group(1) != null ? 1 : 0;
+                    final var value = trimTrailingDelimiters(m.group(group));
+                    if (!value.isEmpty()) {
+                        captures.add(new Capture(sp, value, m.start(group), m.start(group) + value.length()));
                     }
                 }
+            }
+            if (captures.isEmpty()) {
+                continue;
+            }
+
+            final var rawIndexes = SnippetMasker.rawIndexes(rawLine);
+            final List<int[]> spans = captures.stream()
+                .map(capture -> new int[] {
+                    rawIndexes[capture.start()], rawIndexes[capture.end() - 1] + 1 })
+                .toList();
+            final var snippet = SnippetMasker.mask(rawLine, spans);
+            for (final var capture : captures) {
+                registerFinding(findings, localDedup, context, capture.pattern(), capture.value(), i + 1, snippet);
             }
         }
 
@@ -95,7 +112,45 @@ public class RegexSecretExtractor implements SecretExtractor {
     }
 
     /**
+     * Removes the code around a value that a broad capture such as {@code [^'"\s}]{8,}} takes along: trailing
+     * {@code ;} and {@code ,} ({@code password = "..." ;}, JSON {@code "password": "...",}) and closing parentheses
+     * without a matching opening one ({@code connect(password=...)}).
+     */
+    @Nonnull
+    static String trimTrailingDelimiters(@Nonnull final String value) {
+        var end = value.length();
+        var unmatchedClosing = 0;
+        for (int i = 0; i < end; i++) {
+            if (value.charAt(i) == '(') {
+                unmatchedClosing--;
+            } else if (value.charAt(i) == ')') {
+                unmatchedClosing++;
+            }
+        }
+        while (end > 0) {
+            final var last = value.charAt(end - 1);
+            if (last == ';' || last == ',') {
+                end--;
+            } else if (last == ')' && unmatchedClosing > 0) {
+                unmatchedClosing--;
+                end--;
+            } else {
+                break;
+            }
+        }
+        return value.substring(0, end);
+    }
+
+    /**
+     * Value captured by a single-line pattern and its span on the normalized line.
+     */
+    private record Capture(SecretPattern pattern, String value, int start, int end) {
+    }
+
+    /**
      * Initializes and registers a discovery finding if it passes local deduplication.
+     *
+     * @param snippet The source line with every secret on it masked, or a placeholder for multi-line blocks.
      */
     private void registerFinding(@Nonnull final List<Finding> findings,
                                  @Nonnull final Set<String> dedup,
