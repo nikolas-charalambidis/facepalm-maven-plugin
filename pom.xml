@@ -34,7 +34,9 @@
     <scm>
         <connection>scm:git:https://github.com/nikolas-charalambidis/facepalm-maven-plugin.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/nikolas-charalambidis/facepalm-maven-plugin.git</developerConnection>
-        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/tree/master</url>
+        <!-- The release tag, so the published POM links to the released sources, not to the moving master. -->
+        <url>https://github.com/nikolas-charalambidis/facepalm-maven-plugin/tree/v${project.version}</url>
+        <tag>v${project.version}</tag>
     </scm>
 
     <issueManagement>
@@ -135,12 +137,6 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>${plexus-utils.version}</version>
-            </dependency>
-            <!-- GHSA-rqfh-9r24-8c9r; via itf-assertj (tests only). -->
-            <dependency>
-                <groupId>org.assertj</groupId>
-                <artifactId>assertj-core</artifactId>
-                <version>${assertj-core.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -286,10 +282,12 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Fluent assertions for unit tests (version managed above). -->
+        <!-- Fluent assertions for unit tests. As the nearest declaration, its version also replaces the one itf-assertj -->
+        <!-- brings in (GHSA-rqfh-9r24-8c9r), without a dependencyManagement entry that flatten would publish to consumers. -->
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <version>${assertj-core.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -786,7 +784,8 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <!-- First release: stop at "validated" and publish manually in the Portal. Switch to true afterwards. -->
+                            <!-- Deliberately manual: the upload stops at "validated" and is published in the Portal after a check. -->
+                            <!-- The release process relies on this: the docs version PR is merged only after publishing. -->
                             <autoPublish>false</autoPublish>
                         </configuration>
                     </plugin>
