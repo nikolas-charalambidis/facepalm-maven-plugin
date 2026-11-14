@@ -4,6 +4,13 @@ name: Release & Deploy
 # It is derived from the latest vX.Y.Z tag reachable from the selected branch, bumped by the chosen type,
 # passed to Maven as -Drevision, and recorded only as a git tag. No commits are pushed back.
 # Run it from the branch you want to release (master or release/X.Y.x) via the "Use workflow from" selector.
+#
+# Recovery: the tag is pushed right after the upload to Maven Central. If a later step fails (provenance, GitHub
+# Release, docs PR), use "Re-run jobs" on the failed run, or run the workflow again on the same branch while its head
+# is still the released commit. The run sees that the commit is already tagged vX.Y.Z and resumes that release: it
+# ignores the bump type, uploads nothing to Central, pushes no tag, rebuilds and signs the same reproducible jars, and
+# runs only the remaining steps. An existing GitHub Release is kept. A failure before the tag push uploaded nothing
+# or left an unpublished deployment: drop it in the Central Portal, then re-run.
 
 on:
   workflow_dispatch:
@@ -76,14 +83,25 @@ jobs:
             exit 1
           fi
 
-          LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "v0.0.0")
-          IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
+          # Resume: if the checked-out commit is already tagged, a previous run published it and failed after the tag
+          # push. Deriving the version from that tag would bump again and upload a second Central deployment (#221).
+          HEAD_TAG=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          if [[ -n "$HEAD_TAG" ]]; then
+            RESUME=true
+            VERSION="${HEAD_TAG#v}"
+            LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 'HEAD^' 2>/dev/null || echo "v0.0.0")
+            echo "::notice::HEAD is already tagged $HEAD_TAG: resuming the release of $VERSION. The bump type is ignored and nothing is uploaded again."
+          else
+            RESUME=false
+            LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "v0.0.0")
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
 
-          case "$BUMP" in
-            major) VERSION="$((MAJOR + 1)).0.0" ;;
-            minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
-            *)     VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
-          esac
+            case "$BUMP" in
+              major) VERSION="$((MAJOR + 1)).0.0" ;;
+              minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+              *)     VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+            esac
+          fi
 
           # A release/X.Y.x branch may only publish X.Y.* versions.
           if [[ "$BRANCH" =~ ^release/([0-9]+)\.([0-9]+)\.x$ ]]; then
@@ -94,8 +112,9 @@ jobs:
             fi
           fi
 
-          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "::error::Tag v$VERSION already exists."
+          # On another commit, an existing tag means the version is taken (v* tags are immutable).
+          if [[ "$RESUME" == "false" ]] && git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists on another commit."
             exit 1
           fi
 
@@ -105,7 +124,8 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
-          echo "Last tag: $LAST_TAG, release version: $VERSION, output timestamp: $TIMESTAMP"
+          echo "resume=$RESUME" >> $GITHUB_OUTPUT
+          echo "Last tag: $LAST_TAG, release version: $VERSION, output timestamp: $TIMESTAMP, resume: $RESUME"
 
       # Step 2: Build and run all tests and quality gates without any secrets in the environment.
       # The release profile also builds the sources and javadoc jars here (signing skipped).
@@ -132,6 +152,7 @@ jobs:
 
       # Step 3: Sign and upload to the Maven Central Portal (primary). Tests already passed in step 2.
       - name: Sign and Publish to Maven Central
+        if: steps.release_version.outputs.resume == 'false'
         run: >-
           mvn -B -P release,central deploy -DskipTests
           -Drevision=${{ steps.release_version.outputs.version }}
@@ -141,7 +162,28 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 4: Tag the released commit and push only the tag (token passed to this command only)
+      # Step 4: Tag the released commit and push only the tag (token passed to this command only).
+      # Right after the upload, so every later failure leaves the tag that lets a re-run resume this release.
+      - name: Tag and Push Release
+        if: steps.release_version.outputs.resume == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+        run: |
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
+
+      # Resume only: sign the rebuilt jars for the GitHub Release without uploading them again. The build is
+      # reproducible (same commit and outputTimestamp), so the jars match the ones published to Central.
+      - name: Sign Release Artifacts (resume)
+        if: steps.release_version.outputs.resume == 'true'
+        run: >-
+          mvn -B -P release verify -DskipTests
+          -Drevision=${{ steps.release_version.outputs.version }}
+          -Dproject.build.outputTimestamp=${{ steps.release_version.outputs.timestamp }}
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
       # SLSA build provenance for the released jars: records which workflow, commit and runner built them.
       # Stored as a GitHub attestation and attached to the GitHub Release (*.intoto.jsonl).
       # Verify with: gh attestation verify <jar> --repo nikolas-charalambidis/facepalm-maven-plugin
@@ -150,14 +192,6 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}*.jar
-
-      - name: Tag and Push Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.release_version.outputs.version }}
-        run: |
-          git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
 
       # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
@@ -174,6 +208,11 @@ jobs:
           HIGHEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           LATEST=$([ "$HIGHEST" = "v$VERSION" ] && echo true || echo false)
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          # A resumed run keeps a release created before the failure, with its original artifacts.
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "GitHub Release v$VERSION already exists; keeping it."
+            exit 0
+          fi
           START=()
           if [ "$LAST_TAG" != "v0.0.0" ]; then START=(--notes-start-tag "$LAST_TAG"); fi
           # Byte-for-byte reproduction needs the same JDK patch version (javadoc bundles JDK-specific resources).
