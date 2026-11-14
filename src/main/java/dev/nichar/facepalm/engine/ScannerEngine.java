@@ -12,8 +12,11 @@ import dev.nichar.facepalm.engine.postprocessor.FileFindingsPostProcessor;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -77,9 +80,13 @@ public class ScannerEngine {
      *
      * @param root Project directory to scan.
      * @return List of identified findings.
+     * @throws IOException if the root is not a readable directory: a scan that cannot start must not pass the build
+     * (#219).
      */
     @Nonnull
     public List<Finding> scan(@Nonnull final Path root) throws InterruptedException, IOException {
+        requireReadableDirectory(root);
+
         // Capture configuration on the main thread for thread safety.
         final var currentConfig = context;
         final var engineConfig = currentConfig.getEngine();
@@ -93,7 +100,7 @@ public class ScannerEngine {
             if (!shouldScan(path, stats)) {
                 continue;
             }
-            stats.recordScan(path);
+            // Counted as scanned in processFile, once the file has been analysed.
             tasks.add(() -> processFile(root, path));
         }
 
@@ -103,9 +110,34 @@ public class ScannerEngine {
         }
 
         log.info("Starting scan of " + tasks.size() + " files...");
+        return runTasks(tasks, engineConfig.getThreads());
+    }
+
+    /**
+     * Fails unless the root exists and is a readable directory. Without this check, a mistyped or unreadable
+     * {@code root} only logged a warning, scanned nothing and passed the build.
+     */
+    static void requireReadableDirectory(@Nonnull final Path root) throws IOException {
+        if (!Files.exists(root)) {
+            throw new NoSuchFileException(root.toString(), null, "Scan root does not exist");
+        }
+        if (!Files.isDirectory(root)) {
+            throw new NotDirectoryException(root + ": Scan root is not a directory");
+        }
+        if (!Files.isReadable(root) || !Files.isExecutable(root)) {
+            throw new AccessDeniedException(root.toString(), null, "Scan root is not readable");
+        }
+    }
+
+    /**
+     * Runs the file tasks on a thread pool and collects their findings.
+     */
+    @Nonnull
+    private List<Finding> runTasks(@Nonnull final List<Callable<List<Finding>>> tasks, final int threads)
+            throws InterruptedException {
 
         // Initialize thread pool for parallel processing.
-        final var executor = Executors.newFixedThreadPool(engineConfig.getThreads());
+        final var executor = Executors.newFixedThreadPool(threads);
         try {
             final CompletionService<List<Finding>> service = new ExecutorCompletionService<>(executor);
             for (final var task : tasks) {
@@ -243,6 +275,7 @@ public class ScannerEngine {
                 if (engineConfig.isShowSkipped()) {
                     log.debug("Skipping " + path + " - binary content");
                 }
+                stats.recordExclusion(ExclusionReason.BINARY_FILE);
                 return Collections.emptyList();
             }
             // Initialize file context for the scanning pipeline.
@@ -267,6 +300,8 @@ public class ScannerEngine {
                 processor.process(fileFindings, context);
             }
 
+            // Counted only now: binary content, read errors and analysis failures are exclusions, not scans (#219).
+            stats.recordScan(path);
             return fileFindings;
         } catch (RuntimeException e) {
             // A failing extractor, evaluator or post-processor must not silently drop the file: report it.
@@ -275,6 +310,7 @@ public class ScannerEngine {
             return Collections.emptyList();
         } catch (IOException e) {
             log.warn("Skipping unreadable file " + path + ": " + e.getMessage());
+            stats.recordExclusion(ExclusionReason.IO_ERROR);
             return Collections.emptyList();
         }
     }

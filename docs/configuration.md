@@ -8,10 +8,10 @@ These parameters control the basic execution of the scan.
 
 | Parameter | Property | Default | Description |
 |-----------|----------|---------|-------------|
-| `root` | `root` | `${project.basedir}` | Root directory for scanning. |
+| `root` | `root` | `${project.basedir}` | Root directory for scanning. The build fails if it does not exist or is not a readable directory. |
 | `threads` | `threads` | Available Processors | Concurrent threads for scanning. |
 | `maxFileSizeBytes` | `maxFileSizeBytes` | `5242880` (5MB) | Maximum file size in bytes; larger files are ignored. |
-| `skipBinaryRegex` | `skipBinaryRegex` | `.*\\.(png\|jpg\|jpeg\|gif\|pdf\|zip\|jar\|class\|tar\|gz\|exe\|dll)$` | Regex to identify binary files to skip. |
+| `skipBinaryRegex` | `skipBinaryRegex` | `.*\\.(png\|jpg\|jpeg\|gif\|pdf\|zip\|jar\|class\|tar\|gz\|exe\|dll)$` | Regex to identify binary files to skip by name. Other files are skipped as binary only if more than 5 % of their first 8 KB are control bytes; a few NUL bytes or UTF-16 without a byte order mark are still scanned as text. |
 | `skipDirs` | `skipDirs` | `.git, .svn, .hg, .idea, .vscode, .mvn, .gradle, target, node_modules, dist, build, out, .next` | Directories to exclude from scanning (comma-separated via CLI). Matched against directory names inside the scanned project only; excluded directories are not entered. Dotfiles such as `.env` are scanned. **A configured value replaces the defaults** (repeat the ones you want to keep); an empty value (`-DskipDirs=`) uses the defaults. |
 | `showProcessed` | `showProcessed` | `false` | Log every processed file at debug level. |
 | `showSkipped` | `showSkipped` | `false` | Log every skipped file at debug level. |
