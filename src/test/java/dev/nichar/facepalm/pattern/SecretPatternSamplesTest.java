@@ -27,7 +27,7 @@ class SecretPatternSamplesTest {
     /**
      * Positive and negative sample per pattern name. Every default pattern must have an entry.
      */
-    private static final Map<String, String[]> SAMPLES = Map.ofEntries(
+    static final Map<String, String[]> SAMPLES = Map.ofEntries(
         sample("AWS Access Key", "id=AKIA" + rep("Z2", 8), "id=AKIA" + rep("Z2", 7)),
         sample("AWS Secret Key", "aws_secret_key=" + rep("Ab1/", 10), "aws_secret_key=" + rep("Ab1/", 9)),
         sample("Google API Key", "key=AIza" + rep("a1", 17) + "b", "key=AIza" + rep("a1", 17)),

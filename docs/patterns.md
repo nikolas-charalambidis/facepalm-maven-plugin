@@ -21,6 +21,23 @@ Custom patterns cannot be configured yet. The `<patterns><overrides>` configurat
 
 To propose a new built-in pattern, see [Adding detection patterns](../CONTRIBUTING.md#adding-detection-patterns).
 
+### Linear-time matching
+
+Every pattern must match in linear time, so one long line (minified JavaScript, a base64 blob) or a crafted file cannot hang a build or a pre-commit hook:
+
+- **Bound every gap and every open-ended run that can fail late.** Use `.{0,100}?` instead of `.*`, and give a body that must be closed by a delimiter a maximum length.
+- **Bound repeated groups**, for example `(?:_[A-Z0-9]+){1,16}` instead of `(?:_[A-Z0-9]+)+`. Java's regex engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line, and the file is dropped from the scan. Repeating a single character or character class (`[A-Za-z0-9]{10,}`) is not recursive and needs no bound.
+- **Anchor where a token starts** when its prefix can repeat inside a long run. For example, JWTs use `(?<![A-Za-z0-9_\-]{6})eyJ`: a token may start at most 5 characters into a base64url run. This keeps tokens after `%3D` or `=`, and each run has only a few possible starts.
+
+`SecretPatternBacktrackingTest` enforces this for every default pattern in every build:
+
+- **Measure:** it counts the characters the regex engine reads for adversarial inputs of three lengths (about 1,000, 2,000 and 4,000 characters). The test fails when the reads per added character grow from the shorter step to the longer one by more than 10 %. Fixed costs cancel out, so even a small quadratic term behind a large linear cost is caught.
+- **Runaway matching:** more than 5,000 reads per input character stops the match and fails the test, so exponential backtracking cannot hang the build.
+- **Inputs:** generic separators and keywords, plus inputs derived from the pattern's samples in `SecretPatternSamplesTest`: prefixes, prefixes followed by a run of the next character, and every run of one to three tokens repeated, alone and after the part of the sample before it.
+- **New patterns:** a new pattern is covered once its samples exist. A default pattern without samples fails the build.
+
+The test does not measure absolute speed: a linear pattern with a high constant cost passes.
+
 ---
 
 ## Heuristic Adjustments
