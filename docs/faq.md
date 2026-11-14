@@ -15,11 +15,18 @@ The **Facepalm Maven Plugin** found a potential secret (API key, password, token
 
 No scanner is perfect. If Facepalm flags something that isn't a secret:
 
-1. **Use placeholders**: Instead of a real key or a realistic-looking fake, use `${API_KEY}` or `PLACEHOLDER`. Facepalm's `PlaceholderSuppressorEvaluator` will automatically ignore these.
+1. **Use interpolation placeholders**: Instead of a real key or a realistic-looking fake, use a placeholder that Facepalm recognizes as one:
+   - **`${API_KEY}` and `{{ api_key }}`:** values that start with them are not reported at all.
+   - **`%API_KEY%`, `<your-api-key>` or `[your-api-key]`:** as the whole value, and other values containing `${...}` or `{{...}}`, they lose 50 risk and 100 confidence points, which keeps them below the warning threshold.
+
+   See `interpolationPatternRegex` in [configuration](configuration.md#heuristics-evaluators).
 2. **Move to test paths**: Files in `test/`, `mock/`, or `spec/` get a significant score reduction.
 3. **Add to `.gitignore`**: Facepalm reads your `.gitignore` and reduces the risk score for ignored files.
 4. **Adjust Thresholds**: If Facepalm is too sensitive, you can increase the `errorThreshold` in your `pom.xml`.
-5. **Add Dummy Keywords**: You can configure `dummyKeywords` in the `<evaluators>` section to tell Facepalm what to ignore.
+5. **Know what dummy keywords do**: A value containing one of the `dummyKeywords` (such as `placeholder`, `changeme` or `dummy`) loses 80 confidence points, but its risk stays. They are not ignored.
+   - **Where it is enough:** in test paths or documentation files, where the risk is already lower, the discount usually brings a finding below the thresholds.
+   - **Where it is not:** in a production file, a match still fails the build. For example, `password=PLACEHOLDER` in `src/main/resources/application.properties` scores 82.0 (risk 100, confidence 10) with the default `WEIGHTED_QUADRATIC` strategy, which is an ERROR.
+   - **What to use instead:** an interpolation placeholder (item 1) in such files.
 
 ---
 
