@@ -120,7 +120,7 @@ Coding conventions:
 A new pattern usually means:
 
 1. A `SecretPattern` registered in `SecretPatternRegistry`.
-2. A **unit test** in `src/test/java/dev/nichar/facepalm/pattern/SecretPatternRegistryTest.java` covering positive and negative cases.
+2. A **unit test** in `src/test/java/dev/nichar/facepalm/pattern/SecretPatternRegistryTest.java` covering positive and negative cases, and a positive and a negative sample in `SecretPatternSamplesTest`. The samples also feed `SecretPatternBacktrackingTest`, which fails when the pattern does not match in linear time (see [Linear-time matching](docs/patterns.md#linear-time-matching)).
 3. An **integration test fixture** in `src/test/resources-its/.../dirty_project/` (or a new fixture) demonstrating a real-file detection.
 4. A short note in `docs/patterns.md`.
 

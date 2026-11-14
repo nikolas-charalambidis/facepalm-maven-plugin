@@ -21,6 +21,16 @@ Custom patterns cannot be configured yet. The `<patterns><overrides>` configurat
 
 To propose a new built-in pattern, see [Adding detection patterns](../CONTRIBUTING.md#adding-detection-patterns).
 
+### Linear-time matching
+
+Every pattern must match in linear time, so one long line (minified JavaScript, a base64 blob) or a crafted file cannot hang a build or a pre-commit hook:
+
+- **Bound every gap and every open-ended run that can fail late.** Use `.{0,100}?` instead of `.*`, and give a body that must be closed by a delimiter a maximum length.
+- **Bound repeated groups**, for example `(?:_[A-Z0-9]+){1,16}` instead of `(?:_[A-Z0-9]+)+`. Java's regex engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line, and the file is dropped from the scan. Repeating a single character or character class (`[A-Za-z0-9]{10,}`) is not recursive and needs no bound.
+- **Anchor where a token starts** when its prefix can repeat inside a long run, for example `(?<![A-Za-z0-9_\-])eyJ` for JWTs.
+
+`SecretPatternBacktrackingTest` enforces this for every default pattern in every build. It counts the characters the regex engine reads for a short and a long adversarial input and fails when the count grows faster than linearly. The inputs are derived from the pattern's samples in `SecretPatternSamplesTest`, plus generic separators and keywords, so a new pattern is covered once its samples exist.
+
 ---
 
 ## Heuristic Adjustments

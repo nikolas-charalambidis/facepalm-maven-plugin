@@ -7,13 +7,11 @@ package dev.nichar.facepalm.pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nichar.facepalm.config.ScoringConfig;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.Severity;
-import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -71,37 +69,6 @@ class SecretPatternRegistryTest {
     @Test
     void private_key_block_requires_matching_end_label() {
         assertFalse(privateKeyPattern().matcher(pem("RSA PRIVATE KEY", "EC PRIVATE KEY")).find());
-    }
-
-    /**
-     * Long lines (e.g. minified JavaScript) must be matched in linear time. Before issue #63, unbounded gaps made a
-     * 100 KB line take seconds per pattern and the database URI patterns about 25 seconds.
-     */
-    @Test
-    void default_patterns_match_long_lines_in_linear_time() {
-        final int length = 500_000;
-        final List<String> lines = List.of(
-            "openai.apiKey(x);var y=1;".repeat(length / 25),
-            "heroku=x;".repeat(length / 9),
-            "mssql password ".repeat(length / 15),
-            "mongodb://" + "a:".repeat(length / 2),
-            "postgres://" + "a:".repeat(length / 2),
-            "mysql://" + "a:".repeat(length / 2),
-            "redis://" + "a:".repeat(length / 2),
-            "eyJ" + "a.".repeat(length / 2),
-            "token=".repeat(length / 6),
-            "a.b(c,d);".repeat(length / 9));
-
-        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
-            for (final var line : lines) {
-                for (final var pattern : SecretPatternRegistry.DEFAULT_PATTERNS) {
-                    final var matcher = pattern.getPattern().matcher(line);
-                    while (matcher.find()) {
-                        // Exhaust all matches, as the extractor does.
-                    }
-                }
-            }
-        });
     }
 
     @Test
@@ -227,6 +194,61 @@ class SecretPatternRegistryTest {
             .build();
 
         assertEquals(Severity.ERROR, finding.getSeverity(new ScoringConfig()));
+    }
+
+    /**
+     * Issue #243: the body of a private key block stops at the next "-----". Legacy encrypted headers with single
+     * dashes, a key escaped into one JSON line and a large body must still be detected.
+     */
+    @Test
+    void private_key_block_detects_headers_json_and_large_bodies() {
+        final Pattern pattern = privateKeyPattern();
+        final var encrypted = DASHES + "BEGIN RSA PRIVATE KEY" + DASHES + "\nProc-Type: 4,ENCRYPTED\n"
+            + "DEK-Info: AES-128-CBC,0123456789ABCDEF0123456789ABCDEF\n" + KEY_BODY + DASHES + "END RSA PRIVATE KEY"
+            + DASHES;
+        final var json = "{\"private_key\": \"" + pem("PRIVATE KEY", "PRIVATE KEY").replace("\n", "\\n") + "\\n\"}";
+        final var large = DASHES + "BEGIN PGP PRIVATE KEY BLOCK" + DASHES + "\n"
+            + "lQdGBGVxYz0BEAC7Zm9yVGVzdHNPbmx5Tm90QVJlYWxLZXk0123456789+/\n".repeat(2_000) + DASHES
+            + "END PGP PRIVATE KEY BLOCK" + DASHES;
+
+        for (final var text : List.of(encrypted, json, large)) {
+            assertTrue(pattern.matcher(text).find(), () -> "Not detected: " + text.substring(0, 60));
+        }
+    }
+
+    /**
+     * Issue #243: a JWT starts where a base64url run starts, so "eyJ" inside a longer run is not a token start.
+     */
+    @Test
+    void jwt_starts_at_the_beginning_of_a_base64url_run() {
+        final var token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlLXRlc3Q";
+
+        final Pattern jwt = pattern("JWT Token");
+        for (final var line : List.of("Authorization: Bearer " + token, "jwt=" + token)) {
+            final var matcher = jwt.matcher(line);
+            assertTrue(matcher.find(), () -> "Not detected: " + line);
+            assertEquals(token, matcher.group());
+        }
+        assertFalse(jwt.matcher("blob=QUJD" + token).find());
+    }
+
+    /**
+     * Issue #243: long argument lists and dotted names neither overflow the stack nor stop recognizing calls that
+     * read a secret.
+     */
+    @Test
+    void generic_patterns_handle_long_calls_without_stack_overflow() {
+        final var longCall = "String token = f(" + "A_B, ".repeat(5_000) + "C_D);";
+        final var longName = "password=" + "a.b".repeat(5_000);
+        for (final var name : List.of("Generic API Key Assignment", "Generic Password Assignment")) {
+            for (final var line : List.of(longCall, longName)) {
+                final var matcher = pattern(name).matcher(line);
+                while (matcher.find()) {
+                    // Must not throw StackOverflowError.
+                }
+            }
+        }
+        assertFalse(pattern("Generic API Key Assignment").matcher("token = env.getProperty(A_B, C_D, E_F)").find());
     }
 
     private static String group(final String patternName, final String line) {
