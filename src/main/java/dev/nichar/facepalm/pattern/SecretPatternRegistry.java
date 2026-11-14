@@ -90,8 +90,10 @@ public class SecretPatternRegistry {
             "(?i)heroku.{0,100}?[=:]\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"),
             70,
             85, false),
+        // The capture continues past the 32 characters of an OpenAI key to the end of a longer base64 key, such as an
+        // Azure Storage AccountKey, so the whole key is reported and masked (#218).
         new SecretPattern("Azure OpenAI Key", Pattern.compile(
-            "(?i)(?:azure|openai).{0,100}?key.{0,10}[=:]\\s*([a-zA-Z0-9]{32})"), 80, 85, false),
+            "(?i)(?:azure|openai).{0,100}?key.{0,10}[=:]\\s*([a-zA-Z0-9]{32}[A-Za-z0-9+/]*+={0,2})"), 80, 85, false),
 
         // Database Connection Strings
         new SecretPattern("MongoDB Connection", Pattern.compile("(?i)mongodb(?:\\+srv)?://(" + DB_CREDENTIALS + ")@"),
@@ -126,7 +128,9 @@ public class SecretPatternRegistry {
         new SecretPattern("GitHub Fine-Grained Token", Pattern.compile("github_pat_[0-9A-Za-z_]{82,}"), 85, 100, false),
         new SecretPattern("GitHub Token", Pattern.compile("ghp_[0-9A-Za-z]{36}"), 80, 100, false),
         new SecretPattern("GitLab Token", Pattern.compile("glpat-[0-9a-zA-Z\\-_]{20}"), 85, 100, false),
-        new SecretPattern("Slack Token", Pattern.compile("xox[baprs]-[0-9a-zA-Z-]{10,48}"), 75, 95, false),
+        // No upper bound: current Slack tokens exceed 48 characters, and a cut token was reported and masked only in
+        // part (#218).
+        new SecretPattern("Slack Token", Pattern.compile("xox[baprs]-[0-9a-zA-Z-]{10,}+"), 75, 95, false),
         new SecretPattern("Twilio API Key", Pattern.compile("SK[0-9a-fA-F]{32}"), 70, 90, false),
         new SecretPattern("Mailgun API Key", Pattern.compile("key-[0-9a-zA-Z]{32}"), 70, 90, false),
 

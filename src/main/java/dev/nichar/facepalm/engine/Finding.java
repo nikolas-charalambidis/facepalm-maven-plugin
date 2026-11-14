@@ -39,6 +39,9 @@ public class Finding {
 
     private final FileContext context;
 
+    /**
+     * Source line of the finding, with every secret on it already masked by the extractor.
+     */
     private final String contextSnippet;
 
     private int riskScore;
@@ -89,14 +92,23 @@ public class Finding {
      */
     @Nonnull
     public String getMaskedSecret() {
-        final int reveal = Math.min(4, secretValue.length() / 8);
-        return reveal == 0 ? "****"
-            : secretValue.substring(0, reveal) + "..." + secretValue.substring(secretValue.length() - reveal);
+        return mask(secretValue);
+    }
+
+    /**
+     * Masks a value as {@link #getMaskedSecret()} does: at most a quarter of it is revealed (up to 4 characters at
+     * each end); values shorter than 8 characters are fully masked.
+     */
+    @Nonnull
+    public static String mask(@Nonnull final String value) {
+        final int reveal = Math.min(4, value.length() / 8);
+        return reveal == 0 ? "****" : value.substring(0, reveal) + "..." + value.substring(value.length() - reveal);
     }
 
     /**
      * Returns the context snippet with every occurrence of the secret replaced by its masked form.
-     * The raw snippet must never leave the process (logs, JSON, HTML, SARIF).
+     * The extractor already masks every secret on the line by position (#218); this replacement is a second line of
+     * defense for snippets built elsewhere. The raw snippet must never leave the process (logs, JSON, HTML, SARIF).
      */
     @Nonnull
     public String getMaskedSnippet() {
