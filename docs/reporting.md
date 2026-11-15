@@ -14,7 +14,7 @@ The report shows the results of the `scan` goal, so the plugin must also be in `
         <plugin>
             <groupId>dev.nichar</groupId>
             <artifactId>facepalm-maven-plugin</artifactId>
-            <version>1.0.2</version>
+            <version>1.0.4</version>
             <executions>
                 <execution>
                     <goals>
@@ -35,7 +35,7 @@ The report shows the results of the `scan` goal, so the plugin must also be in `
         <plugin>
             <groupId>dev.nichar</groupId>
             <artifactId>facepalm-maven-plugin</artifactId>
-            <version>1.0.3</version>
+            <version>1.0.4</version>
         </plugin>
     </plugins>
 </reporting>
