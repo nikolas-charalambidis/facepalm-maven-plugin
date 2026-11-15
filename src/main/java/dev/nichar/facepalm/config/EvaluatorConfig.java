@@ -47,7 +47,8 @@ public class EvaluatorConfig {
      * Keywords signaling a discovery is likely dummy or template data.
      */
     private Set<String> dummyKeywords = Set.of(
-        "dummy", "your_api_key", "insert_here", "placeholder", "place_holder", "replace_me", "changeme", "change_me");
+        "dummy", "your_api_key", "insert_here", "placeholder", "place_holder", "replace_me", "changeme", "change_me",
+        "fake", "example", "sample");
 
     /**
      * Path segments suggesting production-critical code.

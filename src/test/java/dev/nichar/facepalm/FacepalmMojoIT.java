@@ -138,8 +138,10 @@ class FacepalmMojoIT {
     void private_key_project(final MavenExecutionResult result) {
         assertThat(result).isFailure();
 
+        // Full confidence: "FAKEKEYFORTESTS" in the key body is not the whole word "fake", so no mock context (#225).
         assertThat(result).out().error()
-            .anyMatch(line -> line.startsWith("[Private Key Block] ") && line.endsWith(" - Score: 92.0 (R:100/C:60)"));
+            .anyMatch(line -> line.startsWith("[Private Key Block] ") && line.endsWith(
+                " - Score: 100.0 (R:100/C:100)"));
         assertThat(result).out().error()
             .anyMatch(line -> fixturePath(line).contains(
                 "/FacepalmMojoIT/private_key_project/project/src/main/resources/server.key:1"));
