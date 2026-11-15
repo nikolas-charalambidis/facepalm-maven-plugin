@@ -51,7 +51,7 @@ mvn site
 
 The report is written to `target/site/facepalm-report.html` (or the configured `<reporting><outputDirectory>`). To render only this report without the full site, run `mvn facepalm:report`.
 
-> **Note:** The report goal reads `facepalm-findings.json`, which the scan goal writes to the build directory (`target/` by default). Run `mvn facepalm:scan` (or a full `mvn verify`) before generating the site; otherwise the report says that no scan data is available. Secrets are masked in both the JSON file and the report. In the context snippet (the source line of a finding), every value a pattern captured on that line is masked as a whole token, and so is any long token mixing letters and digits, even if no pattern detected it. At most a quarter of a value is shown, up to 4 characters at each end.
+> **Note:** The report goal reads `facepalm-findings.json`, which the scan goal writes to the build directory (`target/` by default). Run `mvn facepalm:scan` (or a full `mvn verify`) before generating the site; otherwise the report says that no scan data is available. Secrets are masked in both the JSON file and the report. The context snippet shows about 60 characters on each side of a finding's value, marked with `...` where the line continues. In it, every value a pattern captured is masked as a whole token, and so is every quoted value, every value after `=` or `:`, and any long token mixing letters and digits, even if no pattern detected it. At most a quarter of a value is shown, up to 4 characters at each end.
 
 ## Scan Statistics
 

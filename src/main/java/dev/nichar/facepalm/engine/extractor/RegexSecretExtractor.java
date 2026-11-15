@@ -45,6 +45,8 @@ public class RegexSecretExtractor implements SecretExtractor {
         for (int i = 0; i < context.getLines().size(); i++) {
             final var rawLine = context.getLines().get(i);
             final var normalizedLine = SnippetMasker.normalize(rawLine);
+            // Built on the first match only: most lines have none.
+            int[] rawIndexes = null;
 
             // Collect every capture of the line first, so the snippet masks all of them, including values whose
             // finding is dropped as a duplicate (#218).
@@ -56,10 +58,15 @@ public class RegexSecretExtractor implements SecretExtractor {
                 }
                 final var m = sp.getPattern().matcher(normalizedLine);
                 while (m.find()) {
+                    if (rawIndexes == null) {
+                        rawIndexes = SnippetMasker.rawIndexes(rawLine);
+                    }
                     final var group = m.groupCount() >= 1 && m.group(1) != null ? 1 : 0;
-                    final var value = trimTrailingDelimiters(m.group(group));
+                    final var start = m.start(group);
+                    final var end = endAtPlainQuote(rawLine, rawIndexes, start, m.end(group));
+                    final var value = trimTrailingDelimiters(normalizedLine.substring(start, end));
                     if (!value.isEmpty()) {
-                        captures.add(new Capture(sp, value, m.start(group), m.start(group) + value.length()));
+                        captures.add(new Capture(sp, value, start, start + value.length()));
                     }
                 }
             }
@@ -67,13 +74,14 @@ public class RegexSecretExtractor implements SecretExtractor {
                 continue;
             }
 
-            final var rawIndexes = SnippetMasker.rawIndexes(rawLine);
+            final var indexes = rawIndexes;
             final List<int[]> spans = captures.stream()
                 .map(capture -> new int[] {
-                    rawIndexes[capture.start()], rawIndexes[capture.end() - 1] + 1 })
+                    indexes[capture.start()], indexes[capture.end() - 1] + 1 })
                 .toList();
-            final var snippet = SnippetMasker.mask(rawLine, spans);
-            for (final var capture : captures) {
+            for (int c = 0; c < captures.size(); c++) {
+                final var capture = captures.get(c);
+                final var snippet = SnippetMasker.snippet(rawLine, spans, spans.get(c));
                 registerFinding(findings, localDedup, context, capture.pattern(), capture.value(), i + 1, snippet);
             }
         }
@@ -139,6 +147,33 @@ public class RegexSecretExtractor implements SecretExtractor {
             }
         }
         return value.substring(0, end);
+    }
+
+    /**
+     * End of a capture on the normalized line, cut at the first plain quote of the raw line inside it (#276), so a
+     * capture never spans two quoted values.
+     *
+     * @param start Start of the capture on the normalized line.
+     * @param end End of the capture on the normalized line.
+     */
+    private static int endAtPlainQuote(@Nonnull final String rawLine,
+                                       @Nonnull final int[] rawIndexes,
+                                       final int start,
+                                       final int end) {
+        if (start >= end) {
+            return end;
+        }
+        final var rawEnd = rawIndexes[end - 1] + 1;
+        final var quote = SnippetMasker.firstPlainQuote(rawLine, rawIndexes[start], rawEnd);
+        if (quote == rawEnd) {
+            return end;
+        }
+        // Normalized characters before the quote: the capture ends there.
+        var cut = start;
+        while (cut < end && rawIndexes[cut] < quote) {
+            cut++;
+        }
+        return cut;
     }
 
     /**

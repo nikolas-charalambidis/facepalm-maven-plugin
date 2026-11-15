@@ -46,6 +46,37 @@ class SnippetMasker {
     private static final int MAX_PADDING = 2;
 
     /**
+     * Characters of context kept on each side of a finding's value in its snippet (#276). The snippet used to be the
+     * whole line, which on minified files copied the entire file into every finding.
+     */
+    private static final int WINDOW = 60;
+
+    /**
+     * Marks a snippet cut short at either end.
+     */
+    private static final String ELLIPSIS = "...";
+
+    /**
+     * Characters that end a fragment at the edge of a snippet window: whitespace and the punctuation around values.
+     */
+    private static final String FRAGMENT_DELIMITERS = " \t\"',;&{}()[]<>";
+
+    /**
+     * Value inside the snippet window that is masked even if no pattern detected it (#276): the content of a quoted
+     * string ({@code "..."}, {@code '...'}, with escapes and doubled quotes), or an unquoted value after {@code =} or
+     * {@code :}. Context such as keys, calls and operators stays readable. The loops are unrolled, so groups repeat
+     * only
+     * per escape or doubled quote and a long string cannot overflow the stack (#243).
+     */
+    private static final Pattern VALUE = Pattern.compile(
+        "\"([^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+)\"|'([^']*+(?:''[^']*+)*+)'|[=:]\\s*+([^\\s\"',;&{}()\\[\\]<>]++)");
+
+    /**
+     * Shortest value that the snippet masks: shorter ones (flags, numbers, single words) carry no secret.
+     */
+    private static final int MIN_MASKED_VALUE = 4;
+
+    /**
      * Removes the quotes that patterns do not see.
      */
     @Nonnull
@@ -109,6 +140,80 @@ class SnippetMasker {
         }
         return masked.append(rawLine, copied, start).append(Finding.mask(rawLine.substring(start, end)))
             .append(rawLine, end, rawLine.length()).toString();
+    }
+
+    /**
+     * Returns the snippet of one finding (#276): a window of about {@value #WINDOW} characters on each side of its
+     * value, with every captured secret, every long mixed token and every quoted or assigned value in it masked.
+     * Fragments cut by the window edges are dropped, so a value is never shown in part.
+     *
+     * @param rawLine The source line as read from the file.
+     * @param spans Raw-line spans ({@code [start, end)}) of all secrets captured on the line.
+     * @param focus Raw-line span of this finding's value.
+     */
+    @Nonnull
+    static String snippet(@Nonnull final String rawLine, @Nonnull final List<int[]> spans, @Nonnull final int[] focus) {
+        int from = Math.max(0, focus[0] - WINDOW);
+        int to = Math.min(rawLine.length(), focus[1] + WINDOW);
+        if (from > 0) {
+            int next = from;
+            while (next < focus[0] && FRAGMENT_DELIMITERS.indexOf(rawLine.charAt(next)) < 0) {
+                next++;
+            }
+            from = next;
+        }
+        if (to < rawLine.length()) {
+            int previous = to;
+            while (previous > focus[1] && FRAGMENT_DELIMITERS.indexOf(rawLine.charAt(previous - 1)) < 0) {
+                previous--;
+            }
+            to = previous;
+        }
+        final var window = rawLine.substring(from, to);
+
+        final List<int[]> windowSpans = new ArrayList<>();
+        for (final var span : spans) {
+            final var start = Math.max(span[0], from) - from;
+            final var end = Math.min(span[1], to) - from;
+            if (start < end) {
+                windowSpans.add(new int[] {
+                    start, end });
+            }
+        }
+        final var values = VALUE.matcher(window);
+        while (values.find()) {
+            for (int group = 1; group <= values.groupCount(); group++) {
+                if (values.group(group) != null && values.group(group).length() >= MIN_MASKED_VALUE) {
+                    windowSpans.add(new int[] {
+                        values.start(group), values.end(group) });
+                }
+            }
+        }
+        return (from > 0 ? ELLIPSIS : "") + mask(window, windowSpans) + (to < rawLine.length() ? ELLIPSIS : "");
+    }
+
+    /**
+     * Index in the raw line where a capture must end at the latest (#276): the first plain quote inside its raw span.
+     * Patterns match on the line without quotes, so on minified JSON a broad capture can run from one quoted value into
+     * the next; its masked form would then show the end of another secret. Doubled ({@code ''}) and escaped
+     * ({@code \"}) quotes belong to the value and do not end it.
+     *
+     * @return The raw index of the first plain quote in {@code [start, end)}, or {@code end} if there is none.
+     */
+    static int firstPlainQuote(@Nonnull final String rawLine, final int start, final int end) {
+        for (int i = start; i < end; i++) {
+            final var c = rawLine.charAt(i);
+            if (c != '"' && c != '\'') {
+                continue;
+            }
+            final var escaped = i > 0 && rawLine.charAt(i - 1) == '\\';
+            final var doubled = i + 1 < rawLine.length() && rawLine.charAt(i + 1) == c
+                || i > 0 && rawLine.charAt(i - 1) == c;
+            if (!escaped && !doubled) {
+                return i;
+            }
+        }
+        return end;
     }
 
     /**
