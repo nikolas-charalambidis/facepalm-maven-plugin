@@ -8,6 +8,7 @@ These parameters control the basic execution of the scan.
 
 | Parameter | Property | Default | Description |
 |-----------|----------|---------|-------------|
+| `skip` | `facepalm.skip` | `false` | Skip the scan and the report, for example in one module of a multi-module build (`<skip>true</skip>` in that module, or `-Dfacepalm.skip=true`). The scan goal logs that it was skipped; the report is left out of the site. |
 | `root` | `root` | `${project.basedir}` | Root directory for scanning. The build fails if it does not exist or is not a readable directory. |
 | `threads` | `threads` | Available Processors | Concurrent threads for scanning. |
 | `maxFileSizeBytes` | `maxFileSizeBytes` | `5242880` (5MB) | Maximum file size in bytes; larger files are ignored. |

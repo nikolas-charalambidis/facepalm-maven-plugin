@@ -14,10 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.nichar.facepalm.config.PatternConfig;
 import dev.nichar.facepalm.pattern.SecretPatternRegistry;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
 
 class FacepalmMojoTest {
@@ -79,5 +82,34 @@ class FacepalmMojoTest {
     void execution_failure_falls_back_to_the_exception_type() {
         assertEquals("Facepalm scan failed: java.lang.NullPointerException",
             FacepalmMojo.executionFailure(new NullPointerException()).getMessage());
+    }
+
+    /**
+     * Issue #38: {@code facepalm.skip} skips the scan before any configuration is checked or the engine starts.
+     */
+    @Test
+    void skip_returns_before_scanning() throws Exception {
+        final var messages = new ArrayList<String>();
+        final var mojo = new FacepalmMojo();
+        mojo.setLog(new SystemStreamLog() {
+
+            @Override
+            public void info(final CharSequence content) {
+                messages.add(content.toString());
+            }
+        });
+        set(mojo, "skip", true);
+        // Would fail the build if the scan ran (#277), and the plugin descriptor is not set.
+        set(mojo, "patterns", new PatternConfig(List.of()));
+
+        assertDoesNotThrow(mojo::execute);
+        assertEquals(List.of("Skipping Facepalm scan (facepalm.skip=true)."), messages);
+    }
+
+    private static void set(final Object target, final String name, final Object value)
+            throws ReflectiveOperationException {
+        final Field field = FacepalmMojo.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

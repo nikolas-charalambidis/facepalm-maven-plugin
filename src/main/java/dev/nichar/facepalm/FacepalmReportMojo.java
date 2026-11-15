@@ -33,6 +33,20 @@ public class FacepalmReportMojo extends AbstractMavenReport {
     private File buildDirectory;
 
     /**
+     * Skip the report: it is left out of the site, and {@code mvn facepalm:report} does nothing.
+     */
+    @Parameter(property = "facepalm.skip", defaultValue = "false")
+    private boolean skip;
+
+    /**
+     * The report is generated unless {@code facepalm.skip} is set.
+     */
+    @Override
+    public boolean canGenerateReport() {
+        return !skip;
+    }
+
+    /**
      * Unique identifier for the report in Maven Site navigation.
      */
     @Override

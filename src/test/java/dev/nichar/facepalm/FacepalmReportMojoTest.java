@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,6 +76,19 @@ class FacepalmReportMojoTest {
 
         final var e = assertThrows(MavenReportException.class, () -> render(build));
         assertTrue(e.getMessage().contains(file.toAbsolutePath().toString()), e.getMessage());
+    }
+
+    /**
+     * Issue #38: {@code facepalm.skip} leaves the report out of the site and skips {@code mvn facepalm:report}.
+     */
+    @Test
+    void skip_disables_the_report(@TempDir final Path build) throws Exception {
+        final var mojo = new FacepalmReportMojo();
+        assertTrue(mojo.canGenerateReport());
+
+        set(FacepalmReportMojo.class, mojo, "skip", true);
+
+        assertFalse(mojo.canGenerateReport());
     }
 
     private static String render(final Path build) throws Exception {

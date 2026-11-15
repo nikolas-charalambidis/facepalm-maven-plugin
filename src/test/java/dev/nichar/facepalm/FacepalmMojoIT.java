@@ -11,6 +11,7 @@ import com.soebes.itf.jupiter.extension.MavenGoal;
 import com.soebes.itf.jupiter.extension.MavenJupiterExtension;
 import com.soebes.itf.jupiter.extension.MavenTest;
 import com.soebes.itf.jupiter.extension.MavenVerbose;
+import com.soebes.itf.jupiter.extension.SystemProperty;
 import com.soebes.itf.jupiter.maven.MavenExecutionResult;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -163,6 +164,21 @@ class FacepalmMojoIT {
         assertThat(result).out().info()
             .contains("SCAN RESULT : FAILURE")
             .contains("BUILD FAILURE");
+    }
+
+    /**
+     * Verifies that {@code -Dfacepalm.skip=true} skips the scan, so a private key that would fail the build passes
+     * (issue #38).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @SystemProperty(value = "facepalm.skip", content = "true")
+    void skipped_project(final MavenExecutionResult result) {
+        assertThat(result).isSuccessful();
+
+        assertThat(result).out().info()
+            .contains("Skipping Facepalm scan (facepalm.skip=true).")
+            .noneMatch(line -> line.startsWith("SCAN RESULT"));
     }
 
     /**

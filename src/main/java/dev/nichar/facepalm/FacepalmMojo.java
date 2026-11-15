@@ -163,8 +163,18 @@ public class FacepalmMojo extends AbstractMojo {
     @Parameter
     private PostProcessorConfig postProcessing = new PostProcessorConfig();
 
+    /**
+     * Skip the scan, for example in a single module of a multi-module build.
+     */
+    @Parameter(property = "facepalm.skip", defaultValue = "false")
+    private boolean skip;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (skip) {
+            getLog().info("Skipping Facepalm scan (facepalm.skip=true).");
+            return;
+        }
         requireNoCustomPatterns(patterns);
 
         // Map Maven parameters to internal configuration.
