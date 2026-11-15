@@ -282,6 +282,52 @@ class ScannerEngineTest {
         }
     }
 
+    /**
+     * Issue #226: source packages named like build output (com/acme/build, com/acme/out) were never scanned, because
+     * the default skipDirs matched these names at any depth.
+     */
+    @Test
+    void scan_scans_source_packages_named_like_build_output(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.writeString(Files.createDirectories(root).resolve("pom.xml"), "<project/>");
+        for (final var name : List.of("build", "out", "target", "dist")) {
+            final Path pkg = Files.createDirectories(root.resolve("src/main/java/com/acme").resolve(name));
+            Files.writeString(pkg.resolve("Cfg.java"), "class Cfg {}");
+        }
+
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        scanner.scan(root);
+
+        Assertions.assertEquals(5L, scanner.getStats().getFilesScanned().sum());
+    }
+
+    /**
+     * Issue #226: build output stays excluded directly under the scan root and under every module root (a directory
+     * with a build descriptor), while VCS, IDE and tool directories stay excluded at any depth.
+     */
+    @Test
+    void scan_excludes_build_output_of_modules_and_tool_dirs_at_any_depth(@TempDir final Path tempDir)
+            throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("pom.xml"), "<project/>");
+        for (final var module : List.of("core", "web")) {
+            Files.createDirectories(root.resolve(module));
+        }
+        Files.writeString(root.resolve("core/pom.xml"), "<project/>");
+        Files.writeString(root.resolve("web/package.json"), "{}");
+        for (final var dir : List.of("target", "core/target/classes", "web/dist", "web/build",
+            "web/src/node_modules/lib", "core/src/.idea")) {
+            Files.writeString(Files.createDirectories(root.resolve(dir)).resolve("app.properties"), "token=abc123");
+        }
+
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        scanner.scan(root);
+
+        // Only the three build descriptors are scanned.
+        Assertions.assertEquals(3L, scanner.getStats().getFilesScanned().sum());
+    }
+
     private static long excluded(final ScannerEngine scanner, final ExclusionReason reason) {
         return scanner.getStats().getExclusionBreakdown().getOrDefault(reason, new LongAdder()).sum();
     }

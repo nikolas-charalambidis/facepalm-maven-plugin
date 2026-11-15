@@ -27,6 +27,14 @@ public class EngineConfig {
         "node_modules", "dist", ".next", "build", "out");
 
     /**
+     * Build output directory names. When listed in {@code skipDirs}, they are skipped only directly under a module
+     * root (the scan root or a directory with {@code pom.xml}, {@code build.gradle}, {@code build.gradle.kts} or
+     * {@code package.json}), because source packages often use these names (#226). Other names in {@code skipDirs}
+     * are skipped at any depth.
+     */
+    public static final Set<String> BUILD_OUTPUT_DIRS = Set.of("target", "build", "out", "dist");
+
+    /**
      * Thread pool size for parallel scanning. Defaults to available CPUs.
      */
     private Integer threads = Runtime.getRuntime().availableProcessors();
