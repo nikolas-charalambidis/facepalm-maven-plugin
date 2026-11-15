@@ -82,7 +82,7 @@ class FacepalmReportMojoTest {
      * Issue #38: {@code facepalm.skip} leaves the report out of the site and skips {@code mvn facepalm:report}.
      */
     @Test
-    void skip_disables_the_report(@TempDir final Path build) throws Exception {
+    void skip_disables_the_report() throws Exception {
         final var mojo = new FacepalmReportMojo();
         assertTrue(mojo.canGenerateReport());
 
