@@ -39,7 +39,7 @@ Refine how Facepalm evaluates risk and legitimacy.
 | Sub-parameter | Default                                         | Description |
 |---------------|-------------------------------------------------|-------------|
 | `interpolationPatternRegex` | `.*(?:\$\{[^}]+}\|\{\{[^}]+}}).*\|%[A-Za-z_][A-Za-z0-9_]*%\|<[A-Za-z_][A-Za-z0-9_ .-]*>\|\[[A-Za-z_][A-Za-z0-9_ .-]*]` | Regex to detect placeholders. `${VAR}` and `{{ var }}` may appear anywhere in the value; `%VAR%`, `<your-key>` and `[your-key]` must be the whole value, so URL-encoded passwords are not suppressed. |
-| `highRiskExtensions` | `.env, .properties, .yml, .yaml, .conf, .ini`   | Extensions that increase the risk score. |
+| `highRiskExtensions` | `.env, .properties, .yml, .yaml, .conf, .ini`   | Extensions that increase the risk score. A file matches when its name ends with the extension (`app.env`) or, for a dotfile, starts with the extension and a dot (`.env.local`, `.env.production`), unless it also ends with a low-risk extension (`.env.example`). |
 | `lowRiskExtensions` | `.md, .txt, .csv, .log, .example, .sample`      | Extensions that decrease the risk score. |
 | `dummyKeywords` | `dummy, your_api_key, insert_here, placeholder, place_holder, replace_me, changeme, change_me, fake, example, sample` | Keywords indicating fake data. A value containing one loses 80 confidence points; its risk stays, so it is not ignored (see the [FAQ](faq.md#how-do-i-handle-false-positives)). A configured list replaces the defaults. |
 | `prodPathMarkers` | `src/main/, .env, config`                       | Path markers indicating production environments. Matched against the path relative to the scanned project (see below). |
