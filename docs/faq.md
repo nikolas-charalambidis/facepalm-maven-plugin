@@ -28,6 +28,7 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
    - **Where it is enough:** in test paths or documentation files, where the risk is already lower, the discount usually brings a finding below the thresholds.
    - **Where it is not:** in a production file, a match still fails the build. For example, `password=PLACEHOLDER` in `src/main/resources/application.properties` scores 82.0 (risk 100, confidence 10) with the default `WEIGHTED_QUADRATIC` strategy, which is an ERROR.
    - **What to use instead:** an interpolation placeholder (item 1) in such files.
+6. **Maven-encrypted passwords** (`{...}` from `mvn --encrypt-password`, or `{[name=master,...]...}` from Maven 4 `mvnenc`) in `settings.xml` are reported, but never as an ERROR: their score is capped just below `errorThreshold`. Anyone with the master password in `settings-security.xml` can decrypt them, so they stay visible as warnings and fail the build only with `failOnWarnings`. A `${env.VAR}` placeholder is the safer choice for a committed settings file.
 
 ---
 

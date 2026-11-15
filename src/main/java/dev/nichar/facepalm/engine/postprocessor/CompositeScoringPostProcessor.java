@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine.postprocessor;
 
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.config.ScoringConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.Severity;
@@ -13,6 +14,7 @@ import dev.nichar.facepalm.pattern.SecretPattern;
 import jakarta.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -31,6 +33,14 @@ class CompositeScoringPostProcessor implements FileFindingsPostProcessor {
      * Stripe, private keys, connection strings) that identifies a real credential, not noise.
      */
     private static final int FORMAT_SPECIFIC_CONFIDENCE = 90;
+
+    /**
+     * Maven-encrypted value as the whole secret: Maven 3 {@code {base64}} or Maven 4
+     * {@code {[name=master,cipher=...,version=4.0]base64}}, as written by {@code mvn --encrypt-password} or
+     * {@code mvnenc}. Possessive and bounded, so it runs in linear time.
+     */
+    private static final Pattern MAVEN_ENCRYPTED_VALUE = Pattern.compile(
+        "\\{(?:\\[[^\\]\\s{}]{1,200}+\\])?+[A-Za-z0-9+/]{8,}+=*+\\}");
 
     @Inject
     private FacepalmConfig config;
@@ -70,6 +80,33 @@ class CompositeScoringPostProcessor implements FileFindingsPostProcessor {
                 // real credential leak.
                 finding.log("Composite Risk: Multiple distinct secrets in one file", 15, 10);
             }
+            // Last, after every other adjustment, so no later bonus lifts it back to ERROR.
+            capMavenEncryptedValue(finding, scoring);
         }
+    }
+
+    /**
+     * A Maven-encrypted value follows Maven's recommended practice, but anyone with the master password in
+     * {@code settings-security.xml} can decrypt it (#296). It keeps the score of a plain value, capped just below the
+     * error threshold: reported as a WARNING (or lower) with any scoring strategy and thresholds, so it fails the build
+     * only with {@code failOnWarnings}. Risk is lowered first, then confidence.
+     */
+    private static void capMavenEncryptedValue(@Nonnull final Finding finding, @Nonnull final ScoringConfig scoring) {
+        if (finding.getSeverity(scoring) != Severity.ERROR
+            || !MAVEN_ENCRYPTED_VALUE.matcher(finding.getSecretValue().trim()).matches()) {
+            return;
+        }
+        final var strategy = scoring.getStrategy();
+        final var threshold = scoring.getErrorThreshold();
+        var risk = finding.getRiskScore();
+        var confidence = finding.getConfidenceScore();
+        while (risk > 0 && strategy.calculate(risk, confidence) >= threshold) {
+            risk--;
+        }
+        while (confidence > 0 && strategy.calculate(risk, confidence) >= threshold) {
+            confidence--;
+        }
+        finding.log("Maven Encrypted Value (capped below error threshold)", risk - finding.getRiskScore(),
+            confidence - finding.getConfidenceScore());
     }
 }

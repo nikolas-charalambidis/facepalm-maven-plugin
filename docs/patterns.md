@@ -52,4 +52,4 @@ Patterns are only the first step. Every match is analyzed by these evaluators:
 
 Then all findings of a file are post-processed:
 
-7. **CompositeScoringPostProcessor**: Raises risk when one file contains several distinct secret types, and lowers the score of generic findings in a file with more than `highVolumeThreshold` reported findings. Format-specific findings (AWS keys, GitHub tokens, private keys, ...) are never lowered for volume.
+7. **CompositeScoringPostProcessor**: Raises risk when one file contains several distinct secret types, and lowers the score of generic findings in a file with more than `highVolumeThreshold` reported findings. Format-specific findings (AWS keys, GitHub tokens, private keys, ...) are never lowered for volume. Last, a Maven-encrypted value (`{...}`, `{[name=master,...]...}`) is capped just below `errorThreshold`, so it is reported at most as a WARNING.

@@ -95,6 +95,38 @@ class FalsePositiveHeuristicsTest {
             f -> assertThat(f.getScoreHistory()).noneMatch(h -> h.startsWith("Mock Context")));
     }
 
+    /**
+     * Issue #296: Maven-encrypted values in {@code settings.xml} (Maven 3 {@code {base64}}, Maven 4
+     * {@code {[key=value,...]base64}}) are reported as WARNING, not ERROR. A plain value in the same element stays an
+     * ERROR, and a value with a brace at one end only is not taken for an encrypted one.
+     */
+    @Test
+    void maven_encrypted_values_are_warnings(@TempDir final Path tempDir) throws Exception {
+        final var file = "src/main/resources/settings.xml";
+        final var base64 = "Hq3vX9LmP2tRw8KzN5cYb7Fd1Gs4Ja6U+Ve0Ti/=";
+        final var encrypted = scan(tempDir.resolve("encrypted"), file,
+            "<password>{" + base64 + "}</password>",
+            "",
+            "",
+            "<token>{[name=master,cipher=AES/GCM/NoPadding,version=4.0]" + base64 + "}</token>");
+
+        assertThat(encrypted).hasSize(2).allSatisfy(f -> {
+            assertThat(f.getScoreHistory()).anyMatch(h -> h.startsWith("Maven Encrypted Value"));
+            assertThat(severity(f)).isEqualTo(Severity.WARNING);
+        });
+
+        final var plain = scan(tempDir.resolve("plain"), file,
+            "<password>Kq7vR2mXz9LwP4t</password>",
+            "",
+            "",
+            "<token>{" + base64 + "</token>");
+
+        assertThat(plain).hasSize(2).allSatisfy(f -> {
+            assertThat(f.getScoreHistory()).noneMatch(h -> h.startsWith("Maven Encrypted Value"));
+            assertThat(severity(f)).isEqualTo(Severity.ERROR);
+        });
+    }
+
     @Test
     void markers_still_match_as_whole_words() {
         assertThat(SurroundingContextEvaluator.containsWord("# example credentials", List.of("example"))).isTrue();

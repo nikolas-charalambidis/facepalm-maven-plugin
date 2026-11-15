@@ -14,6 +14,7 @@ import com.soebes.itf.jupiter.extension.MavenVerbose;
 import com.soebes.itf.jupiter.maven.MavenExecutionResult;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 
 /**
  * Integration tests for the Facepalm Maven Plugin.
@@ -148,6 +149,13 @@ class FacepalmMojoIT {
                 && fixturePath(line).contains(settings + "19 "));
         assertThat(result).out().plain()
             .noneMatch(line -> line.contains(settings + "12 "));
+        // Maven-encrypted values (Maven 3 and 4) are reported as warnings, not errors (#296).
+        for (final var line : List.of("20 ", "21 ")) {
+            assertThat(result).out().warn()
+                .anyMatch(warning -> fixturePath(warning).contains(settings + line));
+            assertThat(result).out().error()
+                .noneMatch(error -> fixturePath(error).contains(settings + line));
+        }
 
         assertThat(result).out().info()
             .contains("SCAN RESULT : FAILURE")

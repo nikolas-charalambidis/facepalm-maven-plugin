@@ -17,6 +17,8 @@
             <id>sonar</id>
             <properties>
                 <sonar.token>Zp4nW8cQ2kLx7RmT5vY9bHs</sonar.token>
+                <nexus.password>{Hq3vX9LmP2tRw8KzN5cYb7Fd1Gs4Ja6U+Ve0Ti/=}</nexus.password>
+                <deploy.token>{[name=master,cipher=AES/GCM/NoPadding,version=4.0]Hq3vX9LmP2tRw8KzN5cYb7Fd1Gs4Ja6U+Ve0Ti/=}</deploy.token>
             </properties>
         </profile>
     </profiles>
