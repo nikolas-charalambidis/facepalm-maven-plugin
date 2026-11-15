@@ -97,7 +97,7 @@ class CompositeScoringPostProcessor implements FileFindingsPostProcessor {
             return;
         }
         final var strategy = scoring.getStrategy();
-        final var threshold = scoring.getErrorThreshold();
+        final double threshold = scoring.getErrorThreshold();
         var risk = finding.getRiskScore();
         var confidence = finding.getConfidenceScore();
         while (risk > 0 && strategy.calculate(risk, confidence) >= threshold) {
