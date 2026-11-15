@@ -11,9 +11,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.TestContainer;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assumptions;
@@ -134,6 +136,24 @@ class GitIgnoreServiceTest {
         assertThat(stats.getFilesScanned().sum()).isEqualTo(3);
     }
 
+    /**
+     * Issue #223: a tracked file is public even if it matches {@code .gitignore} (force-added, or committed before it
+     * was ignored), so it keeps its full risk. An ignored file that is not tracked still gets the discount.
+     */
+    @Test
+    void tracked_ignored_file_keeps_full_risk(@TempDir final Path tempDir) throws Exception {
+        final var root = project(tempDir.resolve("project"), "secrets.properties\nlocal.properties\n");
+        Files.writeString(root.resolve("conf/local.properties"), SECRET_LINE);
+        Assumptions.assumeTrue(git(root, "init", "-q"), "git is not available");
+        Assumptions.assumeTrue(git(root, "add", "-f", "conf/secrets.properties", "conf/app.properties"));
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "conf/secrets.properties")).isEqualTo(risk(findings, "conf/app.properties"));
+        assertThat(risk(findings, "conf/local.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
     @Test
     void escape_glob_escapes_metacharacters() {
         assertThat(GitIgnoreService.escapeGlob("/a/my[app]/{x}/*?")).isEqualTo("/a/my\\[app\\]/\\{x\\}/\\*\\?");
@@ -160,6 +180,22 @@ class GitIgnoreServiceTest {
         return new ObjectMapper().readValue(output.resolve("facepalm-findings.json").toFile(),
             new TypeReference<List<Map<String, Object>>>() {
             });
+    }
+
+    /**
+     * Runs a git command in the directory and returns whether it succeeded; false if git is not installed.
+     */
+    private static boolean git(final Path directory, final String... args) throws InterruptedException {
+        final var command = new ArrayList<String>();
+        command.add("git");
+        command.addAll(List.of(args));
+        try {
+            final var process = new ProcessBuilder(command).directory(directory.toFile())
+                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+            return process.waitFor() == 0;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static FacepalmConfig config() {

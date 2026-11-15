@@ -47,7 +47,7 @@ Patterns are only the first step. Every match is analyzed by these evaluators:
 2. **LocationEvaluator**: Increases risk for production paths (`src/main/`, `.env`, `config`) and decreases it for test paths (`test`, `mock`, `spec`). See [path markers](configuration.md#heuristics-evaluators).
 3. **FileExtensionEvaluator**: Increases risk in configuration files (`.env`, `.properties`, `.yml`, ...) and decreases it in documentation and logs (`.md`, `.txt`, `.log`, ...).
 4. **SurroundingContextEvaluator**: Looks at the line before and after the match; words like `example`, `dummy`, `fake`, `mock` lower confidence, `prod` and `live` raise risk.
-5. **PublicExposureEvaluator**: Lowers risk if the file is matched by `.gitignore`.
+5. **PublicExposureEvaluator**: Lowers risk if the file is matched by `.gitignore` and not tracked by Git (`git ls-files`). A tracked file is public even when ignored, so it keeps its risk.
 6. **PlaceholderSuppressorEvaluator**: Prevents false positives from `${VARIABLES}` or dummy data like "replace_me".
 
 Then all findings of a file are post-processed:

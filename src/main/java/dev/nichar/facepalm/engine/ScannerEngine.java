@@ -103,6 +103,9 @@ public class ScannerEngine {
         final var currentConfig = context;
         final var engineConfig = currentConfig.getEngine();
 
+        // Tracked files decide whether an ignored file is really unexposed (#223); read once, before any evaluation.
+        gitIgnoreService.loadTrackedFiles(root);
+
         final List<Callable<List<Finding>>> tasks = new ArrayList<>();
         // Walk the filesystem and identify candidate files.
         final var discoveredPaths = discover(root);

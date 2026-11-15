@@ -15,7 +15,7 @@ import javax.inject.Singleton;
 
 /**
  * Evaluates findings based on their visibility in Git history.
- * Reduces risk for files matching .gitignore patterns, suggesting lower public exposure.
+ * Reduces risk for files that match .gitignore patterns and are not tracked by Git, suggesting lower public exposure.
  */
 @Named
 @Singleton
@@ -33,8 +33,9 @@ class PublicExposureEvaluator implements FindingEvaluator {
 
     @Override
     public void evaluate(@Nonnull final Finding finding, @Nonnull final FileContext context) {
-        // De-prioritize findings in files that are explicitly ignored by Git.
-        if (gitIgnoreService.isIgnored(context.getPath())) {
+        // De-prioritize findings in files that are ignored by Git and not tracked: a tracked file is committed and
+        // public even if it matches .gitignore (force-added, or committed before it was ignored, #223).
+        if (gitIgnoreService.isIgnored(context.getPath()) && !gitIgnoreService.isTracked(context.getPath())) {
             finding.log("Recursive .gitignore Match (Low Exposure)", -40, 0);
         }
     }
