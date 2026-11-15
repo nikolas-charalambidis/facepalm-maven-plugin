@@ -6,11 +6,11 @@ Facepalm includes a pre-defined set of "Gold Standard" patterns for detecting se
 
 | Category | Detectors |
 |----------|-----------|
-| **Cloud & Infrastructure** | AWS Access/Secret Keys, Google API Keys, Firebase Keys, Heroku API Keys, Azure OpenAI Keys. |
+| **Cloud & Infrastructure** | AWS Access Keys (long-term `AKIA` and temporary `ASIA`) and Secret Keys, Google API Keys, Firebase Keys, Heroku API Keys, Azure OpenAI Keys, Azure Storage Account Keys (connection strings and storage key variables). |
 | **Databases** | MongoDB, PostgreSQL, MySQL, Redis, SQL Server Connection Strings. |
-| **AI & LLM Providers** | OpenAI (Project & API Keys), Anthropic, HuggingFace, Replicate, Cohere, Mistral, Groq. Google Gemini keys use the Google API Key format and are detected by that pattern. |
+| **AI & LLM Providers** | OpenAI (project, service account and admin keys, legacy API keys), Anthropic, HuggingFace, Replicate, Cohere, Mistral, Groq. Google Gemini keys use the Google API Key format and are detected by that pattern. |
 | **Payments & Finance** | Stripe Live/Test Secret Keys. |
-| **VCS & Collaboration** | GitHub Tokens (Classic & Fine-grained), GitLab, Slack Tokens, Twilio, Mailgun. |
+| **VCS & Collaboration** | GitHub Tokens (personal `ghp_`, OAuth `gho_`, user-to-server `ghu_`, server-to-server `ghs_`, refresh `ghr_`, and fine-grained), GitLab, Slack Tokens, Twilio, Mailgun. |
 | **Webhooks** | Slack, Discord. |
 | **Cryptographic Keys** | Private Key Blocks: PKCS#8 (`PRIVATE KEY`), `ENCRYPTED PRIVATE KEY`, RSA, EC, DSA, OPENSSH, PGP (`PGP PRIVATE KEY BLOCK`). |
 | **Generic** | JWT Tokens, Basic Auth Headers, Generic API/Secret/Token/Password assignments. |

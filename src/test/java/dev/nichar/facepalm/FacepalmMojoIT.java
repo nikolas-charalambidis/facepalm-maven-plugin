@@ -153,6 +153,27 @@ class FacepalmMojoIT {
     }
 
     /**
+     * Verifies that an Azure Storage account key in a connection string is detected once, as such, and fails the build
+     * (issue #224).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void azure_storage_project(final MavenExecutionResult result) {
+        assertThat(result).isFailure();
+
+        assertThat(result).out().error()
+            .anyMatch(line -> line.startsWith("[Azure Storage Account Key] ") && fixturePath(line).contains(
+                "/FacepalmMojoIT/azure_storage_project/project/src/main/resources/application.properties:2"));
+        assertThat(result).out().error()
+            .noneMatch(line -> line.startsWith("[Azure OpenAI Key] "));
+
+        assertThat(result).out().info()
+            .contains("SCAN RESULT : FAILURE")
+            .contains("BUILD FAILURE");
+    }
+
+    /**
      * Normalizes path separators of a log line, so path assertions are independent of the OS and of the folder the
      * repository is cloned into (issue #75).
      */

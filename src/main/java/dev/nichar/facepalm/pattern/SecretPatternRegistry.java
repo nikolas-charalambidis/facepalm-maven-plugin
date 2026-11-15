@@ -78,8 +78,9 @@ public class SecretPatternRegistry {
      */
     public static final List<SecretPattern> DEFAULT_PATTERNS = List.of(
         // Cloud & Infrastructure Providers
-        // Risk 90: a match is a real key ID by format, so it reaches ERROR on its own (#206).
-        new SecretPattern("AWS Access Key", Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"), 90, 95, false),
+        // Risk 90: a match is a real key ID by format, so it reaches ERROR on its own (#206). AKIA is a long-term key,
+        // ASIA a temporary (STS) key (#224).
+        new SecretPattern("AWS Access Key", Pattern.compile("\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"), 90, 95, false),
         new SecretPattern("AWS Secret Key", Pattern.compile(
             "(?i)aws_(?:secret|access|key)[\\w.-]{0,30}\\s*[=:]\\s*([^\\s]{40})"),
             85, 80, false),
@@ -92,8 +93,15 @@ public class SecretPatternRegistry {
             85, false),
         // The capture continues past the 32 characters of an OpenAI key to the end of a longer base64 key, such as an
         // Azure Storage AccountKey, so the whole key is reported and masked (#218).
+        // Storage keys (AccountKey, AZURE_STORAGE_KEY) are left to "Azure Storage Account Key", so each is reported
+        // once (#224).
         new SecretPattern("Azure OpenAI Key", Pattern.compile(
-            "(?i)(?:azure|openai).{0,100}?key.{0,10}[=:]\\s*([a-zA-Z0-9]{32}[A-Za-z0-9+/]*+={0,2})"), 80, 85, false),
+            "(?i)(?:azure|openai).{0,100}?(?<!account)(?<!storage[_.-]?)key.{0,10}[=:]\\s*"
+                + "([a-zA-Z0-9]{32}[A-Za-z0-9+/]*+={0,2})"), 80, 85, false),
+        // 64-byte storage account key, base64: 86 characters and "==". As AccountKey in a connection string or in a
+        // storage key variable such as AZURE_STORAGE_KEY or storageAccountKey (#224).
+        new SecretPattern("Azure Storage Account Key", Pattern.compile(
+            "(?i)(?:AccountKey|storage[_.-]?(?:account[_.-]?)?key)\\s*[=:]\\s*([A-Za-z0-9+/]{86}==)"), 85, 95, false),
 
         // Database Connection Strings
         new SecretPattern("MongoDB Connection", Pattern.compile("(?i)mongodb(?:\\+srv)?://(" + DB_CREDENTIALS + ")@"),
@@ -109,7 +117,9 @@ public class SecretPatternRegistry {
             "(?i)(?:sql[_-]?server|mssql).{0,100}?password\\s*[=:]\\s*([^\\s;]{8,})"), 80, 85, false),
 
         // AI & LLM Providers (High Risk)
-        new SecretPattern("OpenAI Project Key", Pattern.compile("sk-proj-[A-Za-z0-9]{48,}"), 90, 100, false),
+        // Project, service account and admin keys; their body is base64url, so it contains "-" and "_" (#224).
+        new SecretPattern("OpenAI Project Key", Pattern.compile(
+            "\\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\\-]{48,}+"), 90, 100, false),
         new SecretPattern("OpenAI API Key", Pattern.compile("\\bsk-[A-Za-z0-9]{48}\\b"), 80, 90, false),
         new SecretPattern("Anthropic API Key", Pattern.compile("sk-ant-api03-[A-Za-z0-9_\\-]{93,95}"), 85, 100, false),
         new SecretPattern("HuggingFace Token", Pattern.compile("hf_[A-Za-z0-9]{34}"), 75, 95, false),
@@ -126,13 +136,18 @@ public class SecretPatternRegistry {
 
         // VCS & Collaboration
         new SecretPattern("GitHub Fine-Grained Token", Pattern.compile("github_pat_[0-9A-Za-z_]{82,}"), 85, 100, false),
-        new SecretPattern("GitHub Token", Pattern.compile("ghp_[0-9A-Za-z]{36}"), 80, 100, false),
+        // Personal (ghp_), OAuth (gho_), user-to-server (ghu_), server-to-server (ghs_) and refresh (ghr_) tokens
+        // (#224).
+        new SecretPattern("GitHub Token", Pattern.compile("gh[pousr]_[0-9A-Za-z]{36}"), 80, 100, false),
         new SecretPattern("GitLab Token", Pattern.compile("glpat-[0-9a-zA-Z\\-_]{20}"), 85, 100, false),
         // No upper bound: current Slack tokens exceed 48 characters, and a cut token was reported and masked only in
         // part (#218).
         new SecretPattern("Slack Token", Pattern.compile("xox[baprs]-[0-9a-zA-Z-]{10,}+"), 75, 95, false),
-        new SecretPattern("Twilio API Key", Pattern.compile("SK[0-9a-fA-F]{32}"), 70, 90, false),
-        new SecretPattern("Mailgun API Key", Pattern.compile("key-[0-9a-zA-Z]{32}"), 70, 90, false),
+        // Whole tokens only: without boundaries both fired inside identifiers and hashes, such as class="TASK0123..."
+        // or request-key-0123... (#224). Mailgun also excludes a preceding "-" or "_", which \\b does not.
+        new SecretPattern("Twilio API Key", Pattern.compile("\\bSK[0-9a-fA-F]{32}\\b"), 70, 90, false),
+        new SecretPattern("Mailgun API Key", Pattern.compile("(?<![A-Za-z0-9_\\-])key-[0-9a-zA-Z]{32}\\b"), 70, 90,
+            false),
 
         // Webhooks
         new SecretPattern("Slack Webhook", Pattern.compile(

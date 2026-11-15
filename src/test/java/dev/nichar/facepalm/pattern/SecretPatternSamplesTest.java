@@ -35,6 +35,8 @@ class SecretPatternSamplesTest {
         sample("Heroku API Key", "HEROKU_API_KEY=01234567-89ab-cdef-0123-456789abcdef",
             "HEROKU_API_KEY=not-a-uuid"),
         sample("Azure OpenAI Key", "azure.openai.api-key: " + rep("0a", 16), "azure.openai.api-key: " + rep("0a", 15)),
+        sample("Azure Storage Account Key", "AccountName=app;AccountKey=" + rep("Ab1+/", 17) + "x==",
+            "AccountName=app;AccountKey=" + rep("Ab1+/", 17) + "=="),
         sample("MongoDB Connection", "mongodb://admin:hunter2@db.example.com/app", "mongodb://db.example.com/app"),
         sample("PostgreSQL Connection", "postgresql://app:hunter2@db.example.com:5432/app",
             "postgresql://db.example.com:5432/app"),
