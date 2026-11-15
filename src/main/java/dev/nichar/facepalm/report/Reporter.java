@@ -7,6 +7,7 @@ package dev.nichar.facepalm.report;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.ScanReport;
 import dev.nichar.facepalm.engine.ScanStatistics;
@@ -274,23 +275,27 @@ public class Reporter {
 
         log.info(SEPARATOR);
 
-        final String statusMessage;
+        var statusMessage = "No secrets or sensitive patterns detected. Your secrets are safe.";
         if (errors > 0) {
             statusMessage = "High-risk issues detected! Action required.";
         } else if (warnings > 0) {
             statusMessage = "Warnings detected. Review recommended.";
         } else if (info > 0) {
             statusMessage = "Informational findings detected.";
-        } else {
-            statusMessage = "No secrets or sensitive patterns detected. Your secrets are safe.";
         }
 
-        // Resolve scan status based on meeting configured thresholds.
+        // The same decision as the build (#289): FAILURE only when the build fails, with the flag that decided it.
+        final var failed = FacepalmRunner.failureMessage(scoringConfig, errors, warnings) != null;
+        final var counts = " (" + errors + " critical, " + warnings + " warnings).";
         final String scanResult;
-        if (errors > 0) {
+        if (failed) {
             scanResult = "FAILURE";
-        } else if (warnings > 0) {
+            final var flag = scoringConfig.isFailOnError() && errors > 0 ? "failOnError" : "failOnWarnings";
+            statusMessage += " The build fails: " + flag + " is true" + counts;
+        } else if (errors + warnings > 0) {
             scanResult = "WARNINGS";
+            final var flag = errors > 0 ? "failOnError" : "failOnWarnings";
+            statusMessage += " The build passes: " + flag + " is false" + counts;
         } else {
             scanResult = "SUCCESS";
         }

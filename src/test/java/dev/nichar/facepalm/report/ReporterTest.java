@@ -22,6 +22,8 @@ import java.util.List;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * The HTML and SARIF reports must never contain the raw secret, and repository content must be escaped. The console
@@ -89,6 +91,54 @@ class ReporterTest {
 
         assertThat(lines).anyMatch(line -> line.startsWith("ERROR [GitHub Token] ")
             && line.endsWith(" (ghp_...0000) - Score: 82.8 (R:90/C:90)"));
+    }
+
+    /**
+     * Issue #289: the result line and the status message follow the same decision as the build, for every combination
+     * of failOnError and failOnWarnings, with critical findings and with warnings only.
+     */
+    @ParameterizedTest(name = "failOnError={0}, failOnWarnings={1}, critical={2}")
+    @CsvSource({
+        "true,  false, true,  FAILURE,  'High-risk issues detected! Action required. The build fails: failOnError is true (1 critical, 1 warnings).'",
+        "false, false, true,  WARNINGS, 'High-risk issues detected! Action required. The build passes: failOnError is false (1 critical, 1 warnings).'",
+        "false, true,  true,  FAILURE,  'High-risk issues detected! Action required. The build fails: failOnWarnings is true (1 critical, 1 warnings).'",
+        "true,  true,  true,  FAILURE,  'High-risk issues detected! Action required. The build fails: failOnError is true (1 critical, 1 warnings).'",
+        "true,  false, false, WARNINGS, 'Warnings detected. Review recommended. The build passes: failOnWarnings is false (0 critical, 1 warnings).'",
+        "false, false, false, WARNINGS, 'Warnings detected. Review recommended. The build passes: failOnWarnings is false (0 critical, 1 warnings).'",
+        "false, true,  false, FAILURE,  'Warnings detected. Review recommended. The build fails: failOnWarnings is true (0 critical, 1 warnings).'",
+        "true,  true,  false, FAILURE,  'Warnings detected. Review recommended. The build fails: failOnWarnings is true (0 critical, 1 warnings).'"
+    })
+    void scan_result_matches_the_build_result(final boolean failOnError,
+                                              final boolean failOnWarnings,
+                                              final boolean critical,
+                                              final String result,
+                                              final String message,
+                                              @TempDir final Path tempDir) throws Exception {
+        final var lines = new ArrayList<String>();
+        final var reporter = reporter(capturing(lines));
+        final var config = new FacepalmConfig();
+        config.getScoring().setFailOnError(failOnError);
+        config.getScoring().setFailOnWarnings(failOnWarnings);
+        setContext(reporter, config);
+        final var findings = new ArrayList<Finding>();
+        findings.add(finding(tempDir, 70, 70));
+        if (critical) {
+            findings.add(finding(tempDir, 90, 90));
+        }
+
+        reporter.printLogs(new ScanStatistics(), findings);
+
+        assertThat(lines).contains("INFO SCAN RESULT : " + result, "INFO " + message);
+    }
+
+    @Test
+    void scan_result_is_success_without_reported_findings(@TempDir final Path tempDir) throws Exception {
+        final var lines = new ArrayList<String>();
+        final var reporter = reporter(capturing(lines));
+
+        reporter.printLogs(new ScanStatistics(), List.of(finding(tempDir, 10, 10)));
+
+        assertThat(lines).contains("INFO SCAN RESULT : SUCCESS", "INFO Informational findings detected.");
     }
 
     private static Finding finding(final Path dir, final int risk, final int confidence) {

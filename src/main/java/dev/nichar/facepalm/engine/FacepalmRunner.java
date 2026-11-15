@@ -129,7 +129,7 @@ public class FacepalmRunner {
      * @return The failure message, or {@code null} if the build passes.
      */
     @Nullable
-    static String failureMessage(@Nonnull final ScoringConfig scoring, final long errors, final long warnings) {
+    public static String failureMessage(@Nonnull final ScoringConfig scoring, final long errors, final long warnings) {
         if (scoring.isFailOnError() && errors > 0) {
             return "Facepalm scan failed: " + errors + " critical findings detected.";
         }

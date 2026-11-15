@@ -74,7 +74,8 @@ class FacepalmMojoIT {
             .contains("Discovered 2 files...")
             .contains("Starting scan of 2 files...")
             .contains("SCAN RESULT : WARNINGS")
-            .contains("Warnings detected. Review recommended.")
+            .contains("Warnings detected. Review recommended. The build passes: failOnWarnings is false "
+                + "(0 critical, 1 warnings).")
             .contains("BUILD SUCCESS");
     }
 
@@ -103,8 +104,10 @@ class FacepalmMojoIT {
         assertThat(result).out().info()
             .contains("Discovered 2 files...")
             .contains("Starting scan of 2 files...")
-            .contains("SCAN RESULT : WARNINGS")
-            .contains("Warnings detected. Review recommended.")
+            // The result line follows the build result, not only the finding counts (#289).
+            .contains("SCAN RESULT : FAILURE")
+            .contains("Warnings detected. Review recommended. The build fails: failOnWarnings is true "
+                + "(0 critical, 1 warnings).")
             .contains("BUILD FAILURE");
     }
 
