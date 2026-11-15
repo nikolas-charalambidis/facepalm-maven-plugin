@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine;
 
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.config.EngineConfig;
 import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
 import dev.nichar.facepalm.engine.extractor.SecretExtractor;
 import dev.nichar.facepalm.engine.postprocessor.FileFindingsPostProcessor;
@@ -49,6 +50,12 @@ public class ScannerEngine {
      * File name of Git ignore rules, loaded while walking the project.
      */
     private static final String GITIGNORE = ".gitignore";
+
+    /**
+     * Build descriptors that make a directory a module root, under which build output directories are skipped.
+     */
+    private static final List<String> MODULE_DESCRIPTORS = List.of("pom.xml", "build.gradle", "build.gradle.kts",
+        "package.json");
 
     private final Log log;
 
@@ -187,7 +194,9 @@ public class ScannerEngine {
      * <p>
      * Exclusions match only directories inside the scan root, so folders above the project (e.g. a checkout under
      * {@code /build/...}) and file names never exclude anything. Dotfiles such as {@code .env} are scanned; VCS and IDE
-     * directories are excluded through {@code skipDirs}.
+     * directories are excluded through {@code skipDirs}. Build output names ({@link EngineConfig#BUILD_OUTPUT_DIRS})
+     * match only directly under a module root: the scan root or a directory with a build descriptor
+     * ({@link #MODULE_DESCRIPTORS}).
      */
     @Nonnull
     private List<Path> discover(@Nonnull final Path root) throws IOException {
@@ -233,8 +242,21 @@ public class ScannerEngine {
             }
 
             private boolean isSkipDir(final Path dir) {
-                return !dir.equals(root) && dir.getFileName() != null
-                    && skipDirs.contains(dir.getFileName().toString());
+                if (dir.equals(root) || dir.getFileName() == null) {
+                    return false;
+                }
+                final var name = dir.getFileName().toString();
+                if (!skipDirs.contains(name)) {
+                    return false;
+                }
+                // Build output (target, build, out, dist) only directly under a module root: source packages with
+                // these names, such as com/acme/build, are scanned (#226). Other names match at any depth.
+                return !EngineConfig.BUILD_OUTPUT_DIRS.contains(name) || isModuleRoot(dir.getParent());
+            }
+
+            private boolean isModuleRoot(final Path dir) {
+                return dir.equals(root) || MODULE_DESCRIPTORS.stream().anyMatch(file -> Files.isRegularFile(dir
+                    .resolve(file)));
             }
         });
         return files;
