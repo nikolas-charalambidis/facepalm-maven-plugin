@@ -18,6 +18,7 @@ import dev.nichar.facepalm.engine.ScoringStrategy;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.io.File;
 import java.util.Set;
 import org.apache.maven.plugin.AbstractMojo;
@@ -149,7 +150,9 @@ public class FacepalmMojo extends AbstractMojo {
     private EvaluatorConfig evaluators = new EvaluatorConfig();
 
     /**
-     * Definitions for secret detection.
+     * Custom detection patterns. Not supported yet (#79): configuring {@code <patterns><overrides>} fails the build,
+     * because an empty list used to switch off all detection silently (#277). Leave it out to scan with the built-in
+     * patterns.
      */
     @Parameter
     private PatternConfig patterns = new PatternConfig();
@@ -162,6 +165,7 @@ public class FacepalmMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        requireNoCustomPatterns(patterns);
 
         // Map Maven parameters to internal configuration.
         final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, showProcessed,
@@ -204,6 +208,18 @@ public class FacepalmMojo extends AbstractMojo {
             throw e;
         } catch (Exception e) {
             throw executionFailure(e);
+        }
+    }
+
+    /**
+     * Rejects a configured {@code <patterns><overrides>} (#277). Custom patterns are not supported yet (#79): a
+     * non-empty list cannot be bound, and an empty one used to scan with zero patterns and pass every build.
+     */
+    static void requireNoCustomPatterns(@Nullable final PatternConfig patterns) throws MojoExecutionException {
+        if (patterns != null && patterns.isConfigured()) {
+            throw new MojoExecutionException("Facepalm scan failed: custom detection patterns (<patterns><overrides>) "
+                + "are not supported yet, see https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79."
+                + " Remove the <patterns> configuration to scan with the built-in patterns.");
         }
     }
 

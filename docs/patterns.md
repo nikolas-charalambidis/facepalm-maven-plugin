@@ -17,7 +17,7 @@ Facepalm includes a pre-defined set of "Gold Standard" patterns for detecting se
 
 ## Custom Patterns
 
-Custom patterns cannot be configured yet. The `<patterns><overrides>` configuration shown in earlier versions of this page does not work: Maven cannot bind it, and it would replace all built-in patterns instead of adding to them. Support for additional patterns is tracked in [#79](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79).
+Custom patterns cannot be configured yet. The `<patterns><overrides>` configuration shown in earlier versions of this page does not work: Maven cannot bind it, and it would replace all built-in patterns instead of adding to them. Since 1.0.5, configuring it fails the build with a message, because an empty `<overrides/>` used to switch off all detection silently. Support for additional patterns is tracked in [#79](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79).
 
 To propose a new built-in pattern, see [Adding detection patterns](../CONTRIBUTING.md#adding-detection-patterns).
 
