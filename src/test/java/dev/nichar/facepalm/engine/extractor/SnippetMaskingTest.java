@@ -123,6 +123,53 @@ class SnippetMaskingTest {
         assertThat(RegexSecretExtractor.trimTrailingDelimiters("f(" + SECRET + ")")).isEqualTo("f(" + SECRET + ")");
     }
 
+    /**
+     * Issue #276: short or special-character values on the line of a finding were written raw, because only captures
+     * and long mixed tokens were masked.
+     */
+    @Test
+    void masks_short_undetected_values_on_the_line() {
+        final var token = "ghp_" + "Qw3Er5Ty7Ui9Op2As4Df6Gh8Jk0Lz1Xc3Vb5";
+        final var findings = extract("client.connect(\"" + token + "\", \"lqyh!huu#xsef\", \"wjgvy-tjngr-5260\");");
+
+        assertThat(findings).isNotEmpty();
+        assertNoLeak(findings, token);
+        assertNoLeak(findings, "lqyh!huu#xsef");
+        assertNoLeak(findings, "wjgvy-tjngr-5260");
+    }
+
+    /**
+     * Issue #276: on minified JSON a generic capture ran from the token into the password of a later value, so its
+     * masked form showed the end of the password.
+     */
+    @Test
+    void capture_does_not_run_into_the_next_quoted_value() {
+        final var token = "ghp_" + "Qw3Er5Ty7Ui9Op2As4Df6Gh8Jk0Lz1Xc3Vb5";
+        final var password = "cvaq!igc#dhdu";
+        final var findings = extract("{\"token\":\"" + token + "\",\"mailer\":{\"user\":\"ops\",\"pass\":\"" + password
+            + "\"}}");
+
+        assertThat(findings).isNotEmpty()
+            .allSatisfy(f -> assertThat(f.getSecretValue()).doesNotContain(",").doesNotContain("mailer"));
+        assertThat(findings).extracting(Finding::getMaskedSecret).noneMatch(masked -> masked.endsWith("dhdu"));
+        assertNoLeak(findings, password);
+    }
+
+    /**
+     * Issue #276: the snippet was the whole line, so every finding on a minified file carried the entire file.
+     */
+    @Test
+    void snippet_of_a_long_line_is_a_bounded_window() {
+        final var token = "ghp_" + "Qw3Er5Ty7Ui9Op2As4Df6Gh8Jk0Lz1Xc3Vb5";
+        final var filler = "var a=1;".repeat(100_000);
+        final var findings = extract(filler + "var t=\"" + token + "\";" + filler);
+
+        assertThat(findings).isNotEmpty().allSatisfy(f -> {
+            assertThat(f.getContextSnippet()).hasSizeLessThan(200).startsWith("...").endsWith("...");
+            assertThat(f.getContextSnippet()).contains("var t=");
+        });
+    }
+
     private static List<Finding> extract(final String... lines) {
         final var extractor = TestContainer.create(new FacepalmConfig()).getInstance(RegexSecretExtractor.class);
         return extractor.extract(new FileContext(Path.of("App.java"), String.join("\n", lines), List.of(lines)));
