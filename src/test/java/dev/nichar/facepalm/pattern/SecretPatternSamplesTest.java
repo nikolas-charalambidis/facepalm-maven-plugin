@@ -88,6 +88,32 @@ class SecretPatternSamplesTest {
         assertThat(pattern.getPattern().matcher(negative).find()).as("%s in %s", pattern.getName(), negative).isFalse();
     }
 
+    /**
+     * XML forms of the generic patterns (#287): element and attribute positives, placeholder and too-short near-misses.
+     */
+    @ParameterizedTest
+    @MethodSource("xmlSamples")
+    void generic_patterns_handle_xml_samples(final String name, final String line, final boolean detected) {
+        final var pattern = SecretPatternRegistry.DEFAULT_PATTERNS.stream()
+            .filter(candidate -> candidate.getName().equals(name)).findFirst().orElseThrow();
+
+        assertThat(pattern.getPattern().matcher(line).find()).as("%s in %s", name, line).isEqualTo(detected);
+    }
+
+    static Stream<Arguments> xmlSamples() {
+        final var apiKey = "Generic API Key Assignment";
+        final var password = "Generic Password Assignment";
+        return Stream.of(
+            Arguments.of(password, "<password>hunter22</password>", true),
+            Arguments.of(password, "<property name=password value=hunter22/>", true),
+            Arguments.of(password, "<password>${env.DB_PASSWORD}</password>", false),
+            Arguments.of(password, "<password>hunter2</password>", false),
+            Arguments.of(apiKey, "<token>" + rep("Ab1", 6) + "</token>", true),
+            Arguments.of(apiKey, "<property name=apiKey value=" + rep("Ab1", 6) + "/>", true),
+            Arguments.of(apiKey, "<apiKey>${env.API_KEY}</apiKey>", false),
+            Arguments.of(apiKey, "<token>" + rep("Ab1", 5) + "</token>", false));
+    }
+
     static Stream<Arguments> patterns() {
         return SecretPatternRegistry.DEFAULT_PATTERNS.stream()
             .map(pattern -> Arguments.argumentSet(pattern.getName(), pattern));

@@ -13,7 +13,7 @@ Facepalm includes a pre-defined set of "Gold Standard" patterns for detecting se
 | **VCS & Collaboration** | GitHub Tokens (personal `ghp_`, OAuth `gho_`, user-to-server `ghu_`, server-to-server `ghs_`, refresh `ghr_`, and fine-grained), GitLab, Slack Tokens, Twilio, Mailgun. |
 | **Webhooks** | Slack, Discord. |
 | **Cryptographic Keys** | Private Key Blocks: PKCS#8 (`PRIVATE KEY`), `ENCRYPTED PRIVATE KEY`, RSA, EC, DSA, OPENSSH, PGP (`PGP PRIVATE KEY BLOCK`). |
-| **Generic** | JWT Tokens, Basic Auth Headers, Generic API/Secret/Token/Password assignments. |
+| **Generic** | JWT Tokens, Basic Auth Headers, Generic API/Secret/Token/Password assignments (`key=value`, `key: value`, XML elements such as `<password>…</password>` in Maven `settings.xml`, and `name="…" value="…"` attribute pairs). |
 
 ## Custom Patterns
 

@@ -61,7 +61,7 @@ public class RegexSecretExtractor implements SecretExtractor {
                     if (rawIndexes == null) {
                         rawIndexes = SnippetMasker.rawIndexes(rawLine);
                     }
-                    final var group = m.groupCount() >= 1 && m.group(1) != null ? 1 : 0;
+                    final var group = secretGroup(m);
                     final var start = m.start(group);
                     final var end = endAtPlainQuote(rawLine, rawIndexes, start, m.end(group));
                     final var value = trimTrailingDelimiters(normalizedLine.substring(start, end));
@@ -109,14 +109,25 @@ public class RegexSecretExtractor implements SecretExtractor {
     }
 
     /**
-     * Returns capture group 1 if the pattern defines it and it participated in the match; otherwise the full match.
-     * An optional group such as {@code (foo)?bar} can match without group 1, which must not yield a {@code null}
-     * secret.
+     * Returns the first capture group that participated in the match; otherwise the full match. An optional group
+     * such as {@code (foo)?bar} can match without group 1, which must not yield a {@code null} secret, and a pattern
+     * with alternatives ({@code a=(x)|<a>(y)</a>}) captures the value in the group of the alternative that matched.
      */
     @Nonnull
     static String secretValue(@Nonnull final Matcher matcher) {
-        final var group = matcher.groupCount() >= 1 ? matcher.group(1) : null;
-        return group != null ? group : matcher.group();
+        return matcher.group(secretGroup(matcher));
+    }
+
+    /**
+     * Index of the first capture group that participated in the match, or {@code 0} (the full match) if none did.
+     */
+    private static int secretGroup(@Nonnull final Matcher matcher) {
+        for (int group = 1; group <= matcher.groupCount(); group++) {
+            if (matcher.start(group) >= 0) {
+                return group;
+            }
+        }
+        return 0;
     }
 
     /**

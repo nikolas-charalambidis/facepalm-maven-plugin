@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <servers>
+        <server>
+            <id>internal-repository</id>
+            <username>deployer</username>
+            <password>Kq7vR2mXz9LwP4t</password>
+        </server>
+        <server>
+            <id>ci-repository</id>
+            <username>ci</username>
+            <password>${env.CI_REPOSITORY_PASSWORD}</password>
+        </server>
+    </servers>
+    <profiles>
+        <profile>
+            <id>sonar</id>
+            <properties>
+                <sonar.token>Zp4nW8cQ2kLx7RmT5vY9bHs</sonar.token>
+            </properties>
+        </profile>
+    </profiles>
+</settings>

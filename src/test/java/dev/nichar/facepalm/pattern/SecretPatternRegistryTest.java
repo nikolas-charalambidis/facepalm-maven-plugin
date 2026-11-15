@@ -235,6 +235,61 @@ class SecretPatternRegistryTest {
     }
 
     /**
+     * Issue #287: passwords and tokens in XML elements (Maven {@code settings.xml}) and in {@code name}/{@code value}
+     * attribute pairs. Lines are given as the patterns see them, with and without the quotes the extractor strips.
+     */
+    @Test
+    void generic_patterns_detect_xml_elements_and_attributes() {
+        final var password = "Xk9mQ2vLp7zR4wq";
+        for (final var line : List.of(
+            "<password>" + password + "</password>",
+            "    <password> " + password + " </password>",
+            "<db.password>" + password + "</db.password>",
+            "<keystorePassword>" + password + "</keystorePassword>",
+            "<passphrase>" + password + "</passphrase>",
+            "<property name=password value=" + password + "/>",
+            "<property name=\"db.password\" value=\"" + password + "\"/>",
+            "<entry name=password type=string value=" + password + " />")) {
+            assertEquals(password, group("Generic Password Assignment", line), line);
+        }
+        final var token = "Zq8vLm3NpR7tXw2YkB9cHd4F";
+        for (final var line : List.of(
+            "<token>" + token + "</token>",
+            "<apiKey>" + token + "</apiKey>",
+            "<api-key>" + token + "</api-key>",
+            "<client_secret>" + token + "</client_secret>",
+            "<sonar.token>" + token + "</sonar.token>",
+            "<add name=api_key value=" + token + "/>")) {
+            assertEquals(token, group("Generic API Key Assignment", line), line);
+        }
+    }
+
+    @Test
+    void generic_patterns_ignore_xml_placeholders_short_values_and_other_names() {
+        for (final var line : List.of(
+            "<password>${env.DB_PASSWORD}</password>",
+            "<password>{{ db_password }}</password>",
+            "<password>short</password>",
+            "<password></password>",
+            "<passwordEncoder>Xk9mQ2vLp7zR4wq</passwordEncoder>",
+            "<bypass>Xk9mQ2vLp7zR4wq</bypass>",
+            "<property name=password value=${DB_PASSWORD}/>",
+            "<property name=password value=short/>",
+            "<property name=username value=Xk9mQ2vLp7zR4wq/>")) {
+            assertFalse(pattern("Generic Password Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+        for (final var line : List.of(
+            "<token>${env.GITHUB_TOKEN}</token>",
+            "<apiKey>Zq8vLm3NpR7t</apiKey>",
+            "<secretary>Zq8vLm3NpR7tXw2YkB9cHd4F</secretary>",
+            "<tokenizer>Zq8vLm3NpR7tXw2YkB9cHd4F</tokenizer>",
+            "<secret.name>my-kubernetes-secret-prod</secret.name>",
+            "<property name=token value=${API_TOKEN}/>")) {
+            assertFalse(pattern("Generic API Key Assignment").matcher(line).find(), () -> "Falsely detected: " + line);
+        }
+    }
+
+    /**
      * Issue #243: long argument lists and dotted names neither overflow the stack nor stop recognizing calls that
      * read a secret.
      */
@@ -337,7 +392,13 @@ class SecretPatternRegistryTest {
     private static String group(final String patternName, final String line) {
         final var matcher = pattern(patternName).matcher(line);
         assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
-        return matcher.group(1);
+        // The extractor reports the first group that participated in the match.
+        for (int group = 1; group <= matcher.groupCount(); group++) {
+            if (matcher.group(group) != null) {
+                return matcher.group(group);
+            }
+        }
+        return matcher.group();
     }
 
     private static Pattern privateKeyPattern() {

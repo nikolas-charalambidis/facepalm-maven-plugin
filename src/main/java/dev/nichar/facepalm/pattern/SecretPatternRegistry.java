@@ -174,13 +174,31 @@ public class SecretPatternRegistry {
         new SecretPattern("JWT Token", Pattern.compile(
             "(?<![A-Za-z0-9_\\-]{6})eyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}\\.[A-Za-z0-9._\\-]{10,}"), 30, 40,
             false),
-        new SecretPattern("Generic API Key Assignment", Pattern.compile(
-            "(?i)(?:api[_-]?key|secret|token|client[_-]?secret)" + KEYWORD_SUFFIX
-                + "\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
-                + ")([^'\"\\s}]{16,})['\"]?"),
-            65, 70, false),
-        new SecretPattern("Generic Password Assignment", Pattern.compile(
-            "(?i)(?:password|passwd|pwd|(?<![a-z])pass(?:phrase)?)\\s*[=:]\\s*['\"]?(?!\\{\\{|\\$\\{|" + METHOD_CALL
-                + ")([^'\"\\s}]{8,})['\"]?"),
-            50, 40, false));
+        new SecretPattern("Generic API Key Assignment", genericAssignment(
+            "(?:api[_-]?key|secret|token|client[_-]?secret)" + KEYWORD_SUFFIX, 16), 65, 70, false),
+        new SecretPattern("Generic Password Assignment", genericAssignment(
+            "(?:password|passwd|pwd|(?<![a-z])pass(?:phrase)?)", 8), 50, 40, false));
+
+    /**
+     * Builds a generic pattern that captures a value of at least {@code minLength} characters assigned to the
+     * keyword in one of three forms, each with its own capture group:
+     * <ol>
+     * <li>assignment: {@code keyword=value} or {@code keyword: value};</li>
+     * <li>XML element, as in Maven {@code settings.xml}: {@code <keyword>value</keyword>}, also with a prefix such
+     * as {@code <db.password>} or {@code <keystorePassword>};</li>
+     * <li>XML attribute pair: {@code name="keyword" value="value"}, as in {@code <property name=... value=.../>}.</li>
+     * </ol>
+     * Placeholders ({@code ${...}}, {@code {{...}}}) and calls that only read a secret are excluded in every form.
+     * The extractor strips quotes before matching and reports the first group that participated in the match.
+     */
+    private static Pattern genericAssignment(final String keyword, final int minLength) {
+        final var notReference = "(?!\\{\\{|\\$\\{|" + METHOD_CALL + ")";
+        final var length = "{" + minLength + ",}";
+        final var xmlNamePrefix = "[\\w.-]{0,64}?";
+        return Pattern.compile("(?i)" + keyword + "\\s*[=:]\\s*['\"]?" + notReference + "([^'\"\\s}]" + length
+            + ")['\"]?"
+            + "|<" + xmlNamePrefix + keyword + ">\\s*" + notReference + "([^<\\s]" + length + ")\\s*</"
+            + "|\\bname=['\"]?" + xmlNamePrefix + keyword + "['\"]?\\s[^<>]{0,100}?\\bvalue=['\"]?" + notReference
+            + "([^'\"\\s>]" + length + "?)(?=['\"]|/?>|\\s|$)");
+    }
 }

@@ -130,6 +130,31 @@ class FacepalmMojoIT {
     }
 
     /**
+     * Verifies that a password and a token in a Maven {@code settings.xml}-style file are detected and fail the build,
+     * while a {@code ${env...}} placeholder is not reported (issue #287).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void xml_credentials_project(final MavenExecutionResult result) {
+        assertThat(result).isFailure();
+
+        final var settings = "/FacepalmMojoIT/xml_credentials_project/project/src/main/resources/settings.xml:";
+        assertThat(result).out().error()
+            .anyMatch(line -> line.startsWith("[Generic Password Assignment] ")
+                && fixturePath(line).contains(settings + "7 "));
+        assertThat(result).out().error()
+            .anyMatch(line -> line.startsWith("[Generic API Key Assignment] ")
+                && fixturePath(line).contains(settings + "19 "));
+        assertThat(result).out().plain()
+            .noneMatch(line -> line.contains(settings + "12 "));
+
+        assertThat(result).out().info()
+            .contains("SCAN RESULT : FAILURE")
+            .contains("BUILD FAILURE");
+    }
+
+    /**
      * Verifies that a PKCS#8 private key (no key type in the PEM label) is detected and fails the build (issue #45).
      */
     @MavenTest

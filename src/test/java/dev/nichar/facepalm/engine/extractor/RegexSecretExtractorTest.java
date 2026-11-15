@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine.extractor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,6 +74,25 @@ class RegexSecretExtractorTest {
             assertThat(finding.getLineNumber()).isEqualTo(2);
             assertThat(finding.getContextSnippet()).isEqualTo("[MULTI-LINE BLOCK]");
         });
+    }
+
+    /**
+     * Issue #287: the value of an XML element or attribute is reported without the closing tag or the quotes.
+     */
+    @Test
+    void reports_xml_element_and_attribute_values() {
+        final var findings = extract("<server>", "  <password>Sup3rS3cretValue1</password>",
+            "<property name=\"db.password\" value=\"An0therS3cret99\"/>", "</server>");
+
+        assertThat(findings).extracting(Finding::getPatternName, Finding::getSecretValue, Finding::getLineNumber)
+            .containsExactlyInAnyOrder(
+                tuple("Generic Password Assignment", "Sup3rS3cretValue1", 2),
+                tuple("Generic Password Assignment", "An0therS3cret99", 3));
+    }
+
+    @Test
+    void secret_value_is_the_group_of_the_matching_alternative() {
+        assertEquals("y", secret("a=(x)|b=(y)", "b=y"));
     }
 
     private static List<Finding> extract(final String... lines) {
