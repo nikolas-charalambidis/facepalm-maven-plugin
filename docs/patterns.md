@@ -52,4 +52,4 @@ Patterns are only the first step. Every match is analyzed by these evaluators:
 
 Then all findings of a file are post-processed:
 
-7. **CompositeScoringPostProcessor**: Raises risk when one file contains several distinct secret types, and lowers the score of every finding in a file with more than `highVolumeThreshold` findings.
+7. **CompositeScoringPostProcessor**: Raises risk when one file contains several distinct secret types, and lowers the score of generic findings in a file with more than `highVolumeThreshold` reported findings. Format-specific findings (AWS keys, GitHub tokens, private keys, ...) are never lowered for volume.

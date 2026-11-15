@@ -58,7 +58,7 @@ Noise reduction settings.
 
 | Sub-parameter | Default | Description |
 |---------------|---------|-------------|
-| `highVolumeThreshold` | `15` | Maximum number of findings in a single file. When a file has more, every finding in it gets a score penalty (risk -25, confidence -30), because such files are usually logs or datasets. Findings are not removed. |
+| `highVolumeThreshold` | `15` | Maximum number of reported findings (WARNING or above) in a single file. When a file has more, its findings from generic patterns get a score penalty (risk -25, confidence -30), because such files are usually logs or datasets. Findings from format-specific patterns (base confidence 90 or more, such as AWS access keys, GitHub tokens or private keys) never get the penalty, so more leaked keys cannot make a file pass. Findings are not removed. |
 
 ---
 
