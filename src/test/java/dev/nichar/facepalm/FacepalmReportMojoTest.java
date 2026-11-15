@@ -57,6 +57,18 @@ class FacepalmReportMojoTest {
     }
 
     @Test
+    void ignores_unknown_fields_in_findings_file(@TempDir final Path build) throws Exception {
+        Files.writeString(build.resolve("facepalm-findings.json"), "[{\"patternName\":\"Private Key Block\","
+            + "\"finalSeverity\":\"ERROR\",\"finalScore\":92.0,\"maskedSecret\":\"----...----\","
+            + "\"relativePath\":\"src/a.properties\"}]");
+
+        final var html = render(build);
+
+        assertTrue(html.contains("Critical Findings: </b>1"), html);
+        assertTrue(html.contains("Private Key Block"), html);
+    }
+
+    @Test
     void corrupt_findings_file_fails_with_its_path(@TempDir final Path build) throws Exception {
         final var file = build.resolve("facepalm-findings.json");
         Files.writeString(file, "{not json");

@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.report.FindingReport;
 import jakarta.annotation.Nonnull;
@@ -75,7 +76,8 @@ public class FacepalmReportMojo extends AbstractMavenReport {
 
         final List<FindingReport> findings;
         try {
-            final var mapper = new ObjectMapper();
+            // Tolerate fields written by a newer scan goal or another plugin version.
+            final var mapper = new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
             // Deserialize findings from the machine-readable JSON format.
             findings = mapper.readValue(
                 resultsFile,
