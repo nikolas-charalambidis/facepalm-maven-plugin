@@ -67,8 +67,9 @@ class SnippetMaskingTest {
 
     @Test
     void reports_and_masks_whole_azure_storage_account_key() {
+        // A real storage account key: 64 bytes, so 86 base64 characters and "==".
         final var key = "Kd7Qp2Lx9Vb4Nm6Rt1Ws8Yc3Hf5Jg0Ze" + "+/" + "Ua2Ob9Ic4Ed7Gh1Kl3Mn5Pq8Rs0Tv6Wx"
-            + "Ya3Zb5Ac7Bd9Ce2Df4Eg6Fh8Gi0" + "==";
+            + "Ya3Zb5Ac7Bd9Ce2Df4Eg" + "==";
         final var findings = extract(
             "azure.storage=DefaultEndpointsProtocol=https;AccountName=azurefacepalm;AccountKey="
                 + key + ";EndpointSuffix=core.windows.net");

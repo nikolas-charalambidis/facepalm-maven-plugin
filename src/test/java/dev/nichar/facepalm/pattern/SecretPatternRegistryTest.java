@@ -253,6 +253,87 @@ class SecretPatternRegistryTest {
         assertFalse(pattern("Generic API Key Assignment").matcher("token = env.getProperty(A_B, C_D, E_F)").find());
     }
 
+    /**
+     * Issue #224: OpenAI project, service account and admin keys have a base64url body with {@code -} and {@code _}.
+     */
+    @Test
+    void openai_keys_with_base64url_body_and_every_prefix_are_detected() {
+        final var body = "Ab3_Cd5-Ef7g".repeat(13);
+        for (final var prefix : List.of("proj", "svcacct", "admin")) {
+            final var key = "sk-" + prefix + "-" + body;
+            final var matcher = pattern("OpenAI Project Key").matcher("OPENAI_API_KEY=" + key);
+            assertTrue(matcher.find(), () -> "Not detected: " + key);
+            assertEquals(key, matcher.group());
+        }
+        assertFalse(pattern("OpenAI Project Key").matcher("task-proj-" + body).find());
+        assertFalse(pattern("OpenAI Project Key").matcher("sk-proj-" + "Ab3_Cd5-Ef7g".repeat(3)).find());
+    }
+
+    /**
+     * Issue #224: every GitHub token type, not only personal access tokens.
+     */
+    @Test
+    void github_tokens_of_every_type_are_detected() {
+        final var body = "Ab1".repeat(12);
+        for (final var type : List.of("ghp", "gho", "ghu", "ghs", "ghr")) {
+            assertTrue(pattern("GitHub Token").matcher("token: " + type + "_" + body).find(), type);
+        }
+        assertFalse(pattern("GitHub Token").matcher("token: ghx_" + body).find());
+        assertFalse(pattern("GitHub Token").matcher("token: ghs_" + "Ab1".repeat(11)).find());
+    }
+
+    /**
+     * Issue #224: temporary (STS) access key IDs start with ASIA.
+     */
+    @Test
+    void aws_temporary_access_key_is_detected() {
+        assertEquals("ASIA" + "Q7RT2WXZ8VLM3NPK",
+            group0("AWS Access Key", "aws_access_key_id = ASIA" + "Q7RT2WXZ8VLM3NPK"));
+        assertFalse(pattern("AWS Access Key").matcher("ASIAQ7RT2WXZ8VLM3NP").find());
+        assertFalse(pattern("AWS Access Key").matcher("XASIA" + "Q7RT2WXZ8VLM3NPK").find());
+    }
+
+    /**
+     * Issue #224: Azure Storage account keys have their own pattern, so a connection string is reported once, with
+     * the whole key, and not as an Azure OpenAI key.
+     */
+    @Test
+    void azure_storage_account_key_is_detected_once() {
+        final var key = ("Kd7Qp2Lx9Vb4Nm6Rt1Ws8Yc3Hf5Jg0Ze+/Ua2Ob9Ic4Ed7Gh1Kl3Mn5Pq8Rs0Tv6Wx/Ya3Zb5Ac7Bd9Ce2Df4Eg6Fh8")
+            .substring(0, 86) + "==";
+        final var connection = "DefaultEndpointsProtocol=https;AccountName=azurefacepalm;AccountKey=" + key
+            + ";EndpointSuffix=core.windows.net";
+
+        assertEquals(88, key.length());
+        for (final var line : List.of(connection, "AZURE_STORAGE_KEY=" + key, "storageAccountKey: " + key)) {
+            assertEquals(key, group("Azure Storage Account Key", line), line);
+            assertFalse(pattern("Azure OpenAI Key").matcher(line).find(), () -> "Also Azure OpenAI Key: " + line);
+        }
+        assertFalse(pattern("Azure Storage Account Key").matcher("AccountKey=" + key.substring(1)).find());
+    }
+
+    /**
+     * Issue #224: Twilio and Mailgun keys match whole tokens only, not parts of identifiers or hashes.
+     */
+    @Test
+    void twilio_and_mailgun_keys_do_not_match_inside_identifiers() {
+        final var hex = "0123456789abcdef".repeat(2);
+        assertTrue(pattern("Twilio API Key").matcher("TWILIO_API_KEY=SK" + hex).find());
+        assertFalse(pattern("Twilio API Key").matcher("class=\"TASK" + hex + "\"").find());
+        assertFalse(pattern("Twilio API Key").matcher("SK" + hex + "ff").find());
+
+        final var mailgun = "Ab1".repeat(10) + "Cd";
+        assertTrue(pattern("Mailgun API Key").matcher("MAILGUN_API_KEY=key-" + mailgun).find());
+        assertFalse(pattern("Mailgun API Key").matcher("'request-key-" + mailgun + "'").find());
+        assertFalse(pattern("Mailgun API Key").matcher("monkey-" + mailgun).find());
+    }
+
+    private static String group0(final String patternName, final String line) {
+        final var matcher = pattern(patternName).matcher(line);
+        assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
+        return matcher.group();
+    }
+
     private static String group(final String patternName, final String line) {
         final var matcher = pattern(patternName).matcher(line);
         assertTrue(matcher.find(), () -> patternName + " not detected in: " + line);
