@@ -21,7 +21,7 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
 
    See `interpolationPatternRegex` in [configuration](configuration.md#heuristics-evaluators).
 2. **Move to test paths**: Files in `test/`, `mock/`, or `spec/` get a significant score reduction.
-3. **Add to `.gitignore`**: Facepalm reads your `.gitignore` and reduces the risk score for ignored files.
+3. **Add to `.gitignore`**: Facepalm reads your `.gitignore` and reduces the risk score for ignored files that Git does not track. A tracked file (force-added, or committed before it was ignored) is public, so it keeps its full risk; remove it from the index with `git rm --cached <file>`. Without Git or outside a repository, every ignored file gets the reduction.
 4. **Adjust Thresholds**: If Facepalm is too sensitive, you can increase the `errorThreshold` in your `pom.xml`.
 5. **Know what dummy keywords do**: A value containing one of the `dummyKeywords` (such as `placeholder`, `changeme` or `dummy`) loses 80 confidence points, but its risk stays. They are not ignored.
    - **Where it is enough:** in test paths or documentation files, where the risk is already lower, the discount usually brings a finding below the thresholds.

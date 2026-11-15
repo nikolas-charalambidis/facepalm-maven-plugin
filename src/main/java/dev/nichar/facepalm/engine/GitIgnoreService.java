@@ -14,9 +14,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -34,9 +37,20 @@ public class GitIgnoreService {
     private final Log log;
 
     /**
+     * Longest time {@code git ls-files} may take before the tracked files are treated as unknown.
+     */
+    private static final long GIT_TIMEOUT_SECONDS = 60;
+
+    /**
      * Map of directory paths to their compiled glob matchers.
      */
     private final Map<Path, List<PathMatcher>> registry = new TreeMap<>();
+
+    /**
+     * Absolute, normalized paths of the files tracked by Git below the scan root, or {@code null} if unknown (Git is
+     * not installed, the root is not in a repository, or {@code git ls-files} failed).
+     */
+    private volatile Set<Path> trackedFiles;
 
     @Inject
     public GitIgnoreService(@Nullable final Log log) {
@@ -51,6 +65,67 @@ public class GitIgnoreService {
             .filter(entry -> filePath.startsWith(entry.getKey()))
             .flatMap(entry -> entry.getValue().stream())
             .anyMatch(matcher -> matcher.matches(filePath));
+    }
+
+    /**
+     * Returns true if Git tracks the file. An ignored file that is tracked (force-added, or committed before it was
+     * ignored) is public like any other committed file (#223). Returns false if the tracked files are unknown.
+     */
+    public boolean isTracked(@Nonnull final Path filePath) {
+        final var tracked = trackedFiles;
+        return tracked != null && tracked.contains(filePath.toAbsolutePath().normalize());
+    }
+
+    /**
+     * Reads the files tracked by Git below the scan root once per scan, with {@code git ls-files}. Without Git or a
+     * repository, the tracked files stay unknown and {@link #isTracked} returns false.
+     */
+    public void loadTrackedFiles(@Nonnull final Path root) {
+        trackedFiles = readTrackedFiles(root.toAbsolutePath().normalize());
+    }
+
+    @Nullable
+    private Set<Path> readTrackedFiles(@Nonnull final Path root) {
+        Path output = null;
+        try {
+            output = Files.createTempFile("facepalm-ls-files", ".txt");
+            // core.fsmonitor=false: the scanned repository's configuration must not make Git run a program.
+            final var process = new ProcessBuilder("git", "-c", "core.fsmonitor=false", "ls-files", "-z")
+                .directory(root.toFile())
+                .redirectOutput(output.toFile())
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+            if (!process.waitFor(GIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                log.warn("git ls-files timed out in " + root + "; ignored files get the low-exposure discount.");
+                return null;
+            }
+            if (process.exitValue() != 0) {
+                log.debug("Not a Git repository: " + root + "; ignored files get the low-exposure discount.");
+                return null;
+            }
+            final Set<Path> tracked = new HashSet<>();
+            for (final var name : new String(Files.readAllBytes(output), StandardCharsets.UTF_8).split("\0")) {
+                if (!name.isEmpty()) {
+                    tracked.add(root.resolve(name).normalize());
+                }
+            }
+            return Set.copyOf(tracked);
+        } catch (IOException e) {
+            log.debug("Git is not available (" + e.getMessage() + "); ignored files get the low-exposure discount.");
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } finally {
+            if (output != null) {
+                try {
+                    Files.deleteIfExists(output);
+                } catch (IOException e) {
+                    log.debug("Could not delete " + output + ": " + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
