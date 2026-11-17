@@ -201,8 +201,14 @@ public class SuppressionFile {
         var targetLine = 0;
         final var pathLine = PATH_LINE.matcher(path);
         if (pathLine.matches()) {
+            try {
+                targetLine = Integer.parseInt(pathLine.group(2));
+            } catch (NumberFormatException e) {
+                // A line number beyond int range: an invalid entry must not abort the scan.
+                log.warn("Ignoring entry '" + body + "' in " + FILE_NAME + ":" + lineNumber + ": invalid line number");
+                return null;
+            }
             path = pathLine.group(1);
-            targetLine = Integer.parseInt(pathLine.group(2));
         }
         while (path.startsWith("./") || path.startsWith("/")) {
             path = path.substring(path.startsWith("./") ? 2 : 1);

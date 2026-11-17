@@ -145,7 +145,7 @@ public class InlineSuppressor {
             .contextSnippet(snippet)
             .fixedSeverity(Severity.WARNING)
             .build();
-        finding.getScoreHistory().add("Unused suppression: " + why);
+        finding.note("Unused suppression: " + why);
         return finding;
     }
 }

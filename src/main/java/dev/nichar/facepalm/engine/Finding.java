@@ -7,7 +7,10 @@ package dev.nichar.facepalm.engine;
 
 import dev.nichar.facepalm.config.ScoringConfig;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import lombok.AllArgsConstructor;
@@ -55,6 +58,21 @@ public class Finding {
     private final List<String> scoreHistory = new ArrayList<>();
 
     /**
+     * Read-only view of the history; entries are added only through {@link #log} and {@link #note}.
+     */
+    @Nonnull
+    public List<String> getScoreHistory() {
+        return Collections.unmodifiableList(scoreHistory);
+    }
+
+    /**
+     * Adds an entry to the history that does not change the scores, such as why a finding is reported.
+     */
+    public void note(@Nonnull final String entry) {
+        scoreHistory.add(entry);
+    }
+
+    /**
      * Severity that does not depend on the score, for a finding that is not a secret, such as an unused suppression
      * marker (#12). {@code null} for secrets: their severity follows the score.
      */
@@ -76,7 +94,7 @@ public class Finding {
      * @param source What suppressed it: {@code facepalm:ignore} for an inline marker, or the
      * {@code .facepalmignore} entry ({@code .facepalmignore:3}).
      */
-    public void suppress(@Nonnull final String source, final String reason) {
+    public void suppress(@Nonnull final String source, @Nullable final String reason) {
         suppressed = true;
         suppressionReason = reason;
         scoreHistory.add("Suppressed by " + source + (reason == null ? "" : ": " + reason));

@@ -141,6 +141,31 @@ class SuppressionFileTest {
         assertThat(read(tempDir)).extracting(f -> f.get("finalSeverity")).containsOnly("ERROR").hasSize(2);
     }
 
+    /**
+     * A line number beyond the int range is an invalid entry: it is skipped with a warning instead of aborting the
+     * scan, and the other entries still apply.
+     */
+    @Test
+    void line_number_out_of_range_is_skipped(@TempDir final Path tempDir) throws Exception {
+        final var root = project(tempDir, "src/main/resources/keys.json:99999999999\nsrc/main/resources/keys.json\n");
+
+        run(root, tempDir, config());
+
+        assertThat(read(tempDir)).extracting(f -> f.get("finalSeverity")).containsOnly("SUPPRESSED").hasSize(2);
+    }
+
+    /**
+     * The history is read-only from outside: entries are added through {@link Finding#log} and {@link Finding#note}.
+     */
+    @Test
+    void score_history_is_read_only(@TempDir final Path tempDir) throws Exception {
+        final var finding = scan(project(tempDir, null)).get(0);
+
+        assertThatThrownBy(() -> finding.getScoreHistory().add("x")).isInstanceOf(UnsupportedOperationException.class);
+        finding.note("x");
+        assertThat(finding.getScoreHistory()).endsWith("x");
+    }
+
     private static FacepalmConfig config() {
         final var config = new FacepalmConfig();
         config.getEngine().setThreads(1);
