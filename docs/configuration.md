@@ -28,7 +28,7 @@ Effective skip directories (an empty `skipDirs`, such as `-DskipDirs=`, counts a
 | `false` | `a,b` | `a`, `b` |
 | `showProcessed` | `showProcessed` | `false` | Log every processed file at debug level. |
 | `showSkipped` | `showSkipped` | `false` | Log every skipped file at debug level. |
-| `inlineSuppression` | `facepalm.inlineSuppression` | `true` | Honor inline `facepalm:ignore` and `facepalm:ignore-next-line` markers (see the [FAQ](faq.md#how-do-i-handle-false-positives)). `false` reports every finding as if no marker existed and does not report unused markers, for audits in CI: `-Dfacepalm.inlineSuppression=false`. |
+| `suppressions` | `facepalm.suppressions` | `true` | Honor suppressions: inline `facepalm:ignore` and `facepalm:ignore-next-line` markers and the `.facepalmignore` file at the scan root (see the [FAQ](faq.md#how-do-i-handle-false-positives)). `false` reports every finding as if neither existed and does not report unused markers or entries, for audits in CI: `-Dfacepalm.suppressions=false`. |
 
 ## Scoring & Thresholds
 

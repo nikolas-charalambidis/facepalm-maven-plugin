@@ -153,7 +153,7 @@ public class FacepalmReportMojo extends AbstractMavenReport {
         sink.listItem_();
         sink.listItem();
         sink.bold();
-        sink.text("Suppressed (facepalm:ignore): ");
+        sink.text("Suppressed: ");
         sink.bold_();
         sink.text(String.valueOf(suppressed));
         sink.listItem_();

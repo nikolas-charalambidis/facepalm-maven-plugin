@@ -308,7 +308,8 @@ public class Reporter {
 
         if (suppressed > 0) {
             // Always visible, so a reviewer sees that markers hide findings (#12); details in facepalm-findings.json.
-            log.info(suppressed + " findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in "
+            log.info(suppressed
+                + " findings suppressed by facepalm:ignore markers or .facepalmignore (finalSeverity SUPPRESSED in "
                 + "facepalm-findings.json).");
         }
         log.info(ScanStatisticsReport.from(stats).toLogLine());

@@ -55,7 +55,7 @@ class DefaultsConsistencyTest {
         assertEquals(mojoDefault("skipBinaryRegex"), engine.getSkipBinaryRegex());
         assertEquals(mojoDefault("showProcessed"), String.valueOf(engine.isShowProcessed()));
         assertEquals(mojoDefault("showSkipped"), String.valueOf(engine.isShowSkipped()));
-        assertEquals(mojoDefault("inlineSuppression"), String.valueOf(engine.isInlineSuppression()));
+        assertEquals(mojoDefault("suppressions"), String.valueOf(engine.isSuppressions()));
     }
 
     private static String mojoDefault(final String parameter) {

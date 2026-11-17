@@ -55,13 +55,14 @@ The report is written to `target/site/facepalm-report.html` (or the configured `
 
 ## Suppressed Findings
 
-A finding on a line with an inline `facepalm:ignore` marker (see the [FAQ](faq.md#how-do-i-handle-false-positives)) stays in the reports, so reviewers can audit it:
+A finding suppressed by an inline `facepalm:ignore` marker or a `.facepalmignore` entry (see the [FAQ](faq.md#how-do-i-handle-false-positives)) stays in the reports, so reviewers can audit it:
 
 - `facepalm-findings.json` lists it with `"finalSeverity": "SUPPRESSED"`; `finalScore`, `riskScore` and `confidenceScore` keep their values. Consumers that expect only `ERROR`, `WARNING` and `INFO` must accept this value.
-- The log says how many findings markers suppressed, for example `[INFO] 1 findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in facepalm-findings.json).`, and `showDetails` adds a `Suppressed:` count.
-- The site report counts them under "Suppressed (facepalm:ignore)" and lists them with the severity `SUPPRESSED`.
+- The log says how many findings were suppressed, for example `[INFO] 1 findings suppressed by facepalm:ignore markers or .facepalmignore (finalSeverity SUPPRESSED in facepalm-findings.json).`, and `showDetails` adds a `Suppressed:` count.
+- The site report counts them under "Suppressed" and lists them with the severity `SUPPRESSED`.
+- The score history (`showScoring`) names the source: `Suppressed by facepalm:ignore: <reason>` or `Suppressed by .facepalmignore:<line>: <reason>`.
 
-Suppressed findings never fail the build. A marker on a line without a finding is reported as a `WARNING` with the pattern name `Unused Suppression`.
+Suppressed findings never fail the build. A marker on a line without a finding, and a `.facepalmignore` entry that matches no finding, are reported as a `WARNING` with the pattern name `Unused Suppression`. The scan statistics count `.facepalmignore` as a skipped file: it lists suppressions, not content to scan.
 
 ## Scan Statistics
 

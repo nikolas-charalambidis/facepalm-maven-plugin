@@ -76,11 +76,12 @@ public class EngineConfig {
     private boolean showSkipped = false;
 
     /**
-     * Honor inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers (#12). {@code false} reports
-     * every finding as if no marker existed, for audits.
+     * Honor suppressions: inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers (#12) and the
+     * {@code .facepalmignore} file at the scan root (#315). {@code false} reports every finding as if neither existed,
+     * for audits.
      */
     @Getter
-    private boolean inlineSuppression = true;
+    private boolean suppressions = true;
 
     /**
      * Returns the configured thread count or defaults to available processors.

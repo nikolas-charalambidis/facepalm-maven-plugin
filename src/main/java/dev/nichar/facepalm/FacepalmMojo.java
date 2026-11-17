@@ -109,11 +109,12 @@ public class FacepalmMojo extends AbstractMojo {
     private boolean showSkipped;
 
     /**
-     * Honor inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers. {@code false} reports every
-     * finding as if no marker existed, for audits in CI (#12).
+     * Honor suppressions: inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers (#12) and the
+     * {@code .facepalmignore} file at the scan root (#315). {@code false} reports every finding as if neither existed,
+     * for audits in CI.
      */
-    @Parameter(property = "facepalm.inlineSuppression", defaultValue = "true")
-    private boolean inlineSuppression;
+    @Parameter(property = "facepalm.suppressions", defaultValue = "true")
+    private boolean suppressions;
 
     /**
      * Strategy used to combine risk and confidence into a final score.
@@ -193,7 +194,7 @@ public class FacepalmMojo extends AbstractMojo {
 
         // Map Maven parameters to internal configuration.
         final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, useDefaultSkipDirs,
-            showProcessed, showSkipped, inlineSuppression);
+            showProcessed, showSkipped, suppressions);
         final var scoring = new ScoringConfig(scoringStrategy, errorThreshold, warningThreshold, showScoring,
             showDetails, failOnError, failOnWarnings);
         final var effectiveConfig = new FacepalmConfig(engine, scoring, evaluators, postProcessing, patterns);

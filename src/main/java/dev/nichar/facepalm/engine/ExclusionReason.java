@@ -38,7 +38,12 @@ public enum ExclusionReason {
     /**
      * File was read but failed during extraction, evaluation or post-processing.
      */
-    PROCESSING_ERROR("Failed during analysis");
+    PROCESSING_ERROR("Failed during analysis"),
+
+    /**
+     * The {@code .facepalmignore} file at the scan root, which lists suppressions instead of content to scan (#315).
+     */
+    SUPPRESSION_FILE("Suppression file (.facepalmignore)");
 
     /**
      * Localized description for reporting and diagnostic logging.

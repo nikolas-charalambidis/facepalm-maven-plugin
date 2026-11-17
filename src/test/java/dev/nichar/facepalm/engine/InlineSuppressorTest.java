@@ -101,13 +101,13 @@ class InlineSuppressorTest {
     }
 
     /**
-     * The audit switch: with {@code inlineSuppression=false} every finding is reported as if no marker existed, and
+     * The audit switch: with {@code suppressions=false} every finding is reported as if no marker existed, and
      * markers are not checked for use.
      */
     @Test
     void audit_switch_ignores_every_marker(@TempDir final Path tempDir) {
         final var audit = config();
-        audit.getEngine().setInlineSuppression(false);
+        audit.getEngine().setSuppressions(false);
 
         assertThatThrownBy(() -> run(tempDir, audit, KEY + " # facepalm:ignore", "# facepalm:ignore"))
             .isInstanceOf(MojoFailureException.class);

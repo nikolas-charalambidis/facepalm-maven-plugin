@@ -32,7 +32,23 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
    - **Still visible:** suppressed findings never fail the build, but the log counts them and `facepalm-findings.json` lists them as `SUPPRESSED` (see [reporting](reporting.md#suppressed-findings)).
    - **Stale markers:** a marker whose line has no finding is reported as an `Unused Suppression` warning. Remove it, so it cannot hide a secret added to that line later.
    - **Repeated values:** a secret value is reported once per file, at its first line, so put the marker there.
-   - **Audits:** `-Dfacepalm.inlineSuppression=false` ignores every marker, so CI can still see everything.
+   - **Audits:** `-Dfacepalm.suppressions=false` ignores every marker and the `.facepalmignore` file, so CI can still see everything.
+7. **Suppress in `.facepalmignore`**: for files that cannot take a comment (plain JSON, generated files), or to review all suppressions in one place, list them in a `.facepalmignore` file at the scan root (the project directory, or `root`). One entry per line; text after ` #` is an optional reason, and lines starting with `#` are comments:
+
+   ```
+   # path:line - the findings on one line
+   src/main/resources/vendor-sample.json:12  # sample key from the vendor docs
+   # path or glob - every finding in the matching files
+   src/test/resources/fixtures/**  # generated test data
+   # value:<token> - this exact value, in any file
+   value:pk_test_public_demo_key_0001  # public test key, safe to commit
+   ```
+
+   - **Paths** are relative to the scan root, with `/` as the separator. A path without a line, or a glob (`*`, `**`, `?`, `{a,b}`), suppresses every finding in the files it matches, so use it for generated files only.
+   - **Values** are compared verbatim with a finding's value. Use them for tokens that are safe in the repository, such as public test keys, wherever they appear. The file itself is not scanned.
+   - **Still visible:** suppressed findings are listed as `SUPPRESSED`, as with inline markers.
+   - **Stale entries:** an entry that matches no finding in the scan is reported as an `Unused Suppression` warning at its line in `.facepalmignore`, with a value masked. A moved line therefore shows up twice: the old entry as unused, and the secret again.
+   - **Multi-module builds:** each module scans its own directory, so each module reads its own `.facepalmignore`.
    - **What to use instead:** an interpolation placeholder (item 1) in such files.
 6. **Maven-encrypted passwords** (`{...}` from `mvn --encrypt-password`, or `{[name=master,...]...}` from Maven 4 `mvnenc`) in `settings.xml` are reported, but never as an ERROR: their score is capped just below `errorThreshold`. Anyone with the master password in `settings-security.xml` can decrypt them, so they stay visible as warnings and fail the build only with `failOnWarnings`. A `${env.VAR}` placeholder is the safer choice for a committed settings file.
 

@@ -65,14 +65,14 @@ public class InlineSuppressor {
 
     /**
      * Suppresses the findings that a marker in the file targets and returns an {@value #UNUSED} warning for every
-     * marker whose line has no finding. Does nothing when {@code inlineSuppression} is off.
+     * marker whose line has no finding. Does nothing when {@code suppressions} is off.
      *
      * @param findings All findings of the file, after scoring.
      * @return The warnings for unused markers, to be reported with the file's findings.
      */
     @Nonnull
     public List<Finding> apply(@Nonnull final List<Finding> findings, @Nonnull final FileContext context) {
-        if (!config.getEngine().isInlineSuppression()) {
+        if (!config.getEngine().isSuppressions()) {
             return List.of();
         }
         final List<Finding> unused = new ArrayList<>();
@@ -95,12 +95,16 @@ public class InlineSuppressor {
                 if (finding.getLineNumber() == target) {
                     used = true;
                     if (!finding.isSuppressed()) {
-                        finding.suppress(reason);
+                        finding.suppress(MARKER_TEXT, reason);
                     }
                 }
             }
             if (!used) {
-                unused.add(unusedMarker(context, markerLine, MARKER_TEXT + (nextLine ? "-next-line" : ""), reason));
+                final var marker = MARKER_TEXT + (nextLine ? "-next-line" : "");
+                unused.add(unusedSuppression(context, markerLine, marker, reason == null ? marker
+                    : marker + " "
+                        + reason, "no finding on " + (nextLine ? "the next line" : "its line")
+                            + "; remove the marker"));
             }
         }
         return unused;
@@ -119,22 +123,29 @@ public class InlineSuppressor {
         return reason.length() > MAX_REASON ? reason.substring(0, MAX_REASON) : reason;
     }
 
+    /**
+     * An {@value #UNUSED} warning for a marker or a {@code .facepalmignore} entry that suppresses nothing.
+     *
+     * @param shown The marker or entry as shown in the reports, unmasked: it must not contain a secret.
+     * @param snippet The context snippet; as {@code shown}, it must not contain a secret.
+     * @param why Why it is unused and what to do, recorded in the history.
+     */
     @Nonnull
-    private static Finding unusedMarker(@Nonnull final FileContext context,
-                                        final int line,
-                                        @Nonnull final String marker,
-                                        final String reason) {
-        final var target = marker.endsWith("-next-line") ? "the next line" : "its line";
+    static Finding unusedSuppression(@Nonnull final FileContext context,
+                                     final int line,
+                                     @Nonnull final String shown,
+                                     @Nonnull final String snippet,
+                                     @Nonnull final String why) {
         final var finding = Finding.builder()
             .patternName(UNUSED)
             .deduplicationHash("unused-suppression:" + context.getPath() + ":" + line)
-            .secretValue(marker)
+            .secretValue(shown)
             .lineNumber(line)
             .context(context)
-            .contextSnippet(reason == null ? marker : marker + " " + reason)
+            .contextSnippet(snippet)
             .fixedSeverity(Severity.WARNING)
             .build();
-        finding.getScoreHistory().add("Unused suppression: no finding on " + target + "; remove the marker");
+        finding.getScoreHistory().add("Unused suppression: " + why);
         return finding;
     }
 }

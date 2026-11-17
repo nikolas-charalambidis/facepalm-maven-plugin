@@ -71,12 +71,15 @@ public class Finding {
     private String suppressionReason;
 
     /**
-     * Marks the finding as suppressed by an inline marker, with an optional reason, and records it in the history.
+     * Marks the finding as suppressed, with an optional reason, and records it in the history.
+     *
+     * @param source What suppressed it: {@code facepalm:ignore} for an inline marker, or the
+     * {@code .facepalmignore} entry ({@code .facepalmignore:3}).
      */
-    public void suppress(final String reason) {
+    public void suppress(@Nonnull final String source, final String reason) {
         suppressed = true;
         suppressionReason = reason;
-        scoreHistory.add("Suppressed by facepalm:ignore" + (reason == null ? "" : ": " + reason));
+        scoreHistory.add("Suppressed by " + source + (reason == null ? "" : ": " + reason));
     }
 
     /**

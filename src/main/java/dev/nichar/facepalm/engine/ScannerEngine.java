@@ -86,6 +86,9 @@ public class ScannerEngine {
     @Inject
     private InlineSuppressor inlineSuppressor;
 
+    @Inject
+    private SuppressionFile suppressionFile;
+
     @Getter
     private final ScanStatistics stats = new ScanStatistics();
 
@@ -124,6 +127,8 @@ public class ScannerEngine {
 
         // Tracked files decide whether an ignored file is really unexposed (#223); read once, before any evaluation.
         gitIgnoreService.loadTrackedFiles(root);
+        // Suppressions reviewed in one place (#315); read once, before any file is scanned.
+        suppressionFile.load(root);
 
         final List<Callable<List<Finding>>> tasks = new ArrayList<>();
         // Walk the filesystem and identify candidate files.
@@ -138,13 +143,16 @@ public class ScannerEngine {
             tasks.add(() -> processFile(root, path));
         }
 
+        final List<Finding> findings = new ArrayList<>();
         if (tasks.isEmpty()) {
             log.info("No files qualified to scan.");
-            return Collections.emptyList();
+        } else {
+            log.info("Starting scan of " + tasks.size() + " files...");
+            findings.addAll(runTasks(tasks, engineConfig.getThreads()));
         }
-
-        log.info("Starting scan of " + tasks.size() + " files...");
-        return runTasks(tasks, engineConfig.getThreads());
+        // Only now is it known which .facepalmignore entries matched a finding in any file.
+        findings.addAll(suppressionFile.unusedEntries());
+        return findings;
     }
 
     /**
@@ -284,6 +292,15 @@ public class ScannerEngine {
     private boolean shouldScan(@Nonnull final Path path, @Nonnull final ScanStatistics stats) {
         final var engineConfig = context.getEngine();
 
+        // The suppression file lists suppressions, not content: its value entries would otherwise be found in it.
+        if (suppressionFile.isSuppressionFile(path)) {
+            if (engineConfig.isShowSkipped()) {
+                log.debug("Skipping suppression file: " + path);
+            }
+            stats.recordExclusion(ExclusionReason.SUPPRESSION_FILE);
+            return false;
+        }
+
         final var fileName = path.getFileName().toString();
         // Skip binary and non-text assets to reduce noise.
         if (fileName.toLowerCase(Locale.ROOT).matches(engineConfig.getSkipBinaryRegex())) {
@@ -354,8 +371,9 @@ public class ScannerEngine {
                 processor.process(fileFindings, context);
             }
 
-            // Last, on the final scores: inline facepalm:ignore markers suppress findings, and unused markers are
-            // reported (#12).
+            // Last, on the final scores: .facepalmignore entries (#315) and inline facepalm:ignore markers (#12)
+            // suppress findings, and unused markers are reported.
+            suppressionFile.apply(fileFindings, context);
             fileFindings.addAll(inlineSuppressor.apply(fileFindings, context));
 
             // Counted only now: binary content, read errors and analysis failures are exclusions, not scans (#219).

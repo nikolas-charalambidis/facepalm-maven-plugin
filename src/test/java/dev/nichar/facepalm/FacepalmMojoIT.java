@@ -217,8 +217,33 @@ class FacepalmMojoIT {
             .anyMatch(line -> line.startsWith("[Unused Suppression] ") && fixturePath(line).contains(
                 "/FacepalmMojoIT/suppressed_project/project/src/main/resources/application.properties:1"));
         assertThat(result).out().info()
-            .contains("1 findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in "
-                + "facepalm-findings.json).")
+            .contains(
+                "1 findings suppressed by facepalm:ignore markers or .facepalmignore (finalSeverity SUPPRESSED in "
+                    + "facepalm-findings.json).")
+            .contains("SCAN RESULT : WARNINGS");
+
+        final var findings = Files.readString(result.getMavenProjectResult().getTargetProjectDirectory()
+            .resolve("target/facepalm-findings.json"));
+        assertThat(findings).contains("\"finalSeverity\" : \"SUPPRESSED\"");
+    }
+
+    /**
+     * Verifies the {@code .facepalmignore} file (#315): a {@code path:line} entry suppresses a private key, so the
+     * build passes, and an entry that matches nothing is reported as an unused-suppression warning at its line.
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void suppression_file_project(final MavenExecutionResult result) throws IOException {
+        assertThat(result).isSuccessful();
+
+        assertThat(result).out().error().noneMatch(line -> line.startsWith("[Private Key Block] "));
+        assertThat(result).out().warn()
+            .anyMatch(line -> line.startsWith("[Unused Suppression] ") && fixturePath(line).contains(
+                "/FacepalmMojoIT/suppression_file_project/project/.facepalmignore:3"));
+        assertThat(result).out().info()
+            .contains("1 findings suppressed by facepalm:ignore markers or .facepalmignore (finalSeverity SUPPRESSED "
+                + "in facepalm-findings.json).")
             .contains("SCAN RESULT : WARNINGS");
 
         final var findings = Files.readString(result.getMavenProjectResult().getTargetProjectDirectory()

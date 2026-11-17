@@ -1,0 +1,3 @@
+# Suppressions of the integration test (#315).
+src/main/resources/server.key:1  # demo key of the integration test
+src/main/resources/removed.json  # stale entry
