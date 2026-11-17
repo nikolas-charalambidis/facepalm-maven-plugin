@@ -136,6 +136,7 @@ public class FacepalmReportMojo extends AbstractMavenReport {
         // High-level Summary Breakdown
         final long errors = findings.stream().filter(fr -> "ERROR".equals(fr.getFinalSeverity())).count();
         final long warnings = findings.stream().filter(fr -> "WARNING".equals(fr.getFinalSeverity())).count();
+        final long suppressed = findings.stream().filter(fr -> "SUPPRESSED".equals(fr.getFinalSeverity())).count();
 
         sink.list();
         sink.listItem();
@@ -149,6 +150,12 @@ public class FacepalmReportMojo extends AbstractMavenReport {
         sink.text("Warnings: ");
         sink.bold_();
         sink.text(String.valueOf(warnings));
+        sink.listItem_();
+        sink.listItem();
+        sink.bold();
+        sink.text("Suppressed (facepalm:ignore): ");
+        sink.bold_();
+        sink.text(String.valueOf(suppressed));
         sink.listItem_();
         sink.list_();
 

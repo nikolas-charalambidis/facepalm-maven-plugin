@@ -28,7 +28,13 @@ public enum Severity {
     /**
      * Critical findings that typically trigger build failure.
      */
-    ERROR("🔴");
+    ERROR("🔴"),
+
+    /**
+     * Finding marked with an inline {@code facepalm:ignore} comment (#12). Listed in the reports for audits, but never
+     * fails the build, whatever its score.
+     */
+    SUPPRESSED("⚫");
 
     private final String icon;
 }

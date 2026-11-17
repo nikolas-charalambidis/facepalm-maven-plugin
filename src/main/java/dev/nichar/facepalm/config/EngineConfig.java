@@ -76,6 +76,13 @@ public class EngineConfig {
     private boolean showSkipped = false;
 
     /**
+     * Honor inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers (#12). {@code false} reports
+     * every finding as if no marker existed, for audits.
+     */
+    @Getter
+    private boolean inlineSuppression = true;
+
+    /**
      * Returns the configured thread count or defaults to available processors.
      */
     public Integer getThreads() {

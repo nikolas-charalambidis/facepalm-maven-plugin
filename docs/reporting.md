@@ -53,6 +53,16 @@ The report is written to `target/site/facepalm-report.html` (or the configured `
 
 > **Note:** The report goal reads `facepalm-findings.json`, which the scan goal writes to the build directory (`target/` by default). Run `mvn facepalm:scan` (or a full `mvn verify`) before generating the site; otherwise the report says that no scan data is available. Fields in the file that the report goal does not know are ignored, so a file written by a newer or older plugin version still renders. Secrets are masked in both the JSON file and the report. The context snippet shows about 60 characters on each side of a finding's value, marked with `...` where the line continues. In it, every value a pattern captured is masked as a whole token, and so is every quoted value, every value after `=` or `:`, and any long token mixing letters and digits, even if no pattern detected it. At most a quarter of a value is shown, up to 4 characters at each end.
 
+## Suppressed Findings
+
+A finding on a line with an inline `facepalm:ignore` marker (see the [FAQ](faq.md#how-do-i-handle-false-positives)) stays in the reports, so reviewers can audit it:
+
+- `facepalm-findings.json` lists it with `"finalSeverity": "SUPPRESSED"`; `finalScore`, `riskScore` and `confidenceScore` keep their values. Consumers that expect only `ERROR`, `WARNING` and `INFO` must accept this value.
+- The log says how many findings markers suppressed, for example `[INFO] 1 findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in facepalm-findings.json).`, and `showDetails` adds a `Suppressed:` count.
+- The site report counts them under "Suppressed (facepalm:ignore)" and lists them with the severity `SUPPRESSED`.
+
+Suppressed findings never fail the build. A marker on a line without a finding is reported as a `WARNING` with the pattern name `Unused Suppression`.
+
 ## Scan Statistics
 
 Every scan ends with one log line about its size and speed, for example:

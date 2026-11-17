@@ -55,6 +55,31 @@ public class Finding {
     private final List<String> scoreHistory = new ArrayList<>();
 
     /**
+     * Severity that does not depend on the score, for a finding that is not a secret, such as an unused suppression
+     * marker (#12). {@code null} for secrets: their severity follows the score.
+     */
+    private final Severity fixedSeverity;
+
+    /**
+     * Whether an inline {@code facepalm:ignore} marker suppresses the finding (#12).
+     */
+    private boolean suppressed;
+
+    /**
+     * Reason written after the marker, or {@code null} if the marker has none.
+     */
+    private String suppressionReason;
+
+    /**
+     * Marks the finding as suppressed by an inline marker, with an optional reason, and records it in the history.
+     */
+    public void suppress(final String reason) {
+        suppressed = true;
+        suppressionReason = reason;
+        scoreHistory.add("Suppressed by facepalm:ignore" + (reason == null ? "" : ": " + reason));
+    }
+
+    /**
      * Updates threat scores and records the rule responsible for the adjustment.
      */
     public void log(@Nonnull final String rule, final int rDelta, final int cDelta) {
@@ -64,10 +89,17 @@ public class Finding {
     }
 
     /**
-     * Resolves the finding's severity based on configured threat thresholds.
+     * Resolves the finding's severity based on configured threat thresholds. A suppressed finding is
+     * {@link Severity#SUPPRESSED}, and a finding with a {@link #fixedSeverity} keeps it, whatever the score.
      */
     @Nonnull
     public Severity getSeverity(@Nonnull final ScoringConfig config) {
+        if (suppressed) {
+            return Severity.SUPPRESSED;
+        }
+        if (fixedSeverity != null) {
+            return fixedSeverity;
+        }
         final double score = getNumericScore(config);
         if (score >= config.getErrorThreshold()) {
             return Severity.ERROR;
@@ -92,7 +124,8 @@ public class Finding {
      */
     @Nonnull
     public String getMaskedSecret() {
-        return mask(secretValue);
+        // A finding with a fixed severity is not a secret: its value is text the scanner wrote, such as a marker.
+        return fixedSeverity != null ? secretValue : mask(secretValue);
     }
 
     /**

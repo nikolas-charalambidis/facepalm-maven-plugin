@@ -83,6 +83,9 @@ public class ScannerEngine {
     @Inject
     private List<FileFindingsPostProcessor> fileProcessors;
 
+    @Inject
+    private InlineSuppressor inlineSuppressor;
+
     @Getter
     private final ScanStatistics stats = new ScanStatistics();
 
@@ -350,6 +353,10 @@ public class ScannerEngine {
             for (final var processor : fileProcessors) {
                 processor.process(fileFindings, context);
             }
+
+            // Last, on the final scores: inline facepalm:ignore markers suppress findings, and unused markers are
+            // reported (#12).
+            fileFindings.addAll(inlineSuppressor.apply(fileFindings, context));
 
             // Counted only now: binary content, read errors and analysis failures are exclusions, not scans (#219).
             stats.recordScan(path, bytes.length);

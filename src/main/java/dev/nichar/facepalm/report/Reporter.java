@@ -226,7 +226,8 @@ public class Reporter {
         // Always list ERROR and WARNING findings with their location, so a failed build or a blocked commit shows
         // where the secret is. showScoring only adds the score breakdown.
         final var reported = findings.stream()
-            .filter(f -> f.getSeverity(scoringConfig) != Severity.INFO)
+            .filter(f -> f.getSeverity(scoringConfig) == Severity.ERROR
+                || f.getSeverity(scoringConfig) == Severity.WARNING)
             .sorted(Comparator.comparing((Finding f) -> f.getNumericScore(scoringConfig)).reversed())
             .toList();
         if (!reported.isEmpty()) {
@@ -251,6 +252,8 @@ public class Reporter {
         final long info = findings.stream().filter(f -> f.getSeverity(scoringConfig) == Severity.INFO).count();
         final long errors = findings.stream().filter(f -> f.getSeverity(scoringConfig) == Severity.ERROR).count();
         final long warnings = findings.stream().filter(f -> f.getSeverity(scoringConfig) == Severity.WARNING).count();
+        final long suppressed = findings.stream().filter(f -> f.getSeverity(scoringConfig) == Severity.SUPPRESSED)
+            .count();
 
         // Emit summary statistics if verbose detail is enabled.
         if (scoringConfig.isShowDetails()) {
@@ -271,6 +274,7 @@ public class Reporter {
             log.info("Total findings:   " + findings.size());
             log.info("Critical:         " + errors);
             log.info("Warnings:         " + warnings);
+            log.info("Suppressed:       " + suppressed);
         }
 
         log.info(SEPARATOR);
@@ -282,6 +286,8 @@ public class Reporter {
             statusMessage = "Warnings detected. Review recommended.";
         } else if (info > 0) {
             statusMessage = "Informational findings detected.";
+        } else if (suppressed > 0) {
+            statusMessage = "Only suppressed findings detected.";
         }
 
         // The same decision as the build (#289): FAILURE only when the build fails, with the flag that decided it.
@@ -300,6 +306,11 @@ public class Reporter {
             scanResult = "SUCCESS";
         }
 
+        if (suppressed > 0) {
+            // Always visible, so a reviewer sees that markers hide findings (#12); details in facepalm-findings.json.
+            log.info(suppressed + " findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in "
+                + "facepalm-findings.json).");
+        }
         log.info(ScanStatisticsReport.from(stats).toLogLine());
         log.info("SCAN RESULT : " + scanResult);
         log.info(SEPARATOR);

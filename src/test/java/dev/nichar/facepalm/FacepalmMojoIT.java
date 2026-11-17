@@ -203,6 +203,30 @@ class FacepalmMojoIT {
     }
 
     /**
+     * Verifies inline suppression (#12): a {@code facepalm:ignore-next-line} marker above a private key suppresses it,
+     * so the build passes, and a marker on a line without a finding is reported as an unused-suppression warning.
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void suppressed_project(final MavenExecutionResult result) throws IOException {
+        assertThat(result).isSuccessful();
+
+        assertThat(result).out().error().noneMatch(line -> line.startsWith("[Private Key Block] "));
+        assertThat(result).out().warn()
+            .anyMatch(line -> line.startsWith("[Unused Suppression] ") && fixturePath(line).contains(
+                "/FacepalmMojoIT/suppressed_project/project/src/main/resources/application.properties:1"));
+        assertThat(result).out().info()
+            .contains("1 findings suppressed by facepalm:ignore markers (finalSeverity SUPPRESSED in "
+                + "facepalm-findings.json).")
+            .contains("SCAN RESULT : WARNINGS");
+
+        final var findings = Files.readString(result.getMavenProjectResult().getTargetProjectDirectory()
+            .resolve("target/facepalm-findings.json"));
+        assertThat(findings).contains("\"finalSeverity\" : \"SUPPRESSED\"");
+    }
+
+    /**
      * Verifies that a PKCS#8 private key (no key type in the PEM label) is detected and fails the build (issue #45).
      */
     @MavenTest

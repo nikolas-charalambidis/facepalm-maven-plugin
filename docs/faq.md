@@ -27,6 +27,12 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
 5. **Know what dummy keywords do**: A value containing one of the `dummyKeywords` (such as `placeholder`, `changeme`, `dummy`, `fake`, `example` or `sample`) loses 80 confidence points, but its risk stays. They are not ignored.
    - **Where it is enough:** in test paths or documentation files, where the risk is already lower, the discount usually brings a finding below the thresholds.
    - **Where it is not:** in a production file, a match still fails the build. For example, `password=PLACEHOLDER` in `src/main/resources/application.properties` scores 82.0 (risk 100, confidence 10) with the default `WEIGHTED_QUADRATIC` strategy, which is an ERROR.
+6. **Suppress one line inline**: put `facepalm:ignore` on the line of the finding, or `facepalm:ignore-next-line` on the line above it (for lines that cannot take a comment, such as YAML block scalars). The marker is found as text, so any comment syntax works: `// facepalm:ignore`, `# facepalm:ignore`, `<!-- facepalm:ignore -->`, `-- facepalm:ignore`. Text after the marker is an optional reason, recorded in the report: `# facepalm:ignore sample key from the vendor docs`.
+   - **One marker, one line:** there is no block or file marker, so one comment cannot hide a whole file. A marker suppresses every finding on its target line.
+   - **Still visible:** suppressed findings never fail the build, but the log counts them and `facepalm-findings.json` lists them as `SUPPRESSED` (see [reporting](reporting.md#suppressed-findings)).
+   - **Stale markers:** a marker whose line has no finding is reported as an `Unused Suppression` warning. Remove it, so it cannot hide a secret added to that line later.
+   - **Repeated values:** a secret value is reported once per file, at its first line, so put the marker there.
+   - **Audits:** `-Dfacepalm.inlineSuppression=false` ignores every marker, so CI can still see everything.
    - **What to use instead:** an interpolation placeholder (item 1) in such files.
 6. **Maven-encrypted passwords** (`{...}` from `mvn --encrypt-password`, or `{[name=master,...]...}` from Maven 4 `mvnenc`) in `settings.xml` are reported, but never as an ERROR: their score is capped just below `errorThreshold`. Anyone with the master password in `settings-security.xml` can decrypt them, so they stay visible as warnings and fail the build only with `failOnWarnings`. A `${env.VAR}` placeholder is the safer choice for a committed settings file.
 
