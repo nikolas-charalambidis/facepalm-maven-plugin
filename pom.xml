@@ -62,7 +62,7 @@
         <maven.compiler.release>17</maven.compiler.release>
 
         <maven-plugin-api.version>3.10.1</maven-plugin-api.version>
-        <maven-reporting-api.version>3.1.1</maven-reporting-api.version>
+        <maven-reporting-api.version>4.0.0</maven-reporting-api.version>
         <maven-reporting-impl.version>4.0.0</maven-reporting-impl.version>
         <guava.version>33.8.0-jre</guava.version>
         <maven-plugin-annotations.version>3.16.0</maven-plugin-annotations.version>
@@ -111,7 +111,6 @@
 
     <!-- Patched versions of vulnerable transitive dependencies (OpenSSF Scorecard / OSV, issue #173). -->
     <!-- Kept in the published POM (flatten pomElements), so they also apply when Maven resolves the plugin for consumers. -->
-    <!-- Velocity, velocity-tools and dom4j (via doxia-site-renderer) need the Doxia 2 migration (#168). -->
     <dependencyManagement>
         <dependencies>
             <!-- GHSA-6phf-73q6-gh87, GHSA-wxr5-93ph-8wr9; via velocity-tools. -->

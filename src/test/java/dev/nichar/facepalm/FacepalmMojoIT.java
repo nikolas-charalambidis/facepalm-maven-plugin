@@ -127,7 +127,8 @@ class FacepalmMojoIT {
 
         final var projectDirectory = result.getMavenProjectResult().getTargetProjectDirectory();
         assertThat(projectDirectory.resolve("build-output/facepalm-findings.json")).exists();
-        final var report = projectDirectory.resolve("site-output/facepalm-report.html");
+        // A standalone report goal writes to ${project.build.directory}/reports (maven-reporting-impl 4).
+        final var report = projectDirectory.resolve("build-output/reports/facepalm-report.html");
         assertThat(report).exists();
         assertThat(Files.readString(report))
             .contains("Generic Password Assignment")
