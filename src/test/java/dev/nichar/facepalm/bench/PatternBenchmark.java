@@ -6,7 +6,6 @@
 package dev.nichar.facepalm.bench;
 
 import dev.nichar.facepalm.pattern.SecretPattern;
-import dev.nichar.facepalm.pattern.SecretPatternRegistry;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -18,8 +17,9 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
 /**
- * Every built-in pattern's regex on every line of the realistic corpus: the raw cost of matching, without extraction,
- * deduplication or scoring. Most lines do not match, so this is dominated by the cost of rejecting a line.
+ * Every configured single-line pattern's regex on every line of the realistic corpus: the raw cost of matching,
+ * without extraction, deduplication or scoring. Most lines do not match, so this is dominated by the cost of
+ * rejecting a line.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
@@ -38,7 +38,12 @@ public class PatternBenchmark {
 
     @Setup
     public void setUp() {
-        patterns = SecretPatternRegistry.DEFAULT_PATTERNS.stream().filter(p -> !p.isMultiLine()).toList();
+        // The configured pattern set, as the extractor uses it, so the benchmark follows changes to the default rules
+        // (for example the bundled gitleaks rules, #43) instead of a fixed list.
+        patterns = BenchSupport.config().getPatterns().getOverrides().stream().filter(p -> !p.isMultiLine()).toList();
+        if (patterns.isEmpty()) {
+            throw new IllegalStateException("No single-line patterns configured");
+        }
         lines = BenchSupport.lines();
     }
 
