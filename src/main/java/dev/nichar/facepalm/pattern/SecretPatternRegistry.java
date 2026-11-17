@@ -36,9 +36,9 @@ public class SecretPatternRegistry {
         + "timeout|validity|length|prefix|ref|location|enabled)(?![A-Za-z0-9]))[A-Za-z0-9]+){0,3}";
 
     /**
-     * Argument that names a secret instead of containing one: {@code UPPER_SNAKE} with at least one underscore
-     * ({@code GITHUB_TOKEN}), a dotted key ({@code spring.datasource.password}) or a camelCase identifier of letters
-     * only ({@code userDetails}). Random secrets mix letters and digits and match none of these.
+     * Argument that names a secret instead of containing one, quoted or not: {@code UPPER_SNAKE} with at least one
+     * underscore ({@code GITHUB_TOKEN}), a dotted key ({@code spring.datasource.password}) or a camelCase identifier of
+     * letters only ({@code userDetails}). Random secrets mix letters and digits and match none of these.
      * <p>
      * Repeated groups here and in {@link #CALLEE} and {@link #METHOD_CALL} are bounded to 16 repetitions: Java's regex
      * engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line such as
@@ -47,7 +47,21 @@ public class SecretPatternRegistry {
      * so giving characters back never helps, and the patterns using it are case-insensitive, which turns the camelCase
      * part into "letters split into up to 17 runs" and backtracks exponentially without possessive quantifiers.
      */
-    private static final String NAME_ARGUMENT = "(?:[A-Z][A-Z0-9]*+(?:_[A-Z0-9]++){1,16}+|[a-z][a-z0-9-]*+(?:\\.[a-z][a-z0-9-]*+){1,16}+|[a-z]++(?:[A-Z][a-z]++){0,16}+)";
+    private static final String NAME_ARGUMENT = "['\"]?+(?:[A-Z][A-Z0-9]*+(?:_[A-Z0-9]++){1,16}+|[a-z][a-z0-9-]*+(?:\\.[a-z][a-z0-9-]*+){1,16}+|[a-z]++(?:[A-Z][a-z]++){0,16}+)['\"]?+";
+
+    /**
+     * Optional quote: patterns match on the raw line (#211), so a quoted key ({@code "password": ...}) or a quoted
+     * value ({@code = "..."}) has a quote where the unquoted form has none.
+     */
+    private static final String QUOTE = "['\"]?";
+
+    /**
+     * Optional opening quote of a value: as {@link #QUOTE}, the {@code """} or {@code '''} of a text block (Java,
+     * Kotlin, Python), optionally after a string prefix ({@code r"}, {@code f'}, {@code b"}, {@code rb"} in Python,
+     * {@code @"}, {@code $"} in C#), or a Rust raw string ({@code r#"}). Without the prefix the value would start at
+     * the prefix and end at the quote, and the secret after it would be lost (#211).
+     */
+    private static final String OPENING_QUOTE = "(?:(?:[rRbBuUfF]{1,2}+|[@$]{1,2}+)?(?:\"\"\"|'''|['\"])|r#{1,3}+\")?";
 
     /**
      * Method or function name, optionally qualified ({@code getenv}, {@code env.getProperty}, {@code $svc.issue}).
@@ -59,8 +73,8 @@ public class SecretPatternRegistry {
      * Call whose arguments are only names: {@code getSecret()}, {@code env.getProperty(STRIPE_WEBHOOK_SECRET)},
      * {@code jwt.generateToken(userDetails)}, with one level of nesting
      * ({@code Objects.requireNonNull(System.getenv(GITHUB_TOKEN))}). Such code reads a secret instead of containing
-     * one. A call with a literal secret argument ({@code wrap("Zq8vLm3N...")}) is not matched and stays detected. The
-     * extractor strips quotes before matching, so quoted names look like the forms above.
+     * one. A call with a literal secret argument ({@code wrap("Zq8vLm3N...")}) is not matched and stays detected. A
+     * name may be quoted ({@code getenv("GITHUB_TOKEN")}), as {@link #NAME_ARGUMENT} allows.
      */
     private static final String METHOD_CALL;
 
@@ -82,13 +96,14 @@ public class SecretPatternRegistry {
         // ASIA a temporary (STS) key (#224).
         new SecretPattern("AWS Access Key", Pattern.compile("\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"), 90, 95, false),
         new SecretPattern("AWS Secret Key", Pattern.compile(
-            "(?i)aws_(?:secret|access|key)[\\w.-]{0,30}\\s*[=:]\\s*([^\\s]{40})"),
+            "(?i)aws_(?:secret|access|key)[\\w.-]{0,30}" + QUOTE + "\\s*[=:]\\s*" + QUOTE + "([^\\s'\"]{40})"),
             85, 80, false),
         new SecretPattern("Google API Key", Pattern.compile("\\bAIza[0-9A-Za-z\\-_]{35}\\b"), 60, 90, false),
         new SecretPattern("Firebase Key", Pattern.compile("AAAA[A-Za-z0-9_\\-]{7}:[A-Za-z0-9_\\-]{140,}"), 75, 95,
             false),
         new SecretPattern("Heroku API Key", Pattern.compile(
-            "(?i)heroku.{0,100}?[=:]\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"),
+            "(?i)heroku.{0,100}?[=:]\\s*" + QUOTE
+                + "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"),
             70,
             85, false),
         // The capture continues past the 32 characters of an OpenAI key to the end of a longer base64 key, such as an
@@ -96,12 +111,13 @@ public class SecretPatternRegistry {
         // Storage keys (AccountKey, AZURE_STORAGE_KEY) are left to "Azure Storage Account Key", so each is reported
         // once (#224).
         new SecretPattern("Azure OpenAI Key", Pattern.compile(
-            "(?i)(?:azure|openai).{0,100}?(?<!account)(?<!storage[_.-]?)key.{0,10}[=:]\\s*"
+            "(?i)(?:azure|openai).{0,100}?(?<!account)(?<!storage[_.-]?)key.{0,10}[=:]\\s*" + QUOTE
                 + "([a-zA-Z0-9]{32}[A-Za-z0-9+/]*+={0,2})"), 80, 85, false),
         // 64-byte storage account key, base64: 86 characters and "==". As AccountKey in a connection string or in a
         // storage key variable such as AZURE_STORAGE_KEY or storageAccountKey (#224).
         new SecretPattern("Azure Storage Account Key", Pattern.compile(
-            "(?i)(?:AccountKey|storage[_.-]?(?:account[_.-]?)?key)\\s*[=:]\\s*([A-Za-z0-9+/]{86}==)"), 85, 95, false),
+            "(?i)(?:AccountKey|storage[_.-]?(?:account[_.-]?)?key)" + QUOTE + "\\s*[=:]\\s*" + QUOTE
+                + "([A-Za-z0-9+/]{86}==)"), 85, 95, false),
 
         // Database Connection Strings
         new SecretPattern("MongoDB Connection", Pattern.compile("(?i)mongodb(?:\\+srv)?://(" + DB_CREDENTIALS + ")@"),
@@ -114,7 +130,9 @@ public class SecretPatternRegistry {
         new SecretPattern("Redis Password", Pattern.compile("(?i)redis://[^/\\s:@]{0,256}:([^/\\s@]{1,256})@"), 80, 90,
             false),
         new SecretPattern("SQL Server Password", Pattern.compile(
-            "(?i)(?:sql[_-]?server|mssql).{0,100}?password\\s*[=:]\\s*([^\\s;]{8,})"), 80, 85, false),
+            "(?i)(?:sql[_-]?server|mssql).{0,100}?password" + QUOTE + "\\s*[=:]\\s*" + OPENING_QUOTE + value("\\s;",
+                8)),
+            80, 85, false),
 
         // AI & LLM Providers (High Risk)
         // Project, service account and admin keys; their body is base64url, so it contains "-" and "_" (#224).
@@ -125,9 +143,9 @@ public class SecretPatternRegistry {
         new SecretPattern("HuggingFace Token", Pattern.compile("hf_[A-Za-z0-9]{34}"), 75, 95, false),
         new SecretPattern("Replicate API Token", Pattern.compile("r8_[A-Za-z0-9]{30,40}"), 75, 95, false),
         new SecretPattern("Cohere API Key", Pattern.compile(
-            "\\b[cC]ohere[_-]?api[_-]?key.{0,10}[=:]\\s*([A-Za-z0-9]{40})"), 75, 90, false),
+            "\\b[cC]ohere[_-]?api[_-]?key.{0,10}[=:]\\s*" + QUOTE + "([A-Za-z0-9]{40})"), 75, 90, false),
         new SecretPattern("Mistral API Key", Pattern.compile(
-            "\\b[mM]istral[_-]?api[_-]?key.{0,10}[=:]\\s*([A-Za-z0-9]{32})"), 75, 90, false),
+            "\\b[mM]istral[_-]?api[_-]?key.{0,10}[=:]\\s*" + QUOTE + "([A-Za-z0-9]{32})"), 75, 90, false),
         new SecretPattern("Groq API Key", Pattern.compile("gsk_[A-Za-z0-9]{52}"), 80, 95, false),
 
         // Payments & Finance
@@ -167,7 +185,8 @@ public class SecretPatternRegistry {
 
         // Generic & Fallback Patterns
         new SecretPattern("Basic Auth Header", Pattern.compile(
-            "(?i)Authorization:\\s*Basic\\s+(?!\\{\\{|\\$\\{)([A-Za-z0-9+/=]{20,})"), 60, 75, false),
+            "(?i)Authorization" + QUOTE + ":\\s*" + QUOTE + "Basic\\s+(?!\\{\\{|\\$\\{)([A-Za-z0-9+/=]{20,})"), 60, 75,
+            false),
         // A token starts at most 5 characters into a base64url run: otherwise every "eyJ" inside a long run without a
         // dot scans to the end of the run, which is quadratic (#243). The 5 characters keep tokens after an encoded or
         // escaped separator such as "%3D", "%20", "\n" or "=", which end in a run character.
@@ -189,16 +208,42 @@ public class SecretPatternRegistry {
      * <li>XML attribute pair: {@code name="keyword" value="value"}, as in {@code <property name=... value=.../>}.</li>
      * </ol>
      * Placeholders ({@code ${...}}, {@code {{...}}}) and calls that only read a secret are excluded in every form.
-     * The extractor strips quotes before matching and reports the first group that participated in the match.
+     * The extractor matches on the raw line (#211), so the key and the value may be quoted ({@code "password": "..."},
+     * {@code 'password': '...'}); it reports the first group that participated in the match.
      */
     private static Pattern genericAssignment(final String keyword, final int minLength) {
         final var notReference = "(?!\\{\\{|\\$\\{|" + METHOD_CALL + ")";
         final var length = "{" + minLength + ",}";
         final var xmlNamePrefix = "[\\w.-]{0,64}?";
-        return Pattern.compile("(?i)" + keyword + "\\s*[=:]\\s*['\"]?" + notReference + "([^'\"\\s}]" + length
-            + ")['\"]?"
+        return Pattern.compile("(?i)" + keyword + QUOTE + "\\s*[=:]\\s*" + OPENING_QUOTE + notReference
+            + value("\\s}", minLength) + QUOTE
             + "|<" + xmlNamePrefix + keyword + ">\\s*" + notReference + "([^<\\s]" + length + ")\\s*</"
             + "|\\bname=['\"]?" + xmlNamePrefix + keyword + "['\"]?\\s[^<>]{0,100}?\\bvalue=['\"]?" + notReference
-            + "([^'\"\\s>]" + length + "?)(?=['\"]|/?>|\\s|$)");
+            + value("\\s>/", minLength, "|/(?!>)") + "(?=['\"]|/?>|\\s|$)");
+    }
+
+    /**
+     * Capture group of a value of at least {@code minLength} characters on the raw line: runs of characters other than
+     * quotes, backslashes and {@code excluded}, plus the escapes that belong to a quoted value ({@code \"},
+     * {@code \'}, doubled {@code ''} and {@code ""}). Quotes used to be stripped before matching, so such values were
+     * detected; matching on the raw line must not lose them (#211). The group repeats once per run or escape, not per
+     * character, and the length check is a bounded lookahead, so a long value cannot overflow the stack (#243).
+     *
+     * @param excluded Regex character class content that ends the value, such as {@code \\s;}.
+     */
+    private static String value(final String excluded, final int minLength) {
+        return value(excluded, minLength, "");
+    }
+
+    /**
+     * As {@link #value(String, int)}, with further units inside the value: {@code |/(?!>)} keeps a {@code /} that
+     * {@code excluded} lists, unless it starts {@code />}, so an unquoted XML attribute value ends before {@code />}.
+     */
+    private static String value(final String excluded, final int minLength, final String extraUnits) {
+        final var plain = "[^'\"\\\\" + excluded + "]";
+        // A doubled quote is an escape only between value characters: at the end it closes a """ text block.
+        final var escape = "\\\\.|(?:''|\"\")(?=" + plain + ")" + extraUnits;
+        return "((?=(?:" + escape + "|" + plain + "){" + minLength + "})(?:" + plain + "++|\\\\.)(?:" + plain + "++|"
+            + escape + ")*+)";
     }
 }

@@ -102,7 +102,19 @@ class SecretPatternBacktrackingTest {
         new Input("token=a(b(", "C_D,"),
         new Input("-----BEGIN ", "A "),
         new Input("-----BEGIN PRIVATE KEY-----", "a"),
-        new Input("", "-----BEGIN RSA PRIVATE KEY-----\n-----END EC PRIVATE KEY-----\n"));
+        new Input("", "-----BEGIN RSA PRIVATE KEY-----\n-----END EC PRIVATE KEY-----\n"),
+        // Quotes and escapes, which patterns see since they match on the raw line (#211).
+        new Input("", "\""),
+        new Input("", "'"),
+        new Input("", "\"password\": \""),
+        new Input("", "r#\""),
+        new Input("password=\"", "a\\\""),
+        new Input("password=\"", "\\\""),
+        new Input("password='", "a''"),
+        new Input("password=\"", "\"\""),
+        new Input("token=\"", "a\"\"b"),
+        new Input("token=getenv(\"", "A_B\","),
+        new Input("<property name=password value=", "a/"));
 
     /**
      * Splits a sample into tokens: runs of letters and digits, and every other character on its own.

@@ -15,6 +15,8 @@ Facepalm includes a pre-defined set of "Gold Standard" patterns for detecting se
 | **Cryptographic Keys** | Private Key Blocks: PKCS#8 (`PRIVATE KEY`), `ENCRYPTED PRIVATE KEY`, RSA, EC, DSA, OPENSSH, PGP (`PGP PRIVATE KEY BLOCK`). |
 | **Generic** | JWT Tokens, Basic Auth Headers, Generic API/Secret/Token/Password assignments (`key=value`, `key: value`, XML elements such as `<password>…</password>` in Maven `settings.xml`, and `name="…" value="…"` attribute pairs). |
 
+Patterns match the line as written, quotes included. A key and its value may be quoted (`"password": "…"`, `'password': '…'`), and a quoted value may be a text block (`"""…"""`, `'''…'''`) or have a string prefix (Python `r"…"`, `f'…'`, `b"…"`, C# `@"…"`, `$"…"`, Rust `r#"…"#`). The reported value is the text between the quotes. An escaped (`\"`) or doubled (`''`) quote inside it belongs to the value. A call or placeholder that only names a secret, such as `getenv("GITHUB_TOKEN")` or `"${VAULT_TOKEN}"`, is not reported.
+
 ## Custom Patterns
 
 Custom patterns cannot be configured yet. The `<patterns><overrides>` configuration shown in earlier versions of this page does not work: Maven cannot bind it, and it would replace all built-in patterns instead of adding to them. Since 1.0.5, configuring it fails the build with a message, because an empty `<overrides/>` used to switch off all detection silently. Support for additional patterns is tracked in [#79](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79).
@@ -26,7 +28,7 @@ To propose a new built-in pattern, see [Adding detection patterns](../CONTRIBUTI
 Every pattern must match in linear time, so one long line (minified JavaScript, a base64 blob) or a crafted file cannot hang a build or a pre-commit hook:
 
 - **Bound every gap and every open-ended run that can fail late.** Use `.{0,100}?` instead of `.*`, and give a body that must be closed by a delimiter a maximum length.
-- **Bound repeated groups**, for example `(?:_[A-Z0-9]+){1,16}` instead of `(?:_[A-Z0-9]+)+`. Java's regex engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line, and the file is dropped from the scan. Repeating a single character or character class (`[A-Za-z0-9]{10,}`) is not recursive and needs no bound.
+- **Bound repeated groups**, for example `(?:_[A-Z0-9]+){1,16}` instead of `(?:_[A-Z0-9]+)+`. Java's regex engine recurses once per repetition of a group, so an unbounded group overflows the stack on a long line, and the file is dropped from the scan. Repeating a single character or character class (`[A-Za-z0-9]{10,}`) is not recursive and needs no bound. A group that repeats once per run instead of once per character, such as the escape-aware value of the generic patterns (runs of plain characters, then an escape such as `\"`), is unrolled and possessive instead.
 - **Anchor where a token starts** when its prefix can repeat inside a long run. For example, JWTs use `(?<![A-Za-z0-9_\-]{6})eyJ`: a token may start at most 5 characters into a base64url run. This keeps tokens after `%3D` or `=`, and each run has only a few possible starts.
 
 `SecretPatternBacktrackingTest` enforces this for every default pattern in every build:

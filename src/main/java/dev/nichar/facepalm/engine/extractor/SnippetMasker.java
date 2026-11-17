@@ -17,9 +17,9 @@ import lombok.experimental.UtilityClass;
  * Masks every secret on a source line before the line becomes a finding's context snippet (#218). The snippet is
  * written to the JSON findings, the reports and the log, so it must never contain a raw secret.
  * <p>
- * Patterns match on the line with quotes removed, so a captured value is located by position on that line and mapped
- * back to the raw line instead of being searched for as text: a secret containing quotes or followed by {@code ;} is
- * then still found. Each masked span is widened to the whole token around it, so a pattern that captures only part
+ * Patterns match on the raw line (#211), so a captured value is masked at its position instead of being searched for
+ * as text: a secret containing quotes or followed by {@code ;} is then still found. Each masked span is widened to the
+ * whole token around it, so a pattern that captures only part
  * of a token does not reveal the rest. Long tokens mixing letters and digits are masked as well, because they are
  * likely secrets that no pattern detected (a second credential on the same line).
  */
@@ -75,30 +75,6 @@ class SnippetMasker {
      * Shortest value that the snippet masks: shorter ones (flags, numbers, single words) carry no secret.
      */
     private static final int MIN_MASKED_VALUE = 4;
-
-    /**
-     * Removes the quotes that patterns do not see.
-     */
-    @Nonnull
-    static String normalize(@Nonnull final String rawLine) {
-        return rawLine.replace("\"", "").replace("'", "");
-    }
-
-    /**
-     * Maps every index of the {@link #normalize normalized} line to its index in the raw line.
-     */
-    @Nonnull
-    static int[] rawIndexes(@Nonnull final String rawLine) {
-        final var indexes = new int[normalize(rawLine).length()];
-        int normalized = 0;
-        for (int raw = 0; raw < rawLine.length(); raw++) {
-            final var c = rawLine.charAt(raw);
-            if (c != '"' && c != '\'') {
-                indexes[normalized++] = raw;
-            }
-        }
-        return indexes;
-    }
 
     /**
      * Returns the raw line with every given span and every mixed token replaced by its masked form.
@@ -193,10 +169,10 @@ class SnippetMasker {
     }
 
     /**
-     * Index in the raw line where a capture must end at the latest (#276): the first plain quote inside its raw span.
-     * Patterns match on the line without quotes, so on minified JSON a broad capture can run from one quoted value into
-     * the next; its masked form would then show the end of another secret. Doubled ({@code ''}) and escaped
-     * ({@code \"}) quotes belong to the value and do not end it.
+     * Index in the raw line where a capture must end at the latest (#276): the first plain quote inside its span. A
+     * broad capture (such as {@code [^\s]{40}}) can otherwise run from one quoted value into the next on minified JSON;
+     * its masked form would then show the end of another secret. Doubled ({@code ''}) and escaped ({@code \"}) quotes
+     * belong to the value and do not end it.
      *
      * @return The raw index of the first plain quote in {@code [start, end)}, or {@code end} if there is none.
      */

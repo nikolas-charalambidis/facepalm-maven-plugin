@@ -46,27 +46,23 @@ public class RegexSecretExtractor implements SecretExtractor {
         // Single-Line Scanning.
         for (int i = 0; i < context.getLines().size(); i++) {
             final var rawLine = context.getLines().get(i);
-            final var normalizedLine = SnippetMasker.normalize(rawLine);
-            // Built on the first match only: most lines have none.
-            int[] rawIndexes = null;
 
             // Collect every capture of the line first, so the snippet masks all of them, including values whose
-            // finding is dropped as a duplicate (#218).
+            // finding is dropped as a duplicate (#218). Patterns match on the raw line (#211): quotes stay visible,
+            // and a capture's position is its position in the snippet.
             final List<Capture> captures = new ArrayList<>();
             for (final var sp : activePatterns) {
                 if (sp.isMultiLine()) {
                     // Skip multi-line patterns to avoid redundant processing here.
                     continue;
                 }
-                final var m = sp.getPattern().matcher(normalizedLine);
+                final var m = sp.getPattern().matcher(rawLine);
                 while (m.find()) {
-                    if (rawIndexes == null) {
-                        rawIndexes = SnippetMasker.rawIndexes(rawLine);
-                    }
                     final var group = secretGroup(m);
                     final var start = m.start(group);
-                    final var end = endAtPlainQuote(rawLine, rawIndexes, start, m.end(group));
-                    final var value = trimTrailingDelimiters(normalizedLine.substring(start, end));
+                    // A capture never spans two quoted values (#276).
+                    final var end = SnippetMasker.firstPlainQuote(rawLine, start, m.end(group));
+                    final var value = trimTrailingDelimiters(rawLine.substring(start, end));
                     if (!value.isEmpty()) {
                         captures.add(new Capture(sp, value, start, start + value.length()));
                     }
@@ -76,10 +72,9 @@ public class RegexSecretExtractor implements SecretExtractor {
                 continue;
             }
 
-            final var indexes = rawIndexes;
             final List<int[]> spans = captures.stream()
                 .map(capture -> new int[] {
-                    indexes[capture.start()], indexes[capture.end() - 1] + 1 })
+                    capture.start(), capture.end() })
                 .toList();
             for (int c = 0; c < captures.size(); c++) {
                 if (isShadowed(captures, c)) {
@@ -201,34 +196,7 @@ public class RegexSecretExtractor implements SecretExtractor {
     }
 
     /**
-     * End of a capture on the normalized line, cut at the first plain quote of the raw line inside it (#276), so a
-     * capture never spans two quoted values.
-     *
-     * @param start Start of the capture on the normalized line.
-     * @param end End of the capture on the normalized line.
-     */
-    private static int endAtPlainQuote(@Nonnull final String rawLine,
-                                       @Nonnull final int[] rawIndexes,
-                                       final int start,
-                                       final int end) {
-        if (start >= end) {
-            return end;
-        }
-        final var rawEnd = rawIndexes[end - 1] + 1;
-        final var quote = SnippetMasker.firstPlainQuote(rawLine, rawIndexes[start], rawEnd);
-        if (quote == rawEnd) {
-            return end;
-        }
-        // Normalized characters before the quote: the capture ends there.
-        var cut = start;
-        while (cut < end && rawIndexes[cut] < quote) {
-            cut++;
-        }
-        return cut;
-    }
-
-    /**
-     * Value captured by a single-line pattern and its span on the normalized line.
+     * Value captured by a single-line pattern and its span on the raw line.
      */
     private record Capture(SecretPattern pattern, String value, int start, int end) {
     }
