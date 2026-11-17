@@ -42,6 +42,8 @@ The test does not measure absolute speed: a linear pattern with a high constant 
 
 ## Heuristic Adjustments
 
+Each secret value is reported once per file. When several patterns match the same value, or overlapping parts of one line, only the most specific pattern reports it: the one with the highest base confidence. For example, `aws_secret_access_key=...` is reported as `AWS Secret Key`, not also as `Generic API Key Assignment`.
+
 Patterns are only the first step. Every match is analyzed by these evaluators:
 1. **EntropyEvaluator**: Raises the score of random-looking values and lowers it for repetitive ones.
 2. **LocationEvaluator**: Increases risk for production paths (`src/main/`, `.env`, `config`) and decreases it for test paths (`test`, `mock`, `spec`). See [path markers](configuration.md#heuristics-evaluators).

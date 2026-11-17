@@ -14,9 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import javax.inject.Inject;
@@ -80,6 +82,9 @@ public class RegexSecretExtractor implements SecretExtractor {
                     indexes[capture.start()], indexes[capture.end() - 1] + 1 })
                 .toList();
             for (int c = 0; c < captures.size(); c++) {
+                if (isShadowed(captures, c)) {
+                    continue;
+                }
                 final var capture = captures.get(c);
                 final var snippet = SnippetMasker.snippet(rawLine, spans, spans.get(c));
                 registerFinding(findings, localDedup, context, capture.pattern(), capture.value(), i + 1, snippet);
@@ -105,7 +110,42 @@ public class RegexSecretExtractor implements SecretExtractor {
                 registerFinding(findings, localDedup, context, sp, secretValue, lineNum, "[MULTI-LINE BLOCK]");
             }
         }
-        return findings;
+        return mostSpecificPerValue(findings);
+    }
+
+    /**
+     * Returns true if another capture on the line overlaps this one and comes from a more specific pattern: a higher
+     * base confidence, or the same confidence and an earlier pattern. A generic assignment pattern then does not
+     * report the value of an AWS key or a Slack token a second time (#290).
+     */
+    private static boolean isShadowed(@Nonnull final List<Capture> captures, final int index) {
+        final var capture = captures.get(index);
+        for (int other = 0; other < captures.size(); other++) {
+            final var candidate = captures.get(other);
+            if (other == index || candidate.start() >= capture.end() || capture.start() >= candidate.end()) {
+                continue;
+            }
+            final var confidence = candidate.pattern().getBaseConfidence();
+            final var ownConfidence = capture.pattern().getBaseConfidence();
+            if (confidence > ownConfidence || confidence == ownConfidence && other < index) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Keeps one finding per secret value in the file: the one from the pattern with the highest base confidence, or the
+     * first of equally confident ones (#290). The order of the findings is kept.
+     */
+    @Nonnull
+    private static List<Finding> mostSpecificPerValue(@Nonnull final List<Finding> findings) {
+        final Map<String, Finding> best = new HashMap<>();
+        for (final var finding : findings) {
+            best.merge(finding.getSecretValue(), finding,
+                (kept, next) -> next.getConfidenceScore() > kept.getConfidenceScore() ? next : kept);
+        }
+        return findings.stream().filter(finding -> best.get(finding.getSecretValue()) == finding).toList();
     }
 
     /**

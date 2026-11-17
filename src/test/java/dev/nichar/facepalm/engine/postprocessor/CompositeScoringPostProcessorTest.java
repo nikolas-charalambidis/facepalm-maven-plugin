@@ -36,6 +36,16 @@ class CompositeScoringPostProcessorTest {
      */
     private static final String PENALTY = "High Volume File";
 
+    /**
+     * Prefix of the score history entry of the composite boost.
+     */
+    private static final String COMPOSITE = "Composite Risk";
+
+    /**
+     * Characters of generated base64 tokens; the first 62 are alphanumeric.
+     */
+    private static final String BASE64 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/";
+
     @Test
     void many_aws_keys_in_one_file_still_fail(@TempDir final Path tempDir) throws Exception {
         final var random = new Random(275);
@@ -85,6 +95,36 @@ class CompositeScoringPostProcessorTest {
 
         assertThat(findings).hasSizeGreaterThanOrEqualTo(16)
             .allSatisfy(f -> assertThat(f.getScoreHistory()).noneMatch(h -> h.startsWith(PENALTY)));
+    }
+
+    /**
+     * Issue #290: one secret matched by a specific and a generic pattern is one finding, so it does not get the
+     * composite boost for several secret types.
+     */
+    @Test
+    void one_secret_matched_by_two_patterns_gets_no_composite_boost(@TempDir final Path tempDir) throws Exception {
+        final var findings = scan(tempDir, "README.md", List.of("aws_secret_access_key=" + random(new Random(290),
+            BASE64, 40)));
+
+        assertThat(findings).singleElement().satisfies(f -> {
+            assertThat(f.getPatternName()).isEqualTo("AWS Secret Key");
+            assertThat(f.getScoreHistory()).noneMatch(h -> h.startsWith(COMPOSITE));
+        });
+    }
+
+    /**
+     * Two different secrets of different types in one file still get the composite boost.
+     */
+    @Test
+    void two_secrets_of_different_types_get_the_composite_boost(@TempDir final Path tempDir) throws Exception {
+        final var random = new Random(2902);
+        final var findings = scan(tempDir, "README.md", List.of(
+            "aws_secret_access_key=" + random(random, BASE64, 40),
+            "token=ghp_" + random(random, BASE64.substring(0, 62), 36)));
+
+        assertThat(findings).extracting(Finding::getPatternName)
+            .containsExactlyInAnyOrder("AWS Secret Key", "GitHub Token");
+        assertThat(findings).allSatisfy(f -> assertThat(f.getScoreHistory()).anyMatch(h -> h.startsWith(COMPOSITE)));
     }
 
     private static List<Finding> scan(final Path tempDir, final String file, final List<String> lines)
