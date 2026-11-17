@@ -13,7 +13,19 @@ These parameters control the basic execution of the scan.
 | `threads` | `threads` | Available Processors | Concurrent threads for scanning. |
 | `maxFileSizeBytes` | `maxFileSizeBytes` | `5242880` (5MB) | Maximum file size in bytes; larger files are ignored. |
 | `skipBinaryRegex` | `skipBinaryRegex` | `.*\\.(png\|jpg\|jpeg\|gif\|pdf\|zip\|jar\|class\|tar\|gz\|exe\|dll)$` | Regex to identify binary files to skip by name. Other files are skipped as binary only if more than 5 % of their first 8 KB are control bytes; a few NUL bytes or UTF-16 without a byte order mark are still scanned as text. |
-| `skipDirs` | `skipDirs` | `.git, .svn, .hg, .idea, .vscode, .mvn, .gradle, target, node_modules, dist, build, out, .next` | Directories to exclude from scanning (comma-separated via CLI). Matched against directory names inside the scanned project only; excluded directories are not entered. Build output names (`target`, `build`, `out`, `dist`) match only directly under a module root: the scanned directory or a directory with `pom.xml`, `build.gradle`, `build.gradle.kts` or `package.json`. Source packages such as `com/acme/build` are therefore scanned. All other names match at any depth. Dotfiles such as `.env` are scanned. **A configured value replaces the defaults** (repeat the ones you want to keep); an empty value (`-DskipDirs=`) uses the defaults. |
+| `skipDirs` | `skipDirs` | `.git, .svn, .hg, .idea, .vscode, .mvn, .gradle, target, node_modules, dist, build, out, .next` | Directories to exclude from scanning (comma-separated via CLI). Matched against directory names inside the scanned project only; excluded directories are not entered. Build output names (`target`, `build`, `out`, `dist`) match only directly under a module root: the scanned directory or a directory with `pom.xml`, `build.gradle`, `build.gradle.kts` or `package.json`. Source packages such as `com/acme/build` are therefore scanned. All other names match at any depth. Dotfiles such as `.env` are scanned. Whether a configured value adds to the defaults or replaces them depends on `useDefaultSkipDirs`, see below. |
+| `useDefaultSkipDirs` | `useDefaultSkipDirs` | not set | `true`: `skipDirs` adds to the default skip directories. `false`: only `skipDirs` is skipped; with an empty `skipDirs`, nothing is. Not set: a configured `skipDirs` replaces the defaults, as in 1.0.x, and the build logs a deprecation warning. In 2.0.0, `skipDirs` adds to the defaults when this is not set. |
+
+Effective skip directories (an empty `skipDirs`, such as `-DskipDirs=`, counts as not set):
+
+| `useDefaultSkipDirs` | `skipDirs` | Skipped directories |
+|---|---|---|
+| not set | not set | the defaults |
+| not set | `a,b` | `a`, `b` (replaces the defaults; deprecation warning) |
+| `true` | not set | the defaults |
+| `true` | `a,b` | the defaults, `a`, `b` |
+| `false` | not set | none |
+| `false` | `a,b` | `a`, `b` |
 | `showProcessed` | `showProcessed` | `false` | Log every processed file at debug level. |
 | `showSkipped` | `showSkipped` | `false` | Log every skipped file at debug level. |
 

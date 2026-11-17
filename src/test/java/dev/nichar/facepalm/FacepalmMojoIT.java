@@ -123,7 +123,10 @@ class FacepalmMojoIT {
     void custom_directories_project(final MavenExecutionResult result) throws IOException {
         assertThat(result).isSuccessful();
         assertThat(result).out().warn()
-            .noneMatch(line -> line.contains("Facepalm results not found"));
+            .noneMatch(line -> line.contains("Facepalm results not found"))
+            // skipDirs without useDefaultSkipDirs replaces the defaults, as in 1.0.x, with a warning (#258).
+            .anyMatch(line -> line.contains("skipDirs replaces the default skip directories. Set useDefaultSkipDirs "
+                + "explicitly"));
 
         final var projectDirectory = result.getMavenProjectResult().getTargetProjectDirectory();
         assertThat(projectDirectory.resolve("build-output/facepalm-findings.json")).exists();
@@ -133,6 +136,23 @@ class FacepalmMojoIT {
         assertThat(Files.readString(report))
             .contains("Generic Password Assignment")
             .doesNotContain("No scan data available");
+    }
+
+    /**
+     * Verifies that {@code useDefaultSkipDirs=true} adds {@code skipDirs} to the defaults: both {@code node_modules}
+     * (a default) and {@code generated} (configured) are skipped, so their secrets do not fail the build (#258).
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    @MavenVerbose
+    void default_and_extra_skip_dirs_project(final MavenExecutionResult result) {
+        assertThat(result).isSuccessful();
+
+        assertThat(result).out().info()
+            .contains("Discovered 2 files...")
+            .contains("SCAN RESULT : SUCCESS");
+        assertThat(result).out().warn()
+            .noneMatch(line -> line.contains("skipDirs replaces the default skip directories"));
     }
 
     /**

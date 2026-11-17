@@ -90,6 +90,13 @@ public class FacepalmMojo extends AbstractMojo {
     private Set<String> skipDirs;
 
     /**
+     * Whether {@code skipDirs} adds to the default skip directories ({@code true}) or replaces them ({@code false}).
+     * Not set: {@code skipDirs} replaces the defaults, with a deprecation warning (#258).
+     */
+    @Parameter(property = "useDefaultSkipDirs")
+    private Boolean useDefaultSkipDirs;
+
+    /**
      * Log successfully analyzed files.
      */
     @Parameter(property = "showProcessed", defaultValue = "false")
@@ -178,8 +185,8 @@ public class FacepalmMojo extends AbstractMojo {
         requireNoCustomPatterns(patterns);
 
         // Map Maven parameters to internal configuration.
-        final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, showProcessed,
-            showSkipped);
+        final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, useDefaultSkipDirs,
+            showProcessed, showSkipped);
         final var scoring = new ScoringConfig(scoringStrategy, errorThreshold, warningThreshold, showScoring,
             showDetails, failOnError, failOnWarnings);
         final var effectiveConfig = new FacepalmConfig(engine, scoring, evaluators, postProcessing, patterns);

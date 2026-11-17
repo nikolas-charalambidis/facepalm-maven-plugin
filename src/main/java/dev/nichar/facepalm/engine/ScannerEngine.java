@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
@@ -50,6 +51,14 @@ public class ScannerEngine {
      * File name of Git ignore rules, loaded while walking the project.
      */
     private static final String GITIGNORE = ".gitignore";
+
+    /**
+     * Warning logged when {@code skipDirs} replaces the default skip directories because {@code useDefaultSkipDirs}
+     * is not set (#258).
+     */
+    static final String SKIP_DIRS_DEPRECATION = "skipDirs replaces the default skip directories. Set "
+        + "useDefaultSkipDirs explicitly: true adds skipDirs to the defaults, false keeps only skipDirs. In 2.0.0 "
+        + "skipDirs adds to the defaults.";
 
     /**
      * Build descriptors that make a directory a module root, under which build output directories are skipped.
@@ -202,6 +211,10 @@ public class ScannerEngine {
     private List<Path> discover(@Nonnull final Path root) throws IOException {
         final var engineConfig = context.getEngine();
         final var skipDirs = engineConfig.getSkipDirs();
+        if (engineConfig.isSkipDirsReplacingDefaults()) {
+            log.warn(SKIP_DIRS_DEPRECATION);
+        }
+        log.debug("Effective skip directories: " + new TreeSet<>(skipDirs));
         final List<Path> files = new ArrayList<>();
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
 

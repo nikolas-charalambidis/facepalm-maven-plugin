@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm.config;
 
+import java.util.HashSet;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -57,6 +58,12 @@ public class EngineConfig {
     private Set<String> skipDirs;
 
     /**
+     * Whether {@code skipDirs} adds to {@link #SKIP_DIRS} ({@code true}) or replaces it ({@code false}). {@code null}
+     * (not set) keeps the 1.0.x behavior: a configured {@code skipDirs} replaces the defaults (#258).
+     */
+    private Boolean useDefaultSkipDirs;
+
+    /**
      * Enable verbose logging for successfully processed files.
      */
     @Getter
@@ -76,10 +83,35 @@ public class EngineConfig {
     }
 
     /**
-     * Returns the user-defined skip list or falls back to internal defaults.
-     * Maven injects an empty set when the parameter is not configured, so empty also means defaults.
+     * Returns the effective skip directories (#258). Maven injects an empty set when {@code skipDirs} is not
+     * configured, so empty means not set.
+     * <ul>
+     * <li>{@code useDefaultSkipDirs} not set: {@code skipDirs} if set, otherwise the defaults (1.0.x behavior).</li>
+     * <li>{@code true}: the defaults plus {@code skipDirs}.</li>
+     * <li>{@code false}: {@code skipDirs} only, possibly nothing.</li>
+     * </ul>
      */
     public Set<String> getSkipDirs() {
-        return skipDirs != null && !skipDirs.isEmpty() ? skipDirs : SKIP_DIRS;
+        final var configured = skipDirs != null && !skipDirs.isEmpty();
+        if (useDefaultSkipDirs == null) {
+            return configured ? skipDirs : SKIP_DIRS;
+        }
+        if (!useDefaultSkipDirs) {
+            return configured ? skipDirs : Set.of();
+        }
+        if (!configured) {
+            return SKIP_DIRS;
+        }
+        final Set<String> union = new HashSet<>(SKIP_DIRS);
+        union.addAll(skipDirs);
+        return Set.copyOf(union);
+    }
+
+    /**
+     * Returns true if {@code skipDirs} replaces the defaults only because {@code useDefaultSkipDirs} is not set. This
+     * is deprecated: in 2.0.0, {@code skipDirs} adds to the defaults (#259).
+     */
+    public boolean isSkipDirsReplacingDefaults() {
+        return useDefaultSkipDirs == null && skipDirs != null && !skipDirs.isEmpty();
     }
 }
