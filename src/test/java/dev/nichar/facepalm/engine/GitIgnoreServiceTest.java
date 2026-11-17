@@ -26,9 +26,6 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code .gitignore} handling, tested end to end through {@link FacepalmRunner#run} with the real wiring: a finding in
  * an ignored file gets lower risk ({@code -40}, low public exposure). The tests do not depend on how and when
  * {@code .gitignore} files are discovered (e.g. a separate walk or the scanner's walk, issue #15).
- * <p>
- * Ignored files are nested one level below the {@code .gitignore}, because root-level matching is part of the
- * spec-compliance work in #9.
  */
 class GitIgnoreServiceTest {
 
@@ -154,6 +151,62 @@ class GitIgnoreServiceTest {
             .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
     }
 
+    /**
+     * Issue #291: a relative pattern matches a file next to the {@code .gitignore} as well as deeper ones.
+     */
+    @Test
+    void relative_pattern_matches_file_next_to_gitignore(@TempDir final Path tempDir) throws Exception {
+        final var root = rootAndNestedProject(tempDir.resolve("project"), "local.properties\n");
+
+        final var findings = scan(root, tempDir);
+
+        final var fullRisk = risk(findings, "conf/app.properties");
+        assertThat(risk(findings, "project/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+        assertThat(risk(findings, "sub/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #291: a pattern with a leading {@code **}{@code /} also matches a file next to the {@code .gitignore}.
+     */
+    @Test
+    void leading_double_star_pattern_matches_file_next_to_gitignore(@TempDir final Path tempDir) throws Exception {
+        final var root = rootAndNestedProject(tempDir.resolve("project"), "**/local.properties\n");
+
+        final var findings = scan(root, tempDir);
+
+        final var fullRisk = risk(findings, "conf/app.properties");
+        assertThat(risk(findings, "project/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+        assertThat(risk(findings, "sub/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #291: an anchored pattern ({@code /name}) matches only directly under the {@code .gitignore} directory.
+     */
+    @Test
+    void anchored_pattern_matches_only_next_to_gitignore(@TempDir final Path tempDir) throws Exception {
+        final var root = rootAndNestedProject(tempDir.resolve("project"), "/local.properties\n");
+
+        final var findings = scan(root, tempDir);
+
+        final var fullRisk = risk(findings, "conf/app.properties");
+        assertThat(risk(findings, "project/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+        assertThat(risk(findings, "sub/local.properties")).isEqualTo(fullRisk);
+    }
+
+    /**
+     * Issue #291: an anchored directory pattern ({@code /name/}) ignores everything in that directory only.
+     */
+    @Test
+    void anchored_directory_pattern_matches_only_that_directory(@TempDir final Path tempDir) throws Exception {
+        final var root = rootAndNestedProject(tempDir.resolve("project"), "/sub/\n");
+
+        final var findings = scan(root, tempDir);
+
+        final var fullRisk = risk(findings, "conf/app.properties");
+        assertThat(risk(findings, "sub/local.properties")).isEqualTo(fullRisk - EXPOSURE_DISCOUNT);
+        assertThat(risk(findings, "project/local.properties")).isEqualTo(fullRisk);
+    }
+
     @Test
     void escape_glob_escapes_metacharacters() {
         assertThat(GitIgnoreService.escapeGlob("/a/my[app]/{x}/*?")).isEqualTo("/a/my\\[app\\]/\\{x\\}/\\*\\?");
@@ -168,6 +221,18 @@ class GitIgnoreServiceTest {
         Files.writeString(root.resolve(".gitignore"), gitignore);
         Files.writeString(root.resolve("conf/secrets.properties"), SECRET_LINE);
         Files.writeString(root.resolve("conf/app.properties"), SECRET_LINE);
+        return root;
+    }
+
+    /**
+     * Project from {@link #project} plus {@code local.properties} next to the {@code .gitignore} and
+     * {@code sub/local.properties}, all with the same content.
+     */
+    private static Path rootAndNestedProject(final Path root, final String gitignore) throws Exception {
+        project(root, gitignore);
+        Files.createDirectories(root.resolve("sub"));
+        Files.writeString(root.resolve("local.properties"), SECRET_LINE);
+        Files.writeString(root.resolve("sub/local.properties"), SECRET_LINE);
         return root;
     }
 

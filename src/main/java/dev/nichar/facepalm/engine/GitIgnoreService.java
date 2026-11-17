@@ -149,9 +149,13 @@ public class GitIgnoreService {
                         // Convert directory-only matches to recursive globs.
                         glob += "**";
                     }
-                    if (!pattern.startsWith("**/") && !pattern.startsWith("/")) {
-                        // Ensure relative patterns match at any depth within the directory.
-                        glob = "**/" + glob;
+                    if (glob.startsWith("/")) {
+                        // Anchored patterns match only directly under the directory (#291).
+                        glob = glob.substring(1);
+                    } else {
+                        // Relative patterns match at any depth, including next to the .gitignore: a "**/" prefix
+                        // alone needs at least one directory level (#291).
+                        glob = "{**/,}" + (glob.startsWith("**/") ? glob.substring(3) : glob);
                     }
                     // Construct OS-agnostic glob strings.
                     // See: https://en.wikipedia.org/wiki/Glob_(programming)
