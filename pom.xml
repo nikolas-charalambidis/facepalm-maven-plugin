@@ -107,6 +107,10 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.6.1</maven-surefire-report-plugin.version>
+
+        <!-- JMH microbenchmarks, only in the "bench" profile (#245). -->
+        <jmh.version>1.37</jmh.version>
+        <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
     </properties>
 
     <!-- Patched versions of vulnerable transitive dependencies (OpenSSF Scorecard / OSV, issue #173). -->
@@ -330,6 +334,12 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <!-- JMH benchmarks compile only in the "bench" profile, which has the JMH dependencies (#245). -->
+                        <testExcludes>
+                            <testExclude>**/bench/**</testExclude>
+                        </testExcludes>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -787,6 +797,91 @@
                             <!-- The release process relies on this: the docs version PR is merged only after publishing. -->
                             <autoPublish>false</autoPublish>
                         </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- JMH microbenchmarks of the engine's hot paths (#245): mvn -P bench verify. -->
+        <!-- Not part of the default build: without this profile the benchmark sources (src/test/java/**/bench) are not compiled. -->
+        <!-- Results: target/jmh-result.json. Pass -Dbench.include=<regex> to run only matching benchmarks. -->
+        <profile>
+            <id>bench</id>
+            <properties>
+                <!-- Regex of the benchmarks to run; the default runs the whole suite. -->
+                <bench.include>dev\.nichar\.facepalm\.bench\..*</bench.include>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-core</artifactId>
+                    <version>${jmh.version}</version>
+                    <scope>test</scope>
+                </dependency>
+                <!-- Annotation processor that generates the benchmark harness and META-INF/BenchmarkList. -->
+                <dependency>
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-generator-annprocess</artifactId>
+                    <version>${jmh.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testExcludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Runs the suite in a forked JVM on the test classpath. -->
+                    <!-- Phase: verify - after the tests, so a broken build never reaches the benchmarks. -->
+                    <!-- Short settings (1 fork, 3 x 1 s warmup, 5 x 1 s measurement) keep the suite at a few minutes; -->
+                    <!-- -prof gc adds allocation rates, which stay stable on noisy CI runners. -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>run-benchmarks</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/java</executable>
+                                    <classpathScope>test</classpathScope>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <classpath/>
+                                        <argument>org.openjdk.jmh.Main</argument>
+                                        <argument>-f</argument>
+                                        <argument>1</argument>
+                                        <argument>-wi</argument>
+                                        <argument>3</argument>
+                                        <argument>-w</argument>
+                                        <argument>1s</argument>
+                                        <argument>-i</argument>
+                                        <argument>5</argument>
+                                        <argument>-r</argument>
+                                        <argument>1s</argument>
+                                        <argument>-prof</argument>
+                                        <argument>gc</argument>
+                                        <!-- Fail on error: a benchmark that throws fails the build instead of being skipped. -->
+                                        <argument>-foe</argument>
+                                        <argument>true</argument>
+                                        <argument>-rf</argument>
+                                        <argument>json</argument>
+                                        <argument>-rff</argument>
+                                        <argument>${project.build.directory}/jmh-result.json</argument>
+                                        <argument>${bench.include}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

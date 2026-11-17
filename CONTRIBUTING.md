@@ -10,6 +10,7 @@ Thanks for taking the time to contribute. Facepalm is a small, focused security 
 - [Proposing features](#proposing-features)
 - [Development setup](#development-setup)
 - [Building and testing](#building-and-testing)
+- [Benchmarks](#benchmarks)
 - [Code style](#code-style)
 - [Adding detection patterns](#adding-detection-patterns)
 - [Commit and PR conventions](#commit-and-pr-conventions)
@@ -88,8 +89,53 @@ The first build runs unit tests, integration tests (which spawn real Maven proce
 | Check formatting | `mvn spotless:check` |
 | Run the plugin against this repo | `mvn facepalm:scan` |
 | Generate the site (Javadoc, PMD, JaCoCo, Surefire) | `mvn site` |
+| Run the JMH benchmarks (about 2 minutes, see [Benchmarks](#benchmarks)) | `mvn -P bench verify -DskipTests` |
 
 Integration test fixtures live under `src/test/resources-its/dev/nichar/facepalm/FacepalmMojoIT/` and are filtered so `${project.version}` resolves to your local build. Add a new directory there to cover a new scenario, and wire it from `FacepalmMojoIT`.
+
+## Benchmarks
+
+JMH microbenchmarks measure how fast the engine's hot paths are and how much memory they allocate. They are measurements, not tests: they have no expected values and no thresholds, so a slower or more allocating change does not fail them. You find a regression by comparing results.
+
+### How they work
+
+- The benchmarks live under `src/test/java/dev/nichar/facepalm/bench` and compile only in the `bench` profile. The default build excludes them from test compilation and has no JMH dependency, so `mvn verify` and the required `CI / Verify & Build Site` check neither compile nor run them.
+- In the profile, the JMH annotation processor generates the benchmark harness at test compilation. In the `verify` phase, after the tests, `exec-maven-plugin` starts `org.openjdk.jmh.Main` in a new JVM on the test classpath.
+- Each benchmark runs in its own forked JVM: 3 warmup iterations of 1 s, whose results are discarded while the JIT compiles the code, then 5 measured iterations of 1 s. The whole suite takes about 2 minutes.
+- The input is deterministic: realistic lines (Java, properties, YAML, JSON, XML, logs, a long minified line), plus secrets generated at runtime from a fixed seed. Every run measures the same input, and the sources contain no literal secrets. Components come from the real dependency injection wiring, with a log that discards everything.
+
+| Benchmark | Measures |
+|---|---|
+| `PatternBenchmark.allPatternsOnAllLines` | Every single-line built-in pattern on every corpus line: the raw cost of the regexes. |
+| `ExtractorBenchmark.extract` | `RegexSecretExtractor` on a 200-line file: matching, snippet masking, deduplication. |
+| `EvaluatorBenchmark.evaluate` | Each evaluator (one result per `evaluator` parameter) on the findings of a 200-line file. |
+| `ScannerEngineBenchmark.scan` | A full scan of a generated project of 200 files x 50 lines on one thread: discovery, `.gitignore`, reading, extraction, evaluation, post-processing. |
+
+### Reading the results
+
+The console prints a table, and `target/jmh-result.json` holds the same data. For each benchmark:
+
+- `Score ± Error`: average time per operation (`avgt`) with its 99.9 % confidence interval. Times depend on the machine and fluctuate on shared CI runners, so compare them only between runs on the same machine.
+- `gc.alloc.rate.norm`: bytes allocated per operation. It hardly depends on the machine or its load, so compare it first: a change that raises it allocates more on every run.
+- `gc.alloc.rate`, `gc.count`, `gc.time`: allocation rate and garbage collections during the measurement; useful as context only.
+
+To compare two runs, open both JSON files in a JMH visualizer such as [jmh.morethan.io](https://jmh.morethan.io), or compare the tables. Treat a time difference inside the error margins as noise.
+
+### When they fail
+
+The run fails, and with it `mvn -P bench verify` and the `Benchmarks` workflow, when:
+
+- the benchmark sources do not compile, for example after an API change in `src/main` that they use;
+- a benchmark throws, in setup or in the measured method. JMH runs with `-foe true` (fail on error), so the error fails the build instead of skipping the benchmark. The setup checks its own assumptions too: `EvaluatorBenchmark` fails if an evaluator is renamed or removed (update its `@Param` list) or if the corpus produces no findings;
+- without `-DskipTests`: a unit or integration test or a quality gate fails, because the benchmarks run only after them;
+- in the workflow only: no `target/jmh-result.json` is written (the upload step requires it), or the job exceeds its 30-minute timeout.
+
+They do **not** fail when a change is slower or allocates more. The workflow is not a required check, and nothing compares results automatically.
+
+### When they run
+
+- Locally, on demand: `mvn -P bench verify -DskipTests`, or a subset with `-Dbench.include=<regex>`, for example `-Dbench.include=ScannerEngineBenchmark`.
+- The `Benchmarks` workflow (`.github/workflows/bench.yaml`): weekly on Monday, on manual dispatch, and on pull requests labelled `performance` (when the label is added and on every later push). It uploads `jmh-result.json` as the `jmh-result` artifact. For a performance change, compare that artifact with the one from the latest weekly run on `master`.
 
 ## Code style
 

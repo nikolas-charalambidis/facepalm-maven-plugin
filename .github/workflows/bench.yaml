@@ -1,0 +1,53 @@
+name: Benchmarks
+
+# JMH microbenchmarks of the engine's hot paths (#245). Not a required check: the numbers are for comparison, not a gate.
+on:
+  workflow_dispatch: # Manual trigger.
+  schedule:
+    - cron: '30 6 * * 1' # Weekly, Monday 06:30 UTC
+  pull_request:
+    branches: [ master, 'release/**' ]
+    # "labeled" starts a run when the performance label is added; later pushes to a labelled PR run again.
+    types: [ opened, synchronize, reopened, labeled ]
+
+# Read-only: the job builds pull request code and only uploads an artifact.
+permissions:
+  contents: read
+
+# One run per ref; a newer push cancels the older run, whose numbers would be outdated.
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: JMH Benchmarks
+    # Pull requests run only with the "performance" label.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'performance')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+
+      - name: Setup Java 17
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # Tests run in the CI workflow; here they would only add minutes before the benchmarks.
+      - name: Run benchmarks
+        run: mvn -B -P bench verify -DskipTests
+
+      # JMH JSON, comparable across runs, e.g. with https://jmh.morethan.io.
+      - name: Upload results
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jmh-result
+          path: target/jmh-result.json
+          if-no-files-found: error
