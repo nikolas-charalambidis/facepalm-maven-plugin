@@ -69,6 +69,48 @@ class FacepalmReportMojoTest {
         assertTrue(html.contains("Private Key Block"), html);
     }
 
+    /**
+     * Issue #228: an empty findings file renders like a missing one instead of failing the whole site.
+     */
+    @Test
+    void empty_findings_file_renders_placeholder(@TempDir final Path build) throws Exception {
+        Files.writeString(build.resolve("facepalm-findings.json"), " \n");
+
+        assertTrue(render(build).contains("No scan data available"));
+    }
+
+    /**
+     * Issue #228: the Location column shows the path relative to the project, not the build machine's absolute path.
+     */
+    @Test
+    void location_is_relative_to_the_project(@TempDir final Path build) throws Exception {
+        final var file = build.resolve("src/main/resources/app.properties").toAbsolutePath();
+        writeFindings(build, List.of(FindingReport.builder().patternName("Private Key Block").finalSeverity("ERROR")
+            .finalScore(92.0).maskedSecret("----...----").fileAbsolutePath(file.toString()).lineNumber(3).build()));
+
+        final var html = render(build);
+
+        assertTrue(html.contains("src/main/resources/app.properties (Line: 3)"), html);
+        assertFalse(html.contains(build.toAbsolutePath().toString()), html);
+    }
+
+    /**
+     * Issue #228: severities are shown as in {@code facepalm-findings.json}, and INFO findings are counted.
+     */
+    @Test
+    void severities_are_shown_and_counted_consistently(@TempDir final Path build) throws Exception {
+        writeFindings(build, List.of(
+            finding("Private Key Block", "ERROR", 92.0, "----...----"),
+            finding("Generic Password Assignment", "INFO", 20.0, "5baa...8fd8")));
+
+        final var html = render(build);
+
+        assertFalse(html.contains("HIGH"), html);
+        assertTrue(html.contains("<b>ERROR</b>"), html);
+        assertTrue(html.contains("Info: </b>1"), html);
+        assertFalse(html.contains("verify phase"), html);
+    }
+
     @Test
     void corrupt_findings_file_fails_with_its_path(@TempDir final Path build) throws Exception {
         final var file = build.resolve("facepalm-findings.json");
@@ -94,6 +136,7 @@ class FacepalmReportMojoTest {
     private static String render(final Path build) throws Exception {
         final var mojo = new FacepalmReportMojo();
         set(FacepalmReportMojo.class, mojo, "buildDirectory", build.toFile());
+        set(FacepalmReportMojo.class, mojo, "baseDirectory", build.toFile());
         set(AbstractMavenReport.class, mojo, "outputDirectory", build.resolve("site").toFile());
         final var out = new ByteArrayOutputStream();
         final var factory = new Xhtml5SinkFactory();

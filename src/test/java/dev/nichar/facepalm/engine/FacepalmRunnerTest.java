@@ -6,10 +6,18 @@
 package dev.nichar.facepalm.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.TestContainer;
 import dev.nichar.facepalm.config.ScoringConfig;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Build failure semantics of {@code failOnError} and {@code failOnWarnings} for every flag combination.
@@ -51,6 +59,28 @@ class FacepalmRunnerTest {
     @Test
     void no_findings_never_fail() {
         assertNull(FacepalmRunner.failureMessage(scoring(true, true), 0, 0));
+    }
+
+    /**
+     * Issue #228: a scan that aborts must not leave the results of an earlier run, which the report would render as
+     * current.
+     */
+    @Test
+    void aborted_scan_leaves_no_results_of_an_earlier_run(@TempDir final Path tempDir) throws Exception {
+        final var root = Files.createDirectories(tempDir.resolve("project"));
+        Files.writeString(root.resolve("app.properties"), "name=value\n");
+        final var output = Files.createDirectories(tempDir.resolve("out"));
+        Files.writeString(output.resolve("facepalm-findings.json"), "[]");
+        Files.writeString(output.resolve("facepalm-statistics.json"), "{}");
+        final var config = new FacepalmConfig();
+        // An invalid regex aborts the scan before any result is written.
+        config.getEngine().setSkipBinaryRegex("(");
+
+        assertThrows(PatternSyntaxException.class,
+            () -> TestContainer.create(config).getInstance(FacepalmRunner.class).run(root, output, "test"));
+
+        assertFalse(Files.exists(output.resolve("facepalm-findings.json")));
+        assertFalse(Files.exists(output.resolve("facepalm-statistics.json")));
     }
 
     private static ScoringConfig scoring(final boolean failOnError, final boolean failOnWarnings) {

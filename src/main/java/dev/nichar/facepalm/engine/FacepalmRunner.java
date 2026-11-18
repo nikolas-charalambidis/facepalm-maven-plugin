@@ -14,6 +14,7 @@ import dev.nichar.facepalm.report.ScanStatisticsReport;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import javax.inject.Inject;
@@ -61,17 +62,23 @@ public class FacepalmRunner {
 
         getLog().info("Scanning " + root);
 
+        final var resultsFile = new File(outputDir.toFile(), "facepalm-findings.json");
+        final var statisticsFile = new File(outputDir.toFile(), ScanStatisticsReport.FILE_NAME);
+        // Results of an earlier run must not survive a scan that aborts: the report would render them as current
+        // (#228).
+        Files.deleteIfExists(resultsFile.toPath());
+        Files.deleteIfExists(statisticsFile.toPath());
+
         final var findings = engine.scan(root);
         final var stats = engine.getStats();
 
         reporter.printLogs(stats, findings);
 
         // Persist findings for downstream report generation.
-        final var resultsFile = new File(outputDir.toFile(), "facepalm-findings.json");
         saveFindingsToJson(findings, resultsFile);
         // A separate file: facepalm-findings.json is a JSON array that consumers read as a list of findings.
-        new ObjectMapper().writerWithDefaultPrettyPrinter()
-            .writeValue(new File(outputDir.toFile(), ScanStatisticsReport.FILE_NAME), ScanStatisticsReport.from(stats));
+        new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(statisticsFile, ScanStatisticsReport.from(
+            stats));
 
         // Enforce build failure policies based on finding severity.
         final var scoring = context.getScoring();

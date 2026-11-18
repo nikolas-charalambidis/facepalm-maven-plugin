@@ -9,7 +9,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.report.FindingReport;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +35,13 @@ public class FacepalmReportMojo extends AbstractMavenReport {
      */
     @Parameter(defaultValue = "${project.build.directory}", readonly = true)
     private File buildDirectory;
+
+    /**
+     * Project base directory: the Location column shows paths relative to it, so published sites do not reveal the
+     * build machine's directories (#228).
+     */
+    @Parameter(defaultValue = "${project.basedir}", readonly = true)
+    private File baseDirectory;
 
     /**
      * Skip the report: it is left out of the site, and {@code mvn facepalm:report} does nothing.
@@ -90,6 +101,13 @@ public class FacepalmReportMojo extends AbstractMavenReport {
 
         final List<FindingReport> findings;
         try {
+            // An empty file holds no scan results: render it like a missing one instead of failing the site (#228).
+            if (Files.readString(resultsFile.toPath(), StandardCharsets.UTF_8).isBlank()) {
+                getLog().warn("Facepalm results at " + resultsFile.getAbsolutePath() + " are empty. Please run "
+                    + "'mvn verify' (or 'mvn facepalm:scan') before generating the site report.");
+                renderEmptyReport();
+                return;
+            }
             // Tolerate fields written by a newer scan goal or another plugin version.
             final var mapper = new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
             // Deserialize findings from the machine-readable JSON format.
@@ -130,12 +148,14 @@ public class FacepalmReportMojo extends AbstractMavenReport {
         sink.sectionTitle1_();
 
         sink.paragraph();
-        sink.text("The following potential secrets and security risks were identified during the verify phase.");
+        // The scan may have run in the verify phase, as a goal, or from the CLI.
+        sink.text("The following potential secrets and security risks were identified by the last Facepalm scan.");
         sink.paragraph_();
 
-        // High-level Summary Breakdown
+        // High-level Summary Breakdown: every severity listed in the table is counted (#228).
         final long errors = findings.stream().filter(fr -> "ERROR".equals(fr.getFinalSeverity())).count();
         final long warnings = findings.stream().filter(fr -> "WARNING".equals(fr.getFinalSeverity())).count();
+        final long infos = findings.stream().filter(fr -> "INFO".equals(fr.getFinalSeverity())).count();
         final long suppressed = findings.stream().filter(fr -> "SUPPRESSED".equals(fr.getFinalSeverity())).count();
 
         sink.list();
@@ -150,6 +170,12 @@ public class FacepalmReportMojo extends AbstractMavenReport {
         sink.text("Warnings: ");
         sink.bold_();
         sink.text(String.valueOf(warnings));
+        sink.listItem_();
+        sink.listItem();
+        sink.bold();
+        sink.text("Info: ");
+        sink.bold_();
+        sink.text(String.valueOf(infos));
         sink.listItem_();
         sink.listItem();
         sink.bold();
@@ -197,12 +223,12 @@ public class FacepalmReportMojo extends AbstractMavenReport {
             for (final var finding : findings) {
                 sink.tableRow();
 
-                // Severity Column with High-risk emphasis
+                // Severity Column, named as in facepalm-findings.json (#228).
                 sink.tableCell();
-                // Highlight high-risk findings with bold formatting.
+                // Highlight critical findings with bold formatting.
                 if ("ERROR".equals(finding.getFinalSeverity())) {
                     sink.bold();
-                    sink.text("HIGH");
+                    sink.text(finding.getFinalSeverity());
                     sink.bold_();
                 } else {
                     sink.text(finding.getFinalSeverity());
@@ -229,7 +255,7 @@ public class FacepalmReportMojo extends AbstractMavenReport {
                 // File Path and Line Number
                 sink.tableCell();
                 sink.italic();
-                sink.text(finding.getFileAbsolutePath() + " (Line: " + finding.getLineNumber() + ")");
+                sink.text(location(finding.getFileAbsolutePath()) + " (Line: " + finding.getLineNumber() + ")");
                 sink.italic_();
                 sink.tableCell_();
 
@@ -251,6 +277,25 @@ public class FacepalmReportMojo extends AbstractMavenReport {
 
         sink.flush();
         sink.close();
+    }
+
+    /**
+     * The file's path relative to the project base directory, with {@code /} separators, or the path as written if
+     * it lies outside the project (a custom {@code root}).
+     */
+    @Nonnull
+    String location(@Nullable final String fileAbsolutePath) {
+        if (fileAbsolutePath == null) {
+            return "";
+        }
+        final var file = Path.of(fileAbsolutePath).normalize();
+        if (baseDirectory != null) {
+            final var base = baseDirectory.toPath().toAbsolutePath().normalize();
+            if (file.startsWith(base) && !file.equals(base)) {
+                return base.relativize(file).toString().replace('\\', '/');
+            }
+        }
+        return fileAbsolutePath;
     }
 
     /**
