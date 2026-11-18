@@ -41,7 +41,23 @@ The report shows the results of the `scan` goal, so the plugin must also be in `
 </reporting>
 ```
 
-### 3. Run the Site Goal
+### 3. Use maven-site-plugin 3.7.1 or Later
+
+The report needs `maven-site-plugin` 3.7.1 or later (tested with 3.7.1, 3.9.1, 3.11.0, 3.12.1 and 3.21.0). Maven 3.9 uses 3.12.1 by default, which works. Maven 3.6.3 uses 3.3 by default, which fails with `NoClassDefFoundError: org/apache/maven/doxia/siterenderer/DocumentContent`, so pin a newer version there:
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-site-plugin</artifactId>
+            <version>3.21.0</version>
+        </plugin>
+    </plugins>
+</build>
+```
+
+### 4. Run the Site Goal
 
 To generate the reports, run:
 
