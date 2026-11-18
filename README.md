@@ -68,7 +68,7 @@ Add it to your `pom.xml`:
 <plugin>
     <groupId>dev.nichar</groupId>
     <artifactId>facepalm-maven-plugin</artifactId>
-    <version>1.0.5</version>
+    <version>1.1.0</version>
     <executions>
         <execution>
             <goals>
