@@ -15,6 +15,7 @@ import dev.nichar.facepalm.engine.Severity;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -53,6 +54,21 @@ class FalsePositiveHeuristicsTest {
             assertThat(f.getNumericScore(CONFIG.getScoring()))
                 .isLessThan(plain.get(0).getNumericScore(CONFIG.getScoring()));
         });
+    }
+
+    /**
+     * Issue #227: the value was lower-cased but configured keywords were not, so a keyword with upper-case letters
+     * never matched. Keywords are now normalized like the value: lower case, {@code -} and spaces as {@code _}.
+     */
+    @Test
+    void configured_dummy_keywords_match_case_insensitively(@TempDir final Path tempDir) throws Exception {
+        final var config = new FacepalmConfig();
+        config.getEvaluators().setDummyKeywords(Set.of("Acme-Demo"));
+        final var findings = scan(tempDir, config, ".github/ISSUE_TEMPLATE/false_detection.yml",
+            "        api-key: abc_ACME_DEMO0QWER0QWER");
+
+        assertThat(findings).singleElement()
+            .satisfies(f -> assertThat(f.getScoreHistory()).anyMatch(h -> h.startsWith("Dummy Keyword Discount")));
     }
 
     /**
@@ -138,10 +154,16 @@ class FalsePositiveHeuristicsTest {
     }
 
     private static List<Finding> scan(final Path tempDir, final String file, final String... lines) throws Exception {
+        return scan(tempDir, new FacepalmConfig(), file, lines);
+    }
+
+    private static List<Finding> scan(final Path tempDir,
+                                      final FacepalmConfig config,
+                                      final String file,
+                                      final String... lines) throws Exception {
         final var path = tempDir.resolve("project").resolve(file);
         Files.createDirectories(path.getParent());
         Files.writeString(path, String.join("\n", lines) + "\n");
-        final var config = new FacepalmConfig();
         config.getEngine().setThreads(1);
         return TestContainer.create(config).getInstance(ScannerEngine.class).scan(tempDir.resolve("project"));
     }

@@ -25,13 +25,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -104,9 +104,11 @@ public class ScannerEngine {
      * @return List of identified findings.
      * @throws IOException if the root is not a readable directory: a scan that cannot start must not pass the build
      * (#219).
+     * @throws IllegalArgumentException if {@code threads} is less than 1 (#227).
      */
     @Nonnull
     public List<Finding> scan(@Nonnull final Path root) throws InterruptedException, IOException {
+        requirePositiveThreads(context.getEngine().getThreads());
         requireReadableDirectory(root);
         stats.markStarted();
         try {
@@ -130,13 +132,18 @@ public class ScannerEngine {
         // Suppressions reviewed in one place (#315); read once, before any file is scanned.
         suppressionFile.load(root);
 
+        // Matched against the original file name, case-insensitively, so user regexes with upper-case letters such as
+        // .*\.Designer\.cs match too (#227). Compiled once, before any file is checked.
+        final var skipBinary = Pattern.compile(engineConfig.getSkipBinaryRegex(), Pattern.CASE_INSENSITIVE
+            | Pattern.UNICODE_CASE);
+
         final List<Callable<List<Finding>>> tasks = new ArrayList<>();
         // Walk the filesystem and identify candidate files.
         final var discoveredPaths = discover(root);
         log.info("Discovered " + discoveredPaths.size() + " files...");
         for (final var path : discoveredPaths) {
             stats.recordDiscovery();
-            if (!shouldScan(path, stats)) {
+            if (!shouldScan(path, skipBinary, stats)) {
                 continue;
             }
             // Counted as scanned in processFile, once the file has been analysed.
@@ -153,6 +160,16 @@ public class ScannerEngine {
         // Only now is it known which .facepalmignore entries matched a finding in any file.
         findings.addAll(suppressionFile.unusedEntries());
         return findings;
+    }
+
+    /**
+     * Fails unless at least one scan thread is configured. Without this check, {@code -Dthreads=0} failed with a bare
+     * {@code IllegalArgumentException} that did not name the parameter (#227).
+     */
+    static void requirePositiveThreads(final int threads) {
+        if (threads < 1) {
+            throw new IllegalArgumentException("threads must be at least 1, but was " + threads);
+        }
     }
 
     /**
@@ -289,7 +306,9 @@ public class ScannerEngine {
     /**
      * Checks if a file qualifies for scanning based on size and type.
      */
-    private boolean shouldScan(@Nonnull final Path path, @Nonnull final ScanStatistics stats) {
+    private boolean shouldScan(@Nonnull final Path path,
+                               @Nonnull final Pattern skipBinary,
+                               @Nonnull final ScanStatistics stats) {
         final var engineConfig = context.getEngine();
 
         // The suppression file lists suppressions, not content: its value entries would otherwise be found in it.
@@ -303,7 +322,7 @@ public class ScannerEngine {
 
         final var fileName = path.getFileName().toString();
         // Skip binary and non-text assets to reduce noise.
-        if (fileName.toLowerCase(Locale.ROOT).matches(engineConfig.getSkipBinaryRegex())) {
+        if (skipBinary.matcher(fileName).matches()) {
             if (engineConfig.isShowSkipped()) {
                 log.debug("Skipping binary file: " + path);
             }

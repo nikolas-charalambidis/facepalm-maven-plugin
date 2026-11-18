@@ -211,6 +211,41 @@ class ScannerEngineTest {
     }
 
     /**
+     * Issue #227: the file name was lower-cased before matching, so a user regex with upper-case letters never
+     * matched. The regex now matches the original name case-insensitively, and the default still skips upper-case
+     * extensions.
+     */
+    @Test
+    void binary_filter_matches_user_regex_with_upper_case(@TempDir final Path tempDir) throws Exception {
+        final Path root = tempDir.resolve("project");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("Form1.Designer.cs"), "token=abc123");
+        Files.writeString(root.resolve("logo.png"), "PNG");
+        Files.writeString(root.resolve("Form1.cs"), "token=abc123");
+
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        getEngineConfig(scanner).setSkipBinaryRegex(".*\\.Designer\\.cs|.*\\.PNG$");
+        scanner.scan(root);
+
+        Assertions.assertEquals(2L, excluded(scanner, ExclusionReason.BINARY_FILE));
+        Assertions.assertEquals(1L, scanner.getStats().getFilesScanned().sum());
+    }
+
+    /**
+     * Issue #227: {@code -Dthreads=0} failed with a bare {@code IllegalArgumentException} that did not name the
+     * parameter.
+     */
+    @Test
+    void scan_fails_when_threads_is_not_positive(@TempDir final Path tempDir) throws Exception {
+        final Path root = Files.createDirectories(tempDir.resolve("project"));
+        final ScannerEngine scanner = scannerWithMinimalContext();
+        getEngineConfig(scanner).setThreads(0);
+
+        final var e = Assertions.assertThrows(IllegalArgumentException.class, () -> scanner.scan(root));
+        Assertions.assertEquals("threads must be at least 1, but was 0", e.getMessage());
+    }
+
+    /**
      * Issue #219: a single NUL byte made a text file binary, so its secrets were skipped silently while the file was
      * counted as scanned.
      */
@@ -346,6 +381,12 @@ class ScannerEngineTest {
         setField(scanner, "evaluators", List.of());
         setField(scanner, "fileProcessors", List.of());
         return scanner;
+    }
+
+    private static EngineConfig getEngineConfig(final ScannerEngine scanner) throws ReflectiveOperationException {
+        final Field field = ScannerEngine.class.getDeclaredField("context");
+        field.setAccessible(true);
+        return ((FacepalmConfig) field.get(scanner)).getEngine();
     }
 
     private static void setField(final Object instance, final String fieldName, final Object value)

@@ -55,10 +55,20 @@ class PlaceholderSuppressorEvaluator implements FindingEvaluator {
         if (finding.getPatternName().contains("Private Key") || value.contains("-----")) {
             return;
         }
-        final var lowerVal = value.toLowerCase(Locale.ROOT).replace("-", "_").replace(" ", "_");
-        // Penalize known dummy keywords to reduce false positives from sample data.
-        if (conf.getDummyKeywords().stream().anyMatch(lowerVal::contains)) {
+        final var lowerVal = normalize(value);
+        // Penalize known dummy keywords to reduce false positives from sample data. Keywords are normalized like the
+        // value, so configured ones with upper-case letters match too (#227).
+        if (conf.getDummyKeywords().stream().map(PlaceholderSuppressorEvaluator::normalize).anyMatch(
+            lowerVal::contains)) {
             finding.log("Dummy Keyword Discount", 0, -80);
         }
+    }
+
+    /**
+     * Lower-cases the text and replaces {@code -} and spaces with {@code _}.
+     */
+    @Nonnull
+    private static String normalize(@Nonnull final String text) {
+        return text.toLowerCase(Locale.ROOT).replace("-", "_").replace(" ", "_");
     }
 }
