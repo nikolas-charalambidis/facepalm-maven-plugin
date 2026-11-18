@@ -284,6 +284,8 @@ jobs:
             # The version comes from the environment, so it is data, never perl code (#274).
             perl -0pi -e 's#(<artifactId>facepalm-maven-plugin</artifactId>\s*<version>)[^<]+(</version>)#${1}$ENV{VERSION}${2}#g' "$f"
           done
+          # The self-scan of this repository (#189). Only the property: the regex above would also hit the project's own <version>${revision}</version>.
+          perl -pi -e 's#(<facepalm-maven-plugin\.version>)[^<]+(</facepalm-maven-plugin\.version>)#${1}$ENV{VERSION}${2}#' pom.xml
           if git diff --quiet; then
             echo "Documentation already uses $VERSION."
             exit 0
@@ -296,8 +298,8 @@ jobs:
             exit 0
           fi
           gh pr create --base master --head "$BRANCH" --title "docs: use version $VERSION" --body "$(cat <<EOF2
-          Updates the plugin version in the README and docs install snippets to \`$VERSION\` (released by the release workflow).
+          Updates the plugin version in the README and docs install snippets, and the self-scan version in \`pom.xml\`, to \`$VERSION\` (released by the release workflow).
 
-          **Merge only after the $VERSION deployment is published in the [Maven Central Portal](https://central.sonatype.com/publishing/deployments)**, so the documentation never points to an unpublished version. Check: https://repo1.maven.org/maven2/dev/nichar/facepalm-maven-plugin/$VERSION/
+          **Merge only after the $VERSION deployment is published in the [Maven Central Portal](https://central.sonatype.com/publishing/deployments)**, so the documentation never points to an unpublished version and the CI build can resolve the self-scan plugin. Check: https://repo1.maven.org/maven2/dev/nichar/facepalm-maven-plugin/$VERSION/
           EOF2
           )"

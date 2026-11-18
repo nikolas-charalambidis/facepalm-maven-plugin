@@ -1,0 +1,14 @@
+# Suppressions for the self-scan of this repository (#189), see docs/faq.md "How do I handle false positives?".
+# Only intentional fake secrets belong here. The IT fixtures under src/test/resources-its are skipped in pom.xml.
+
+# Unit tests that feed fake credentials to the detection patterns.
+src/test/java/dev/nichar/facepalm/pattern/SecretPatternRegistryTest.java  # fake samples for every pattern
+src/test/java/dev/nichar/facepalm/pattern/SecretPatternSamplesTest.java  # fake connection strings and passwords
+src/test/java/dev/nichar/facepalm/engine/extractor/SnippetMaskingTest.java  # fake keys to mask
+src/test/java/dev/nichar/facepalm/engine/extractor/RawLineMatchingTest.java  # fake keys in code-shaped lines
+src/test/java/dev/nichar/facepalm/engine/evaluator/EntropyEvaluatorTest.java  # fake AWS key for the entropy score
+src/test/java/dev/nichar/facepalm/engine/evaluator/FalsePositiveHeuristicsTest.java  # fake password for the heuristics
+src/test/java/dev/nichar/facepalm/config/EvaluatorConfigTest.java  # fake connection string
+
+# The placeholder of the "false detection" issue form shows what a redacted line looks like.
+.github/ISSUE_TEMPLATE/false_detection.yml:22  # fake key in a form placeholder

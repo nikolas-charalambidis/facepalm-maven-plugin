@@ -71,7 +71,19 @@ cd facepalm-maven-plugin
 mvn clean verify
 ```
 
-The first build runs unit tests, integration tests (which spawn real Maven processes via `itf-jupiter-extension`), Spotless, and PMD/CPD. Expect 1–3 minutes on a modern laptop.
+The first build runs unit tests, integration tests (which spawn real Maven processes via `itf-jupiter-extension`), Spotless, PMD/CPD, and a Facepalm scan of the repository. Expect 1–3 minutes on a modern laptop.
+
+### Git hooks
+
+This repository scans itself with the latest released Facepalm, on every commit and every CI build. Enable the committed hooks once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+- `.githooks/pre-commit` and `.githooks/pre-push` run `mvn -B -ntp facepalm:scan` and block the commit or push on a finding, as described in [docs/git-hooks.md](docs/git-hooks.md).
+- The `verify` phase runs the same scan, so CI fails on a leaked secret too.
+- Intentional fake secrets are excluded narrowly: `pom.xml` skips the IT fixtures under `src/test/resources-its`, and `.facepalmignore` lists the unit tests with sample keys. Add a new test file with fake secrets to `.facepalmignore`, or use an inline `facepalm:ignore` marker with a reason.
 
 ### IDE setup
 

@@ -107,6 +107,9 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.6.1</maven-surefire-report-plugin.version>
+        <!-- The latest release from Maven Central, used to scan this repository (#189). -->
+        <!-- The release workflow's "docs: use version" pull request updates it with each release. -->
+        <facepalm-maven-plugin.version>1.1.0</facepalm-maven-plugin.version>
 
         <!-- JMH microbenchmarks, only in the "bench" profile (#245). -->
         <jmh.version>1.37</jmh.version>
@@ -622,6 +625,27 @@
                     <!-- CPD: Allows the detector to catch "hidden" copy-pasting by ignoring the specific names of variables and methods, focusing instead on the identical underlying logic and structure. -->
                     <ignoreIdentifiers>true</ignoreIdentifiers>
                 </configuration>
+            </plugin>
+
+            <!-- Scans this repository for leaked secrets with the latest released Facepalm, as the README recommends (#189). -->
+            <!-- Phase: verify (default) - every CI build runs it; the .githooks/pre-commit hook runs facepalm:scan locally. -->
+            <!-- Intentional fake secrets: the IT fixtures are skipped here, the unit tests are listed in .facepalmignore. -->
+            <plugin>
+                <groupId>dev.nichar</groupId>
+                <artifactId>facepalm-maven-plugin</artifactId>
+                <version>${facepalm-maven-plugin.version}</version>
+                <configuration>
+                    <!-- Keeps the default skip directories (target, .git, ...) and adds the IT fixture projects, which contain fake secrets on purpose. -->
+                    <useDefaultSkipDirs>true</useDefaultSkipDirs>
+                    <skipDirs>resources-its</skipDirs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>scan</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
 

@@ -106,6 +106,8 @@ Make it executable:
 chmod +x .git/hooks/pre-commit
 ```
 
+This repository scans itself on every commit and CI build, with this setup and the hooks in [`.githooks`](.githooks).
+
 ---
 
 ## How it works

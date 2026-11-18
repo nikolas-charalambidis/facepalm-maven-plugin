@@ -1,0 +1,12 @@
+#!/bin/sh
+
+mvn -B -ntp facepalm:scan
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo "Facepalm: potential secret detected. Commit blocked."
+    echo "Check the Maven output above for details."
+    exit 1
+fi
+
+exit 0

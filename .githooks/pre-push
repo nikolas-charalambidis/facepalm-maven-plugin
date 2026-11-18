@@ -1,0 +1,11 @@
+#!/bin/sh
+
+mvn -B -ntp facepalm:scan
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo "Facepalm: push blocked due to potential secrets."
+    exit 1
+fi
+
+exit 0
