@@ -32,7 +32,8 @@ class SnippetMasker {
      * Identifiers, words and version numbers are shorter or lack the mix. Possessive and anchored at the token start,
      * so it matches in linear time.
      */
-    private static final Pattern LONG_TOKEN = Pattern.compile( // facepalm:ignore a regex constant, not a secret
+    // facepalm:ignore-next-line a regex constant, not a secret
+    private static final Pattern LONG_TOKEN = Pattern.compile(
         "(?<![A-Za-z0-9+/_\\-])[A-Za-z0-9+/_\\-]{" + SnippetMasker.MIN_MIXED_TOKEN + ",}+={0,2}");
 
     /**
