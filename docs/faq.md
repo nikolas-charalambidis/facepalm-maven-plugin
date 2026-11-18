@@ -22,7 +22,9 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
 
    See `interpolationPatternRegex` in [configuration](configuration.md#heuristics-evaluators).
 2. **Move to test paths**: Files in `test/`, `mock/`, or `spec/` get a significant score reduction.
-3. **Add to `.gitignore`**: Facepalm reads your `.gitignore` and reduces the risk score for ignored files that Git does not track. A tracked file (force-added, or committed before it was ignored) is public, so it keeps its full risk; remove it from the index with `git rm --cached <file>`. Without Git or outside a repository, every ignored file gets the reduction.
+3. **Add to `.gitignore`**: Facepalm reads your `.gitignore` and reduces the risk score for ignored files that Git does not track. A tracked file (force-added, or committed before it was ignored) is public, so it keeps its full risk; remove it from the index with `git rm --cached <file>`.
+   - **Inside a repository**, Git decides which files are ignored, with every `.gitignore` rule: negation (`!file`), deeper files overriding shallower ones, `**` and escapes. `.gitignore` files above the scan root count too, such as the repository root's for a module. Only `.gitignore` files count: `.git/info/exclude` and your global `core.excludesFile` do not, so scores are the same on every machine.
+   - **Without Git or outside a repository**, Facepalm reads the `.gitignore` files below the scan root itself, as simple globs without negation, and every file they match gets the reduction.
 4. **Adjust Thresholds**: If Facepalm is too sensitive, you can increase the `errorThreshold` in your `pom.xml`.
 5. **Know what dummy keywords do**: A value containing one of the `dummyKeywords` (such as `placeholder`, `changeme`, `dummy`, `fake`, `example` or `sample`) loses 80 confidence points, but its risk stays. They are not ignored.
    - **Where it is enough:** in test paths or documentation files, where the risk is already lower, the discount usually brings a finding below the thresholds.

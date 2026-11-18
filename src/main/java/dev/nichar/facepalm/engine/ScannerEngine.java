@@ -127,8 +127,9 @@ public class ScannerEngine {
         final var currentConfig = context;
         final var engineConfig = currentConfig.getEngine();
 
-        // Tracked files decide whether an ignored file is really unexposed (#223); read once, before any evaluation.
-        gitIgnoreService.loadTrackedFiles(root);
+        // Tracked files decide whether an ignored file is really unexposed (#223), and Git decides which files
+        // .gitignore ignores (#9); read once, before any evaluation.
+        gitIgnoreService.loadGitState(root);
         // Suppressions reviewed in one place (#315); read once, before any file is scanned.
         suppressionFile.load(root);
 

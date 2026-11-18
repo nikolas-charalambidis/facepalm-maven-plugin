@@ -27,8 +27,13 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /**
- * Manages {@code .gitignore} files to provide context-aware path filtering.
- * Parses project-level ignore rules to identify files with reduced public exposure.
+ * Decides which files {@code .gitignore} ignores, to identify files with reduced public exposure.
+ * <p>
+ * Inside a Git repository, Git itself answers, so every rule of the {@code .gitignore} format applies: negation,
+ * precedence by depth, {@code **}, escapes, and {@code .gitignore} files above the scan root (#9). Only
+ * {@code .gitignore} files count: {@code .git/info/exclude} and the global {@code core.excludesFile} differ per
+ * machine and would make scores differ too. Without Git or outside a repository, the {@code .gitignore} files below
+ * the scan root are parsed as globs instead, without negation.
  */
 @Named
 @Singleton
@@ -37,12 +42,12 @@ public class GitIgnoreService {
     private final Log log;
 
     /**
-     * Longest time {@code git ls-files} may take before the tracked files are treated as unknown.
+     * Longest time a {@code git ls-files} call may take before its result is treated as unknown.
      */
     private static final long GIT_TIMEOUT_SECONDS = 60;
 
     /**
-     * Map of directory paths to their compiled glob matchers.
+     * Map of directory paths to their compiled glob matchers, the fallback without Git.
      */
     private final Map<Path, List<PathMatcher>> registry = new TreeMap<>();
 
@@ -52,15 +57,26 @@ public class GitIgnoreService {
      */
     private volatile Set<Path> trackedFiles;
 
+    /**
+     * Untracked files and directories that Git ignores below the scan root, or {@code null} if unknown: then the
+     * parsed {@link #registry} decides.
+     */
+    private volatile Ignored ignored;
+
     @Inject
     public GitIgnoreService(@Nullable final Log log) {
         this.log = log != null ? log : new SystemStreamLog();
     }
 
     /**
-     * Returns true if the specified path matches any registered ignore patterns.
+     * Returns true if {@code .gitignore} ignores the file: per Git inside a repository, otherwise per the parsed
+     * patterns.
      */
     public boolean isIgnored(@Nonnull final Path filePath) {
+        final var gitIgnored = ignored;
+        if (gitIgnored != null) {
+            return gitIgnored.contains(filePath.toAbsolutePath().normalize());
+        }
         return registry.entrySet().stream()
             .filter(entry -> filePath.startsWith(entry.getKey()))
             .flatMap(entry -> entry.getValue().stream())
@@ -77,20 +93,48 @@ public class GitIgnoreService {
     }
 
     /**
-     * Reads the files tracked by Git below the scan root once per scan, with {@code git ls-files}. Without Git or a
-     * repository, the tracked files stay unknown and {@link #isTracked} returns false.
+     * Asks Git once per scan which files below the scan root are tracked, and which untracked files {@code .gitignore}
+     * ignores. Without Git or a repository, both stay unknown: {@link #isTracked} returns false, and
+     * {@link #isIgnored} uses the parsed patterns.
      */
-    public void loadTrackedFiles(@Nonnull final Path root) {
-        trackedFiles = readTrackedFiles(root.toAbsolutePath().normalize());
+    public void loadGitState(@Nonnull final Path root) {
+        final var normalized = root.toAbsolutePath().normalize();
+        final var tracked = lsFiles(normalized);
+        trackedFiles = tracked == null ? null : resolveAll(normalized, tracked);
+        // --directory lists a wholly ignored directory once, as "dir/", instead of every file in it (target,
+        // node_modules). --exclude-per-directory reads only .gitignore files, at every level of the repository.
+        final var ignoredNames = tracked == null ? null
+            : lsFiles(normalized, "--others", "--ignored", "--directory", "--exclude-per-directory=.gitignore");
+        ignored = ignoredNames == null ? null : Ignored.of(normalized, ignoredNames);
     }
 
+    /**
+     * Resolves names relative to the root into absolute, normalized paths.
+     */
+    @Nonnull
+    private static Set<Path> resolveAll(@Nonnull final Path root, @Nonnull final List<String> names) {
+        final Set<Path> paths = new HashSet<>();
+        for (final var name : names) {
+            paths.add(root.resolve(name).normalize());
+        }
+        return Set.copyOf(paths);
+    }
+
+    /**
+     * Runs {@code git ls-files -z} with the options in the root and returns the listed names, relative to the root,
+     * or {@code null} if Git is not available, the root is not in a repository, or the command failed. With
+     * {@code -z}, names are NUL-separated and never quoted.
+     */
     @Nullable
-    private Set<Path> readTrackedFiles(@Nonnull final Path root) {
+    private List<String> lsFiles(@Nonnull final Path root, @Nonnull final String... options) {
         Path output = null;
         try {
             output = Files.createTempFile("facepalm-ls-files", ".txt");
+            final var command = new ArrayList<String>();
             // core.fsmonitor=false: the scanned repository's configuration must not make Git run a program.
-            final var process = new ProcessBuilder("git", "-c", "core.fsmonitor=false", "ls-files", "-z")
+            command.addAll(List.of("git", "-c", "core.fsmonitor=false", "ls-files", "-z"));
+            command.addAll(List.of(options));
+            final var process = new ProcessBuilder(command)
                 .directory(root.toFile())
                 .redirectOutput(output.toFile())
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
@@ -104,13 +148,13 @@ public class GitIgnoreService {
                 log.debug("Not a Git repository: " + root + "; ignored files get the low-exposure discount.");
                 return null;
             }
-            final Set<Path> tracked = new HashSet<>();
+            final List<String> names = new ArrayList<>();
             for (final var name : new String(Files.readAllBytes(output), StandardCharsets.UTF_8).split("\0")) {
                 if (!name.isEmpty()) {
-                    tracked.add(root.resolve(name).normalize());
+                    names.add(name);
                 }
             }
-            return Set.copyOf(tracked);
+            return names;
         } catch (IOException e) {
             log.debug("Git is not available (" + e.getMessage() + "); ignored files get the low-exposure discount.");
             return null;
@@ -171,6 +215,42 @@ public class GitIgnoreService {
             registry.put(directory, matchers);
         } catch (IOException e) {
             log.warn("Could not read " + ignoreFile + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Untracked files and directories that Git ignores, as absolute, normalized paths. A file is ignored if it is
+     * listed itself, or if one of its parent directories is.
+     */
+    record Ignored(Set<Path> files, Set<Path> directories) {
+
+        /**
+         * Splits the names listed by {@code git ls-files --directory} into files and directories ({@code dir/}),
+         * resolved against the root.
+         */
+        @Nonnull
+        static Ignored of(@Nonnull final Path root, @Nonnull final List<String> names) {
+            final List<String> files = new ArrayList<>();
+            final List<String> directories = new ArrayList<>();
+            for (final var name : names) {
+                (name.endsWith("/") ? directories : files).add(name);
+            }
+            return new Ignored(resolveAll(root, files), resolveAll(root, directories));
+        }
+
+        /**
+         * Returns true if the absolute, normalized file is ignored itself or lies in an ignored directory.
+         */
+        boolean contains(@Nonnull final Path file) {
+            if (files.contains(file)) {
+                return true;
+            }
+            for (var parent = file.getParent(); parent != null; parent = parent.getParent()) {
+                if (directories.contains(parent)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

@@ -207,6 +207,75 @@ class GitIgnoreServiceTest {
         assertThat(risk(findings, "project/local.properties")).isEqualTo(fullRisk);
     }
 
+    /**
+     * Issue #9: a negated pattern re-includes a file. A new, not yet added file that {@code .gitignore} re-includes is
+     * about to be committed, so it keeps its full risk.
+     */
+    @Test
+    void negated_pattern_reincludes_file(@TempDir final Path tempDir) throws Exception {
+        final var root = repository(project(tempDir.resolve("project"), "*.properties\n!app.properties\n"));
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "conf/secrets.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #9: a deeper {@code .gitignore} takes precedence over a shallower one.
+     */
+    @Test
+    void deeper_gitignore_overrides_shallower_one(@TempDir final Path tempDir) throws Exception {
+        final var root = repository(project(tempDir.resolve("project"), "*.properties\n"));
+        Files.writeString(root.resolve("conf/.gitignore"), "!app.properties\n");
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "conf/secrets.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #9: {@code **} in the middle of a pattern also matches zero directories.
+     */
+    @Test
+    void double_star_in_the_middle_matches_zero_directories(@TempDir final Path tempDir) throws Exception {
+        final var root = repository(project(tempDir.resolve("project"), "conf/**/secrets.properties\n"));
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "conf/secrets.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #9: a {@code .gitignore} above the scan root, such as the repository root of a module, applies too.
+     */
+    @Test
+    void gitignore_above_the_scan_root_applies(@TempDir final Path tempDir) throws Exception {
+        final var repository = repository(Files.createDirectories(tempDir.resolve("repository")));
+        Files.writeString(repository.resolve(".gitignore"), "secrets.properties\n");
+        final var root = project(repository.resolve("module"), "");
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "conf/secrets.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
+    /**
+     * Issue #9: every file in an ignored directory is ignored, also when Git reports only the directory.
+     */
+    @Test
+    void file_in_ignored_directory_is_ignored(@TempDir final Path tempDir) throws Exception {
+        final var root = repository(rootAndNestedProject(tempDir.resolve("project"), "sub/\n"));
+
+        final var findings = scan(root, tempDir);
+
+        assertThat(risk(findings, "sub/local.properties"))
+            .isEqualTo(risk(findings, "conf/app.properties") - EXPOSURE_DISCOUNT);
+    }
+
     @Test
     void escape_glob_escapes_metacharacters() {
         assertThat(GitIgnoreService.escapeGlob("/a/my[app]/{x}/*?")).isEqualTo("/a/my\\[app\\]/\\{x\\}/\\*\\?");
@@ -234,6 +303,14 @@ class GitIgnoreServiceTest {
         Files.writeString(root.resolve("local.properties"), SECRET_LINE);
         Files.writeString(root.resolve("sub/local.properties"), SECRET_LINE);
         return root;
+    }
+
+    /**
+     * Makes the directory a Git repository with no tracked files, or skips the test if Git is not available.
+     */
+    private static Path repository(final Path directory) throws InterruptedException {
+        Assumptions.assumeTrue(git(directory, "init", "-q"), "git is not available");
+        return directory;
     }
 
     /**
