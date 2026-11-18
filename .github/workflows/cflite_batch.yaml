@@ -1,0 +1,38 @@
+name: Fuzzing (scheduled)
+
+# ClusterFuzzLite (#178): fuzzes the *FuzzTest targets (.clusterfuzzlite/build.sh) longer, on a schedule.
+# Not a required check. Crashes and timeouts (catastrophic backtracking) fail the run.
+on:
+  workflow_dispatch: # Manual trigger.
+  schedule:
+    - cron: '30 7 * * 1' # Weekly, Monday 07:30 UTC, after the benchmarks.
+
+# Read-only: "actions: read" lets the run reuse corpora of earlier runs.
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cflite-batch
+  cancel-in-progress: false
+
+jobs:
+  fuzz:
+    name: ClusterFuzzLite
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    steps:
+      - name: Build fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: jvm
+          sanitizer: address
+
+      - name: Run fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: jvm # Defaults to c++ here too.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 1800
+          mode: batch
+          sanitizer: address

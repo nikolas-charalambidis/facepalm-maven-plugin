@@ -81,6 +81,8 @@
         <commons-lang3.version>3.22.0</commons-lang3.version>
         <plexus-utils.version>4.1.0</plexus-utils.version>
         <assertj-core.version>3.27.7</assertj-core.version>
+        <!-- Fuzz tests (#178): regression mode in every build, fuzzing in ClusterFuzzLite. -->
+        <jazzer.version>0.29.1</jazzer.version>
 
         <!-- Plugins. -->
         <!-- Lifecycle plugins otherwise taken from the defaults of the running Maven version (pinned to the versions in use). -->
@@ -295,6 +297,24 @@
             <artifactId>assertj-core</artifactId>
             <version>${assertj-core.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- Fuzz tests with @FuzzTest (#178). The JUnit version of this project is kept, not Jazzer's older one. -->
+        <dependency>
+            <groupId>com.code-intelligence</groupId>
+            <artifactId>jazzer-junit</artifactId>
+            <version>${jazzer.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Runs full Maven integration tests inside JUnit. -->

@@ -1,0 +1,46 @@
+name: Fuzzing (PR)
+
+# ClusterFuzzLite (#178): fuzzes the *FuzzTest targets (.clusterfuzzlite/build.sh) for 2 minutes on pull requests
+# that change code. Not a required check. Crashes and timeouts (catastrophic backtracking) fail the run.
+on:
+  workflow_dispatch: # Manual trigger.
+  pull_request:
+    branches: [ master, 'release/**' ]
+    paths:
+      - 'src/main/**'
+      - 'src/test/java/**/*FuzzTest.java'
+      - '.clusterfuzzlite/**'
+      - 'pom.xml'
+      - '.github/workflows/cflite_pr.yaml'
+
+# Read-only: the job builds pull request code; "actions: read" lets it reuse corpora of earlier runs.
+permissions:
+  contents: read
+  actions: read
+
+# One run per ref; a newer push cancels the older run.
+concurrency:
+  group: cflite-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: ClusterFuzzLite
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - name: Build fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: jvm
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sanitizer: address
+
+      - name: Run fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: jvm # Defaults to c++ here too.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 120 # Split across the targets: a smoke test; the weekly batch run fuzzes longer.
+          mode: code-change
+          sanitizer: address

@@ -102,8 +102,18 @@ git config core.hooksPath .githooks
 | Run the plugin against this repo | `mvn facepalm:scan` |
 | Generate the site (Javadoc, PMD, JaCoCo, Surefire) | `mvn site` |
 | Run the JMH benchmarks (about 2 minutes, see [Benchmarks](#benchmarks)) | `mvn -P bench verify -DskipTests` |
+| Fuzz one target for a minute (see [Fuzzing](#fuzzing)) | `JAZZER_FUZZ=1 mvn test -Dtest=RegexSecretExtractorFuzzTest` |
 
 Integration test fixtures live under `src/test/resources-its/dev/nichar/facepalm/FacepalmMojoIT/` and are filtered so `${project.version}` resolves to your local build. Add a new directory there to cover a new scenario, and wire it from `FacepalmMojoIT`.
+
+### Fuzzing
+
+[Jazzer](https://github.com/CodeIntelligenceTesting/jazzer) fuzz tests feed random input to the code that reads arbitrary file content: `TextDecoderFuzzTest` (random bytes) and `RegexSecretExtractorFuzzTest` (every default pattern over random text). They find crashes and catastrophic backtracking that unit tests miss.
+
+- **Every build:** `mvn test` runs each `@FuzzTest` once, in regression mode, with the inputs under `src/test/resources/<package>/<Class>Inputs/` (a crash found while fuzzing is saved there, so it stays a regression test).
+- **Locally:** `JAZZER_FUZZ=1 mvn test -Dtest=<Class>` fuzzes one target for a minute. The corpus goes to `.cifuzz-corpus/`, which is ignored by Git.
+- **CI:** [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) fuzzes the targets for 2 minutes in total on pull requests that change code (`cflite_pr.yaml`) and for 30 minutes weekly (`cflite_batch.yaml`). An input that takes longer than 10 seconds counts as a timeout. Neither workflow is a required check.
+- **New target:** name the class `*FuzzTest` and give it a `public static void fuzzerTestOneInput(FuzzedDataProvider)` method for ClusterFuzzLite, called from the `@FuzzTest` method (`.clusterfuzzlite/build.sh` picks it up).
 
 ## Benchmarks
 
