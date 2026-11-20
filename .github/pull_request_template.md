@@ -3,7 +3,7 @@ Fixes #
 
 <!-- Why is this change needed? What does it change? -->
 
-**Target branch:** fixes go to the oldest affected `release/X.Y.x` branch (forwarded to `master` automatically); new features go to `master`.
+**Target branch:** fixes go to the oldest affected `release/X.Y.x` branch (forwarded to newer lines and `master` automatically); new features go to `master`.
 
 - [ ] `mvn clean verify` passes locally.
 - [ ] Formatting applied (`mvn spotless:apply`).
