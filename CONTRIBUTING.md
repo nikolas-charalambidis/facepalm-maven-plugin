@@ -147,7 +147,7 @@ Issues are linked from the **PR description**, not the commit, with each closing
 Fixes #14
 ```
 
-PRs are merged with **Squash and merge** (except the bot's forward PRs, which use **Rebase and merge**), so GitHub turns the PR title into the commit subject and appends the PR number, e.g. `fix: compute multi-line line numbers via binary search (#39)`. The PR then links to the issue. `Fixes #NN` only auto-closes issues for PRs into `master`; for PRs into `release/X.Y.x`, the bot copies it into the forward PR, so the issue closes when that PR is merged into `master`.
+PRs are merged with **Squash and merge** (except the bot's forward PRs, which use **Rebase and merge**), so GitHub turns the PR title into the commit subject and appends the PR number, e.g. `fix: compute multi-line line numbers via binary search (#39)`. The PR then links to the issue. `Fixes #NN` only auto-closes issues for PRs into `master`; for PRs into `release/X.Y.x`, the bot copies it into each forward PR, so the issue closes when the last one is merged into `master`.
 
 Pull request checklist:
 
@@ -158,7 +158,7 @@ Pull request checklist:
 - [ ] No real secrets committed (the plugin will catch you, but please don't make it have to).
 - [ ] PR description explains the *why*, not just the *what*.
 
-PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are forwarded to `master` automatically (see below). Keep PRs focused — one concern per PR.
+PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are forwarded to every newer line and `master` automatically (see below). Keep PRs focused — one concern per PR.
 
 ## Branches and versioning
 
@@ -170,9 +170,10 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 
 `master` requires linear history (merge commits are rejected), so fixes are forward-ported by cherry-picking with `-x`, which records the source commit. This is automated by `.github/workflows/forward.yaml`:
 
-- Every PR merged into `release/X.Y.x` gets its own forward PR into `master`: its commits are cherry-picked onto `forward/<pr>-to-master`, the PR is titled `[Forward master] <original title>`, links the source PR, and carries over its `Fixes #NN` lines.
+- Forwarding chains one line at a time: each `release/X.Y.x` forwards to the next higher existing `release/X.Y.x`, or to `master` when there is none (e.g. `release/1.0.x` → `release/1.1.x` → `master`). Merging a forward PR into a release branch forwards it to the next line.
+- Every PR merged into `release/X.Y.x` gets its own forward PR into the next line: its commits are cherry-picked onto `forward/<pr>-to-<line>` (e.g. `forward/42-to-1.1.x`, `forward/43-to-master`), the PR is titled `[Forward <target>] <original title>`, links the source PR, and carries over its `Fixes #NN` lines.
 - Commits pushed directly (without a PR) are forwarded as one PR per push, without closing keywords.
-- Commits already on `master` are skipped. Add `[no-forward]` to a commit message to keep a release-only change off `master`.
+- Commits already on the target are skipped. Add `[no-forward]` to a commit message to keep a release-only change off all newer lines.
 - On conflict, the commit is pushed with conflict markers and the PR becomes a draft; the PR description lists the commands to resolve it.
 - The maintainer merges the forward PR with **Rebase and merge**.
 
