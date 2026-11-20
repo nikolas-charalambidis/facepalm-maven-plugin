@@ -1,15 +1,18 @@
-name: Forward to master
+name: Forward to the next line
 
-# Every push to a release/X.Y.x branch is forward-ported to master through pull requests,
+# Every push to a release/X.Y.x branch is forward-ported to the next line through pull requests,
 # one forward PR per source PR (the model of korthout/backport-action and Mergify).
 #
+# - The target is the next higher existing release/X.Y.x branch, or master when there is none. Forwarding chains:
+#   release/1.0.x -> release/1.1.x -> master. Merging a forward PR into a release branch is a push to release/**,
+#   so the workflow runs again and forwards it to the next line.
 # - Each pushed commit is mapped to the merged PR it came from. Its commits are cherry-picked with -x
-#   onto "forward/<pr>-to-master", and a PR "[Forward master] <source PR title>" is opened.
-#   Closing keyword lines ("Fixes #N", also Closes/Resolves, each on its own line) are copied from the source PR, so the issues close
-#   when the forward PR is merged into master (keywords only work on the default branch).
+#   onto "forward/<pr>-to-<target>", and a PR "[Forward <target>] <source PR title>" is opened.
+#   Closing keyword lines ("Fixes #N", also Closes/Resolves, each on its own line) are copied from the source PR on every hop,
+#   so the issues close when the last forward PR is merged into master (keywords only work on the default branch).
 # - Commits pushed directly (no PR) are forwarded together as one PR per push, without closing keywords.
-# - Commits whose message contains [no-forward] are skipped.
-# - Commits whose change is already on master (empty cherry-pick) are skipped.
+# - Commits whose message contains [no-forward] are skipped, which ends their chain.
+# - Commits whose change is already on the target (empty cherry-pick) are skipped.
 # - On conflict, the conflicting commit is committed WITH conflict markers, the PR becomes a draft,
 #   and the remaining commits are listed in the PR for manual cherry-picking.
 # - An existing forward branch is never overwritten, so re-running the workflow is safe.
@@ -30,7 +33,7 @@ permissions:
 
 jobs:
   forward:
-    name: Forward-port to master
+    name: Forward-port to the next line
     runs-on: ubuntu-26.04
     # Skip branch creations (no "before" commit to diff against) and branch deletions (nothing to forward).
     if: github.event.before != '0000000000000000000000000000000000000000' && !github.event.deleted
@@ -74,34 +77,42 @@ jobs:
               | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/:?[[:space:]]+/ /' | awk '!seen[tolower($0)]++' || true
           }
 
-          # Cherry-picks the given commits onto a fresh branch from master and opens one forward PR.
+          # The next higher existing release/X.Y.x branch after SOURCE (version order), or master when there is none.
+          TARGET=$(git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/release/' \
+            | grep -E '^release/[0-9]+\.[0-9]+\.x$' | sort -V \
+            | awk -v s="$SOURCE" 'found { print; exit } $0 == s { found = 1 }')
+          TARGET=${TARGET:-master}
+          echo "Forwarding $SOURCE to $TARGET."
+
+          # Cherry-picks the given commits onto a fresh branch from TARGET and opens one forward PR.
           # $1 = source PR number, or "push" for commits pushed without a PR; remaining args = commits.
           forward_group() {
             local KEY=$1; shift
             local FIRST=$1 LAST=${!#} FORWARD TITLE INTRO KEYWORDS=""
             if [ "$KEY" = "push" ]; then
-              FORWARD="forward/${FIRST:0:7}-to-master"
+              FORWARD="forward/${FIRST:0:7}-to-${TARGET#release/}"
               if [ $# -eq 1 ]; then
-                TITLE="[Forward master] $(git log -1 --format=%s "$FIRST")"
+                TITLE="[Forward $TARGET] $(git log -1 --format=%s "$FIRST")"
               else
-                TITLE="[Forward master] $SOURCE ${FIRST:0:7}..${LAST:0:7}"
+                TITLE="[Forward $TARGET] $SOURCE ${FIRST:0:7}..${LAST:0:7}"
               fi
-              INTRO="Forward-port of commits pushed directly to \`$SOURCE\` to \`master\`."
+              INTRO="Forward-port of commits pushed directly to \`$SOURCE\` to \`$TARGET\`."
             else
-              FORWARD="forward/${KEY}-to-master"
-              TITLE="[Forward master] $(gh api "repos/$GITHUB_REPOSITORY/pulls/$KEY" --jq .title)"
-              INTRO="Forward-port of #$KEY from \`$SOURCE\` to \`master\`."
+              FORWARD="forward/${KEY}-to-${TARGET#release/}"
+              # A forward PR of an earlier hop keeps the original title, without the "[Forward ...]" prefix.
+              TITLE="[Forward $TARGET] $(gh api "repos/$GITHUB_REPOSITORY/pulls/$KEY" --jq .title | sed -E 's/^\[Forward [^]]*\] //')"
+              INTRO="Forward-port of #$KEY from \`$SOURCE\` to \`$TARGET\`."
               KEYWORDS=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$KEY" --jq '.body // ""' | closing_keywords)
             fi
 
             # Skip only if a forward PR exists (in any state). A branch without a PR is left over from a run that
             # pushed but failed to open the PR, so it is rebuilt and the PR is opened now.
-            if [ -n "$(gh pr list --head "$FORWARD" --base master --state all --json number --jq '.[0].number // empty')" ]; then
+            if [ -n "$(gh pr list --head "$FORWARD" --base "$TARGET" --state all --json number --jq '.[0].number // empty')" ]; then
               echo "::notice::A forward PR for $FORWARD already exists, skipping."
               return
             fi
 
-            git checkout -B "$FORWARD" origin/master
+            git checkout -B "$FORWARD" "origin/$TARGET"
             local C LINE PICKED="" SKIPPED="" CONFLICT="" REMAINING=""
             for C in "$@"; do
               LINE="- $(git log -1 --format='%h %s' "$C")"
@@ -115,9 +126,9 @@ jobs:
                 PICKED+="$LINE"$'\n'; continue
               fi
               if [ -z "$(git status --porcelain --untracked-files=no)" ]; then
-                # Empty result: the change is already on master.
+                # Empty result: the change is already on the target.
                 git cherry-pick --skip
-                SKIPPED+="$LINE (already on master)"$'\n'; continue
+                SKIPPED+="$LINE (already on $TARGET)"$'\n'; continue
               fi
               # Conflict: keep the markers in a commit so it can be resolved on the PR branch.
               git add -A
@@ -157,7 +168,7 @@ jobs:
             } > "$RUNNER_TEMP/body.md"
 
             local DRAFT=""; [ -n "$CONFLICT" ] && DRAFT="--draft"
-            gh pr create --base master --head "$FORWARD" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md" $DRAFT
+            gh pr create --base "$TARGET" --head "$FORWARD" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md" $DRAFT
           }
 
           # Merged PR (into this branch) a commit came from, or nothing for a direct push.
