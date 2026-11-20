@@ -21,6 +21,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-26.04
+    timeout-minutes: 15 # Normally ~2 min; fail fast instead of hanging up to 6 h when Maven Central throttles
     permissions:
       security-events: write # Upload results to code scanning
       actions: read          # Read workflow run metadata
@@ -33,6 +34,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # build-mode "none" still resolves dependencies through Maven into ~/.m2/repository. Restore the cache that
+      # build.yaml fills (same key), so they are not downloaded from Maven Central, which may answer 429.
+      - name: Setup Java 17
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
