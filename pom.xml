@@ -106,6 +106,7 @@
         <maven-jxr-plugin.version>3.6.0</maven-jxr-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+        <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.6.1</maven-surefire-report-plugin.version>
@@ -828,6 +829,29 @@
                                 <id>attach-javadocs</id>
                                 <goals>
                                     <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Generates a CycloneDX SBOM of the plugin and its dependencies (#348) and attaches it as the "cyclonedx" classified artifact (JSON and XML). -->
+                    <!-- Phase: package - so the gpg plugin signs it and Maven Central receives it with the jars. -->
+                    <!-- Named like the jars, so deploy.yaml attaches it and its signatures to the GitHub Release with the same globs. -->
+                    <!-- Reproducible: with project.build.outputTimestamp set, the serial number is deterministic and no timestamp is written. -->
+                    <plugin>
+                        <groupId>org.cyclonedx</groupId>
+                        <artifactId>cyclonedx-maven-plugin</artifactId>
+                        <version>${cyclonedx-maven-plugin.version}</version>
+                        <configuration>
+                            <outputFormat>all</outputFormat>
+                            <outputName>${project.artifactId}-${project.version}-cyclonedx</outputName>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-sbom</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>makeAggregateBom</goal>
                                 </goals>
                             </execution>
                         </executions>

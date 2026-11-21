@@ -148,6 +148,7 @@ ___
 - [Reporting](docs/reporting.md) - How to generate reports.
 - [FAQ](docs/faq.md) - False positives, performance, and more.
 - [Site](https://www.nikolas-charalambidis.com/facepalm-maven-plugin/) - Site
+- [Security](SECURITY.md#verifying-a-release) - Signatures, build provenance, and the CycloneDX SBOM of each release.
 
 ___
 

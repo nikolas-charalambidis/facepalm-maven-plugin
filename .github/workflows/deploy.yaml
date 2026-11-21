@@ -221,6 +221,8 @@ jobs:
           subject-path: |
             target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}*.jar
             target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}.pom
+            target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}-cyclonedx.json
+            target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}-cyclonedx.xml
 
       # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
@@ -251,6 +253,7 @@ jobs:
             "${START[@]}" --latest="$LATEST" \
             --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
             target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION".pom \
+            target/facepalm-maven-plugin-"$VERSION"-cyclonedx.json target/facepalm-maven-plugin-"$VERSION"-cyclonedx.xml \
             target/facepalm-maven-plugin-"$VERSION"*.asc target/facepalm-maven-plugin-"$VERSION".intoto.jsonl
 
       # Step 6: Propose the new version in the documentation (README and docs/*.md install snippets).
