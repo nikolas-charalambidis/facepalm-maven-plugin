@@ -266,6 +266,9 @@ jobs:
         with:
           app-id: ${{ secrets.FORWARD_APP_ID }}
           private-key: ${{ secrets.FORWARD_APP_PRIVATE_KEY }}
+          # Only what the documentation PR needs, not every permission of the installation.
+          permission-contents: write      # Push the docs/version-X.Y.Z branch
+          permission-pull-requests: write # Open the PR
 
       - name: Open Documentation Version PR
         if: steps.github_release.outputs.latest == 'true'

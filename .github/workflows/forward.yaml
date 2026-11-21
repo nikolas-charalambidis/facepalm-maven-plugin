@@ -45,8 +45,12 @@ jobs:
         with:
           app-id: ${{ secrets.FORWARD_APP_ID }}
           private-key: ${{ secrets.FORWARD_APP_PRIVATE_KEY }}
+          # Only what forwarding needs, not every permission of the installation.
+          permission-contents: write      # Push the forward branches
+          permission-pull-requests: write # Open the forward PRs
+          permission-workflows: write     # Forward commits that change .github/workflows
 
-      - name: Checkout
+      - name: Checkout # zizmor: ignore[artipacked] The job pushes the forward branches with these credentials; it uploads no artifacts.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # All branches and history for cherry-picking

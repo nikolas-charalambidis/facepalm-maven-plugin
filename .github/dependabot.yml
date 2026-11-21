@@ -10,6 +10,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7 # Let new releases settle a week before proposing them
     commit-message:
       prefix: ci
     groups:
@@ -23,6 +25,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7 # Let new releases settle a week before proposing them
     commit-message:
       prefix: chore
       include: scope
