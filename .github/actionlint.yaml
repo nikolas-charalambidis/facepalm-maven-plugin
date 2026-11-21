@@ -1,0 +1,5 @@
+# Configuration of actionlint (#345), run by workflow-lint.yaml.
+self-hosted-runner:
+  # GitHub-hosted runner labels that the pinned actionlint version does not know yet.
+  labels:
+    - ubuntu-26.04
