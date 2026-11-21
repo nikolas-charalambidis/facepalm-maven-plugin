@@ -15,6 +15,7 @@ jobs:
   ci:
     name: CI / Verify & Build Site
     runs-on: ubuntu-26.04
+    timeout-minutes: 10 # Normally 2-3 min
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,6 +59,7 @@ jobs:
   site:
     name: Deploy Site to GitHub Pages
     runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
     if: github.ref == 'refs/heads/master' # Master branch only.
     needs: ci # It requires artifacts from the "ci" job to be downloaded and used for site report.
     permissions:
