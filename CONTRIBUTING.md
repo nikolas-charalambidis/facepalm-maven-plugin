@@ -106,6 +106,8 @@ git config core.hooksPath .githooks
 
 Integration test fixtures live under `src/test/resources-its/dev/nichar/facepalm/FacepalmMojoIT/` and are filtered so `${project.version}` resolves to your local build. Add a new directory there to cover a new scenario, and wire it from `FacepalmMojoIT`.
 
+`mvn verify` fails when unit-test coverage drops below 80% of lines or 80% of branches (`jacoco:check` on the whole bundle). Only unit tests count: the integration tests run the plugin in forked Maven builds, which JaCoCo does not see. A build without unit tests (`-DskipTests`) skips the check.
+
 ### Fuzzing
 
 [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer) fuzz tests feed random input to the code that reads arbitrary file content: `TextDecoderFuzzTest` (random bytes) and `RegexSecretExtractorFuzzTest` (every default pattern over random text). They find crashes and catastrophic backtracking that unit tests miss.

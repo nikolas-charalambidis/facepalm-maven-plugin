@@ -368,6 +368,10 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <!-- The JaCoCo agent from prepare-agent; late replacement (@{...}) so it resolves after JaCoCo sets it. -->
+                        <argLine>@{jacocoArgLine}</argLine>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -475,6 +479,39 @@
                             <!-- Generates the property (argLine) that tells the Surefire/Failsafe plugins how to record test coverage data. -->
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <!-- Only Surefire uses the agent. Failsafe would write an empty jacoco.exec (the plugin runs in forked Maven builds), -->
+                            <!-- which fails jacoco:check in builds without unit tests (-DskipTests). -->
+                            <propertyName>jacocoArgLine</propertyName>
+                        </configuration>
+                    </execution>
+                    <!-- Fails the build when coverage drops below the minimums (#334). -->
+                    <!-- Phase: verify - after all tests ran; skipped when no coverage data was recorded (-DskipTests). -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
