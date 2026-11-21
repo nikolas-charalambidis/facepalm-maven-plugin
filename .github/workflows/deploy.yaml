@@ -136,10 +136,12 @@ jobs:
           # Commit time in UTC for reproducible builds (project.build.outputTimestamp).
           TIMESTAMP=$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y-%m-%dT%H:%M:%SZ)
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
-          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
-          echo "resume=$RESUME" >> $GITHUB_OUTPUT
+          {
+            echo "version=$VERSION"
+            echo "last_tag=$LAST_TAG"
+            echo "timestamp=$TIMESTAMP"
+            echo "resume=$RESUME"
+          } >> "$GITHUB_OUTPUT"
           echo "Last tag: $LAST_TAG, release version: $VERSION, output timestamp: $TIMESTAMP, resume: $RESUME"
 
       # Step 2: Build and run all tests and quality gates without any secrets in the environment.
