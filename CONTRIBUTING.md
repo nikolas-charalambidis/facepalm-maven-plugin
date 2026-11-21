@@ -251,7 +251,7 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 
 `master` and `release/**` are protected by repository rulesets that apply to everyone, including administrators:
 
-- Changes only via pull request, merged with **Squash and merge** or **Rebase and merge**; the `CI / Verify & Build Site` check must pass.
+- Changes only via pull request, merged with **Squash and merge** or **Rebase and merge**; the `CI / Verify & Build Site` and `Workflow Lint` checks must pass.
 - Linear history; no force pushes or branch deletions.
 - Approvals are dismissed when new commits are pushed.
 - No approving review is required: the project has a single maintainer, so a required review could never be given. This is a deliberate trade-off (OpenSSF Scorecard's Branch-Protection check cannot reach its maximum).
