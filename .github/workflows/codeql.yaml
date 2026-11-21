@@ -39,7 +39,11 @@ jobs:
       # build.yaml fills (same key), so they are not downloaded from Maven Central, which may answer 429.
       - name: Setup Java 17
         if: matrix.language == 'java-kotlin'
+<<<<<<< HEAD
         uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0 # zizmor: ignore[cache-poisoning] PR caches are scoped to the PR ref and never restored on master or release/**
+=======
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+>>>>>>> 3d9e269 (ci: bump actions/setup-java from 6.2.0 to 6.3.0 in the actions group)
         with:
           distribution: 'temurin'
           java-version: '17'
