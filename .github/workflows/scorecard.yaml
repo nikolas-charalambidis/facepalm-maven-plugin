@@ -22,6 +22,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-26.04
+    timeout-minutes: 10 # Normally under 2 min
     permissions:
       security-events: write # Upload results to code scanning
       id-token: write        # Publish results to the OpenSSF API

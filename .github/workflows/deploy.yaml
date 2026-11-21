@@ -42,6 +42,7 @@ jobs:
       id-token: write     # Sign the build provenance attestation (Sigstore)
       attestations: write # Store the attestation on GitHub
     runs-on: ubuntu-26.04
+    timeout-minutes: 30 # Normally 1-3 min; more than usual because Maven Central validation of the upload can take a while
     steps:
       # Secrets never coexist with test execution: tests run first without any credentials, GPG key or persisted
       # git token; the signing key and Central credentials are installed only afterwards, and the deploy skips tests.

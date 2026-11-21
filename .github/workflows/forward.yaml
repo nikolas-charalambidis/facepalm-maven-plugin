@@ -35,6 +35,7 @@ jobs:
   forward:
     name: Forward-port to the next line
     runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
     # Skip branch creations (no "before" commit to diff against) and branch deletions (nothing to forward).
     if: github.event.before != '0000000000000000000000000000000000000000' && !github.event.deleted
     steps:
