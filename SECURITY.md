@@ -19,6 +19,14 @@ Fixes are released as patch versions of the latest minor line and published to [
 
 A secret the scanner **does not detect** (false negative) or flags wrongly (false positive) is not a vulnerability: please open a [missed or wrong detection issue](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/new/choose) with a redacted example.
 
+## Verifying a release
+
+Every release publishes, on Maven Central and on the [GitHub Release](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/releases):
+
+- **GPG signatures** (`.asc`) of the jars, the POM and the SBOM.
+- **Build provenance** (`.intoto.jsonl`, also stored as a GitHub attestation): which workflow, commit and runner built the files. Verify a file with `gh attestation verify <file> --repo nikolas-charalambidis/facepalm-maven-plugin`.
+- A **CycloneDX SBOM** of the plugin and its dependencies, as `facepalm-maven-plugin-<version>-cyclonedx.json` and `.xml` (Maven classifier `cyclonedx`, types `json` and `xml`). Use it to audit what the plugin brings into your build, for example with `osv-scanner --sbom=<file>` or Dependency-Track.
+
 ## Reporting a vulnerability
 
 **Do not open a public issue.** Report it privately via [GitHub private vulnerability reporting](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/security/advisories/new).
