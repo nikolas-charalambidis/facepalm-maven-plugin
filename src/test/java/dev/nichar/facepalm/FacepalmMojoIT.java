@@ -20,6 +20,9 @@ import java.util.List;
 /**
  * Integration tests for the Facepalm Maven Plugin.
  * Manages isolated Maven builds to verify scanner behavior across various project scenarios.
+ * <p>
+ * Check the build result with {@code isSuccessful()} / {@code isFailure()}, not with the "BUILD FAILURE" log line.
+ * Maven 4 logs that line at ERROR level instead of INFO (#365).
  *
  * @author Nikolas Charalambidis
  */
@@ -108,8 +111,7 @@ class FacepalmMojoIT {
             // The result line follows the build result, not only the finding counts (#289).
             .contains("SCAN RESULT : FAILURE")
             .contains("Warnings detected. Review recommended. The build fails: failOnWarnings is true "
-                + "(0 critical, 1 warnings).")
-            .contains("BUILD FAILURE");
+                + "(0 critical, 1 warnings).");
     }
 
     /**
@@ -183,8 +185,7 @@ class FacepalmMojoIT {
         }
 
         assertThat(result).out().info()
-            .contains("SCAN RESULT : FAILURE")
-            .contains("BUILD FAILURE");
+            .contains("SCAN RESULT : FAILURE");
     }
 
     /**
@@ -272,8 +273,7 @@ class FacepalmMojoIT {
             .noneMatch(line -> line.contains("/target/classes/server.key"));
 
         assertThat(result).out().info()
-            .contains("SCAN RESULT : FAILURE")
-            .contains("BUILD FAILURE");
+            .contains("SCAN RESULT : FAILURE");
     }
 
     /**
@@ -293,8 +293,7 @@ class FacepalmMojoIT {
             .noneMatch(line -> line.startsWith("[Azure OpenAI Key] "));
 
         assertThat(result).out().info()
-            .contains("SCAN RESULT : FAILURE")
-            .contains("BUILD FAILURE");
+            .contains("SCAN RESULT : FAILURE");
     }
 
     /**
