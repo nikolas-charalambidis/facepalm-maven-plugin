@@ -60,6 +60,9 @@
         <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
         <!-- Unlike source/target, "release" also restricts the JDK API to Java 17, so a build on a newer JDK cannot link against newer APIs. -->
         <maven.compiler.release>17</maven.compiler.release>
+        <!-- Maven installation the integration tests run the plugin with. Defaults to the Maven running the build. -->
+        <!-- The compatibility matrix in build.yaml (#337) builds with Maven 3.9 and sets it to an older or newer Maven, e.g. -Dits.maven.home=/opt/maven-3.6.3. -->
+        <its.maven.home>${maven.home}</its.maven.home>
 
         <maven-plugin-api.version>3.10.1</maven-plugin-api.version>
         <maven-reporting-api.version>4.0.0</maven-reporting-api.version>
@@ -597,7 +600,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <!-- Explicitly passes the Maven path to the test JVM so the ITF framework can spawn Maven processes correctly. -->
-                        <maven.home>${maven.home}</maven.home>
+                        <maven.home>${its.maven.home}</maven.home>
                     </systemPropertyVariables>
                 </configuration>
                 <executions>

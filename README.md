@@ -140,6 +140,20 @@ Zero regret.
 
 ___
 
+## Compatibility
+
+Requires Java 17+ and Maven 3.6.3+. Every pull request runs the integration tests (`facepalm:scan` and `facepalm:report`) on these combinations:
+
+| OS | JDK (Temurin) | Maven |
+|---|---|---|
+| Linux | 17, 21, 25 | 3.6.3, 3.9.16, 4.0.0-rc-7 (allowed to fail until Maven 4 is GA) |
+| Windows | 17 | 3.9.16 |
+| macOS | 17 | 3.9.16 |
+
+On Maven 3.6.3, `facepalm:report` in a site build needs a newer `maven-site-plugin`, see [Reporting](docs/reporting.md).
+
+___
+
 ## Documentation
 
 - [Configuration](docs/configuration.md) - Parameters, defaults, and examples.
