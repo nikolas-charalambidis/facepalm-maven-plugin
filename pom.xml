@@ -63,6 +63,13 @@
         <!-- Maven installation the integration tests run the plugin with. Defaults to the Maven running the build. -->
         <!-- The compatibility matrix in build.yaml (#337) builds with Maven 3.9 and sets it to an older or newer Maven, e.g. -Dits.maven.home=/opt/maven-3.6.3. -->
         <its.maven.home>${maven.home}</its.maven.home>
+        <!-- Third-party license check (#342), shared by the build (add-third-party) and the site (third-party-report). -->
+        <!-- Only dependencies that end up on the plugin's runtime classpath count; test and provided come from elsewhere. -->
+        <license.excludedScopes>test,provided,system</license.excludedScopes>
+        <!-- Maps the license names found in dependency POMs to one SPDX-style name each. -->
+        <license.licenseMergesUrl>${project.baseUri}src/license/license-merges.txt</license.licenseMergesUrl>
+        <!-- Licenses for dependencies whose POM declares none (src/license/THIRD-PARTY.properties). -->
+        <license.useMissingFile>true</license.useMissingFile>
 
         <maven-plugin-api.version>3.10.1</maven-plugin-api.version>
         <maven-reporting-api.version>4.0.0</maven-reporting-api.version>
@@ -110,6 +117,7 @@
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
+        <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <maven-surefire-report-plugin.version>3.6.1</maven-surefire-report-plugin.version>
@@ -479,6 +487,39 @@
                 </executions>
             </plugin>
 
+            <!-- Fails the build when a runtime dependency has a license outside the allow-list, or no known license (#342). -->
+            <!-- Phase: generate-resources (default) - the generated THIRD-PARTY.txt is packaged in the jar. -->
+            <!-- Allowed: permissive licenses, and weak copyleft that permits use from Apache-2.0 code (EPL-2.0: Sisu, Jakarta Annotations). -->
+            <!-- An artifact passes when at least one of its licenses is allowed (Jakarta Annotations: EPL-2.0 or GPL-2.0 with Classpath exception). -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license-maven-plugin.version}</version>
+                <configuration>
+                    <includedLicenses>
+                        <includedLicense>Apache-2.0</includedLicense>
+                        <includedLicense>MIT</includedLicense>
+                        <includedLicense>BSD-2-Clause</includedLicense>
+                        <includedLicense>BSD-3-Clause</includedLicense>
+                        <includedLicense>EPL-2.0</includedLicense>
+                        <includedLicense>Public-Domain</includedLicense>
+                    </includedLicenses>
+                    <failOnBlacklist>true</failOnBlacklist>
+                    <failOnMissing>true</failOnMissing>
+                    <sortArtifactByName>true</sortArtifactByName>
+                    <!-- Keep src/license/THIRD-PARTY.properties out of the deployed artifacts. -->
+                    <deployMissingFile>false</deployMissingFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>check-third-party-licenses</id>
+                        <goals>
+                            <goal>add-third-party</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Attaches a Java agent to the JVM during testing to track which lines of code are executed for coverage analysis. -->
             <!-- Phase: initialize (default) - it must run before the tests start to set up the necessary environment properties. -->
             <plugin>
@@ -789,6 +830,20 @@
                     <reportSet>
                         <reports>
                             <report>report</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+
+            <!-- Lists the licenses of the runtime dependencies (#342), with the same scopes, merges and missing-license file as the build check. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license-maven-plugin.version}</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>third-party-report</report>
                         </reports>
                     </reportSet>
                 </reportSets>

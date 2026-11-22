@@ -1,0 +1,19 @@
+# REUSE (https://reuse.software) licensing information for files without their own SPDX header (#342).
+# Java files carry the header from license.header (enforced by Spotless); with "closest", a file's own header wins.
+# Checked in CI by the "REUSE Compliance" job in build.yaml; run locally with `reuse lint`.
+version = 1
+SPDX-PackageName = "facepalm-maven-plugin"
+SPDX-PackageDownloadLocation = "https://github.com/nikolas-charalambidis/facepalm-maven-plugin"
+
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Nikolas Charalambidis"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Adapted from the Contributor Covenant 2.1 (https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "override"
+SPDX-FileCopyrightText = ["Contributor Covenant contributors <https://www.contributor-covenant.org>", "2026 Nikolas Charalambidis"]
+SPDX-License-Identifier = "CC-BY-4.0"
