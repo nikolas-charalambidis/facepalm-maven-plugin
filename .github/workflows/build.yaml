@@ -71,19 +71,15 @@ jobs:
     name: Compat / JDK ${{ matrix.java }}, Maven ${{ matrix.maven }}, ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30 # Normally 5-10 min; Windows is the slowest
-    # Maven 4 is disabled (see the matrix below). Once re-enabled, this keeps its failures from failing the run.
+    # Maven 4 is a release candidate (#365): its jobs may not fail the run until 4.0.0 is GA. Then pin the GA version
+    # and its SHA-512 below, and remove this line.
     continue-on-error: ${{ startsWith(matrix.maven, '4.') }}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-26.04 ]
         java: [ '17', '21', '25' ]
-        # Maven 4 is disabled for now: no stable release yet (latest is 4.0.0-rc-7), and on it 4 integration tests fail
-        # on every JDK (azure_storage_project, dirty_project_fail_on_warnings, private_key_project,
-        # xml_credentials_project). The plugin itself works: the scan reports FAILURE and the build fails, but Maven 4 no
-        # longer prints the "BUILD FAILURE" line these tests assert on. Re-enable by adding '4.0.0-rc-7' (or the GA
-        # version, with its SHA-512 below) once the tests check the build result instead of that log line (#365).
-        maven: [ '3.6.3', '3.9.16' ]
+        maven: [ '3.6.3', '3.9.16', '4.0.0-rc-7' ]
         include:
           - os: windows-latest
             java: '17'
