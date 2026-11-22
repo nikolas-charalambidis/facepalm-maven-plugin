@@ -84,6 +84,7 @@
         <org.eclipse.sisu.inject.version>1.1.2</org.eclipse.sisu.inject.version>
         <itf.version>0.13.1</itf.version>
         <junit.version>6.1.3</junit.version>
+        <archunit.version>1.5.1</archunit.version>
         <guice.version>6.0.0</guice.version>
         <!-- Patched versions of transitive dependencies (see dependencyManagement). -->
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
@@ -308,6 +309,15 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>${assertj-core.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Architecture rules as unit tests (#343). The core library only: the rules run from a plain JUnit Jupiter test, -->
+        <!-- so the archunit-junit5 engine cannot clash with the JUnit version of this project. -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit</artifactId>
+            <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
 
