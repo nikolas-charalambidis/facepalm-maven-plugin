@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+          fetch-depth: 2 # On a PR, HEAD is the merge commit; HEAD^1 is the base it is diffed against for changed-line coverage.
 
       - name: Setup Java 17
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0 # zizmor: ignore[cache-poisoning] PR caches are scoped to the PR ref and never restored on master or release/**
@@ -35,6 +36,13 @@ jobs:
       # This guarantees quick error feedback for PRs, while generating the site organically if the build succeeds.
       - name: Build, Verify, & Generate Site
         run: mvn -B clean verify site
+
+      # Overall and changed-line coverage of the PR (#335), from the JaCoCo XML of the site, in the job summary.
+      # Uncovered changed lines are annotated in the diff; below 80% of changed lines it warns, but never fails.
+      # No PR comment: it would need pull-requests: write, which PRs from forks do not get. No third-party service.
+      - name: Changed-Line Coverage
+        if: github.event_name == 'pull_request' && success()
+        run: python3 .github/scripts/changed-line-coverage.py target/site/jacoco/jacoco.xml HEAD^1 --min 80
 
       # Coverage badges (jacoco.svg, branches.svg) from the JaCoCo CSV of the site, published with the site under badges/.
       # Self-hosted: no third-party coverage service, no secret, no commit from CI.
