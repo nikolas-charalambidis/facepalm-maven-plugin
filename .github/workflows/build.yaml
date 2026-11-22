@@ -146,6 +146,21 @@ jobs:
       - name: Verify (unit tests and integration tests on Maven ${{ matrix.maven }})
         run: '"$BUILD_MVN" -B -ntp verify -Dits.maven.home="$TARGET_HOME"'
 
+  # REUSE (#342): every tracked file must have copyright and license information, from its own SPDX header
+  # (Java files, see license.header) or from REUSE.toml, and every license used must have its text in LICENSES/.
+  reuse:
+    name: REUSE Compliance
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+
+      - name: REUSE Lint
+        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+
   # This job is now PURELY for deployment, not generation.
   # We do not need to set up Java or parse XMLs here. It just grabs the artifact and pushes it.
   site:

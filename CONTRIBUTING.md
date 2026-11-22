@@ -286,3 +286,16 @@ Releases are reproducible: rebuilding a tag with `-Drevision=<version>` and the 
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [Apache License, Version 2.0](LICENSE), the same license as the project. Every Java file must carry the SPDX header shown above.
+
+The repository is [REUSE](https://reuse.software) compliant, checked by the `REUSE Compliance` job in CI:
+
+- Java files declare their license in the SPDX header. Every other file gets it from `REUSE.toml`, which covers the whole repository with Apache-2.0.
+- Adding a file you did not write (copied or adapted from elsewhere) needs its own entry in `REUSE.toml` with the original copyright and license, and the license text in `LICENSES/` (`reuse download <SPDX-id>`). `CODE_OF_CONDUCT.md` (CC-BY-4.0) is the example.
+- Run `reuse lint` locally (`pipx install reuse`) to check.
+
+Third-party licenses are checked by `mvn verify` (`license-maven-plugin`, `add-third-party`):
+
+- Every runtime dependency must have at least one license on the allow-list in `pom.xml`: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, EPL-2.0 or Public-Domain. Test and provided dependencies are not checked. A dependency with a license outside the list fails the build.
+- License names from dependency POMs are mapped to these names in `src/license/license-merges.txt`. Add a line there when a new dependency spells a known license differently.
+- A dependency whose POM declares no license also fails the build. After checking its source, add it to `src/license/THIRD-PARTY.properties`.
+- The list is packaged in the jar as `THIRD-PARTY.txt`, and the site shows it under Project Reports, Third Parties.
