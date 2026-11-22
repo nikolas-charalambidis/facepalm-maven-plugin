@@ -362,6 +362,15 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
+                        <!-- Explicit processor path: since JDK 23, javac no longer runs annotation processors found on the classpath (#337). -->
+                        <!-- Lombok is the only one; the Sisu index comes from sisu-maven-plugin. The "bench" profile appends JMH. -->
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
                         <!-- JMH benchmarks compile only in the "bench" profile, which has the JMH dependencies (#245). -->
                         <testExcludes>
                             <testExclude>**/bench/**</testExclude>
@@ -941,6 +950,13 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <configuration>
                             <testExcludes combine.self="override"/>
+                            <annotationProcessorPaths combine.children="append">
+                                <path>
+                                    <groupId>org.openjdk.jmh</groupId>
+                                    <artifactId>jmh-generator-annprocess</artifactId>
+                                    <version>${jmh.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
                         </configuration>
                     </plugin>
 

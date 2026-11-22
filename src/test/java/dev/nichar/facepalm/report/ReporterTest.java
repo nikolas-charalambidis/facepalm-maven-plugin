@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -34,6 +36,7 @@ class ReporterTest {
     private static final String SECRET = "ghp_s3cr3tV4lu3Th4tMustN3v3rL34k0000";
 
     @Test
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "Windows file names cannot contain < or >")
     void html_report_masks_secret_and_escapes_repository_content(@TempDir final Path tempDir) throws Exception {
         final var reporter = reporter();
         final var report = reporter.buildReport(List.of(finding(tempDir)), new ScanStatistics(), "root", "1.0.0");
@@ -51,7 +54,8 @@ class ReporterTest {
     @Test
     void sarif_report_masks_secret(@TempDir final Path tempDir) throws Exception {
         final var reporter = reporter();
-        final var report = reporter.buildReport(List.of(finding(tempDir)), new ScanStatistics(), "root", "1.0.0");
+        final var report = reporter.buildReport(List.of(finding(tempDir, 90, 90)), new ScanStatistics(), "root",
+            "1.0.0");
 
         final var sarif = tempDir.resolve("report.sarif");
         reporter.generateSarif(report, sarif.toFile());
