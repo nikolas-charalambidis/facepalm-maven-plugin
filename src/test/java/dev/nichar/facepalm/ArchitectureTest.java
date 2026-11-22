@@ -79,7 +79,8 @@ class ArchitectureTest {
     }
 
     /**
-     * Sisu only sees JSR-330 annotations: {@code jakarta.inject} would silently break the wiring (see CLAUDE.md).
+     * Sisu only sees JSR-330 annotations: {@code jakarta.inject} would silently break the wiring (see CLAUDE.md). If
+     * #167 (Guice 7) moves the plugin's own components to {@code jakarta.inject}, this rule changes with that decision.
      */
     @Test
     void injection_uses_javax_inject_only() {
@@ -111,6 +112,59 @@ class ArchitectureTest {
     void cli_does_not_depend_on_the_mojos() {
         noClasses().that().haveFullyQualifiedName(FacepalmCLI.class.getName())
             .should().dependOnClassesThat().areAssignableTo(Mojo.class)
+            .check(CLASSES);
+    }
+
+    /**
+     * The strict form of {@link #engine_and_report_use_no_maven_api_beyond_logging_and_failure()}: #233 replaces the
+     * Maven {@link Log} and the Mojo exceptions in the engine and the reporter with own types. Enable this rule and
+     * delete the relaxed one then.
+     */
+    @Test
+    @Disabled("#233: the engine and the reporter still use the Maven Log and MojoFailureException")
+    void engine_and_report_do_not_depend_on_the_maven_api() {
+        noClasses().that().resideInAnyPackage(ROOT + ".engine..", ROOT + ".report..")
+            .should().dependOnClassesThat().resideInAPackage("org.apache.maven..")
+            .check(CLASSES);
+    }
+
+    /**
+     * The standalone jar of #232 has no {@code maven-plugin-api}, {@code maven-core} or Plexus on its classpath, so
+     * nothing the CLI reaches, directly or through the engine and the Guice modules, may use them. #233 removes
+     * {@code DefaultLog}, {@code ConsoleLogger} and the Maven {@link Log} from that path; #232 removes the call to
+     * {@code FacepalmMojo.executionFailure}.
+     */
+    @Test
+    @Disabled("#233, #232: the CLI reaches the Maven and Plexus logging API and FacepalmMojo.executionFailure")
+    void cli_runs_without_the_maven_and_plexus_api() {
+        noClasses().that().belongToAnyOf(FacepalmCLI.class)
+            .should().transitivelyDependOnClassesThat()
+            .resideInAnyPackage("org.apache.maven..", "org.codehaus.plexus..")
+            .because("the cli jar of #232 runs with only a JRE (#234)")
+            .check(CLASSES);
+    }
+
+    /**
+     * Only the entry points may know them: the scanning core is called by the Mojos and the CLI, never the other way
+     * round.
+     */
+    @Test
+    void only_the_entry_points_depend_on_the_entry_points() {
+        noClasses().that().resideOutsideOfPackage(ROOT)
+            .should().dependOnClassesThat()
+            .belongToAnyOf(FacepalmMojo.class, FacepalmReportMojo.class, FacepalmCLI.class)
+            .check(CLASSES);
+    }
+
+    /**
+     * Command-line parsing (picocli, #235) stays in the CLI entry point; the Mojos and the scanning core get their
+     * options as {@code *Config} objects.
+     */
+    @Test
+    void command_line_parsing_stays_in_the_cli() {
+        noClasses().that().doNotBelongToAnyOf(FacepalmCLI.class)
+            .should().dependOnClassesThat().resideInAPackage("picocli..")
+            .because("#235 shares the options with the Mojo through the *Config objects, not through picocli")
             .check(CLASSES);
     }
 
