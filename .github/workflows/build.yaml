@@ -82,7 +82,7 @@ jobs:
         # on every JDK (azure_storage_project, dirty_project_fail_on_warnings, private_key_project,
         # xml_credentials_project). The plugin itself works: the scan reports FAILURE and the build fails, but Maven 4 no
         # longer prints the "BUILD FAILURE" line these tests assert on. Re-enable by adding '4.0.0-rc-7' (or the GA
-        # version, with its SHA-512 below) once the tests check the build result instead of that log line.
+        # version, with its SHA-512 below) once the tests check the build result instead of that log line (#365).
         maven: [ '3.6.3', '3.9.16' ]
         include:
           - os: windows-latest
