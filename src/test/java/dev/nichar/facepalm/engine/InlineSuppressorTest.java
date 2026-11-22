@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.maven.plugin.MojoFailureException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,7 +58,7 @@ class InlineSuppressorTest {
     @Test
     void marker_suppresses_only_its_own_line(@TempDir final Path tempDir) {
         assertThatThrownBy(() -> run(tempDir, config(), KEY, "", "# facepalm:ignore"))
-            .isInstanceOf(MojoFailureException.class);
+            .isInstanceOf(ScanFailedException.class);
 
         final var findings = read(tempDir);
         assertThat(findings).extracting(f -> f.get("patternName"), f -> f.get("lineNumber"), f -> f.get(
@@ -72,7 +71,7 @@ class InlineSuppressorTest {
     @Test
     void next_line_marker_does_not_suppress_its_own_line(@TempDir final Path tempDir) {
         assertThatThrownBy(() -> run(tempDir, config(), KEY + " # facepalm:ignore-next-line", "server.port=8080"))
-            .isInstanceOf(MojoFailureException.class);
+            .isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> f.get("patternName"), f -> f.get("finalSeverity"))
             .containsExactlyInAnyOrder(
@@ -97,7 +96,7 @@ class InlineSuppressorTest {
         final var strict = config();
         strict.getScoring().setFailOnWarnings(true);
         assertThatThrownBy(() -> run(tempDir, strict, "server.port=8080 # facepalm:ignore no longer needed"))
-            .isInstanceOf(MojoFailureException.class);
+            .isInstanceOf(ScanFailedException.class);
     }
 
     /**
@@ -110,7 +109,7 @@ class InlineSuppressorTest {
         audit.getEngine().setSuppressions(false);
 
         assertThatThrownBy(() -> run(tempDir, audit, KEY + " # facepalm:ignore", "# facepalm:ignore"))
-            .isInstanceOf(MojoFailureException.class);
+            .isInstanceOf(ScanFailedException.class);
         assertThat(read(tempDir)).extracting(f -> f.get("patternName"), f -> f.get("finalSeverity"))
             .containsExactly(tuple("AWS Access Key", "ERROR"));
     }
@@ -121,7 +120,7 @@ class InlineSuppressorTest {
     @Test
     void longer_word_is_not_a_marker(@TempDir final Path tempDir) {
         assertThatThrownBy(() -> run(tempDir, config(), KEY + " # facepalm:ignored"))
-            .isInstanceOf(MojoFailureException.class);
+            .isInstanceOf(ScanFailedException.class);
         assertThat(read(tempDir)).extracting(f -> f.get("finalSeverity")).containsExactly("ERROR");
     }
 

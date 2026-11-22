@@ -6,12 +6,12 @@
 package dev.nichar.facepalm.module;
 
 import com.google.inject.AbstractModule;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import lombok.RequiredArgsConstructor;
-import org.apache.maven.plugin.logging.Log;
 
 /**
- * Guice module for bridging the Maven logging environment.
- * Binds the active {@link Log} instance to the DI container for internal component use.
+ * Guice module binding the active {@link FacepalmLog} for internal component use: the adapted Maven log in the Mojos,
+ * a console log in the CLI.
  *
  * @author Nikolas Charalambidis
  * @since 1.0.0
@@ -19,11 +19,10 @@ import org.apache.maven.plugin.logging.Log;
 @RequiredArgsConstructor
 public class FacepalmLogModule extends AbstractModule {
 
-    private final Log log;
+    private final FacepalmLog log;
 
     @Override
     protected void configure() {
-        // Bind the Maven logger to the container for simple interface-to-instance resolution.
-        bind(Log.class).toInstance(log);
+        bind(FacepalmLog.class).toInstance(log);
     }
 }

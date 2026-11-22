@@ -10,14 +10,53 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.nichar.facepalm.engine.ScanFailedException;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Command-line options of {@link FacepalmCLI}.
  */
 class FacepalmCLITest {
+
+    /**
+     * Fixture projects of the integration tests, scanned here without Maven.
+     */
+    private static final Path FIXTURES = Paths.get("src/test/resources-its/dev/nichar/facepalm/FacepalmMojoIT");
+
+    /**
+     * #233: the CLI wires the engine with its console log, without the Maven or Plexus logging API.
+     */
+    @Test
+    void scans_a_clean_directory_and_writes_the_reports(@TempDir final Path output) throws Exception {
+        FacepalmCLI.main(new String[] {
+            "--output", output.toString(), FIXTURES.resolve("clean_project").toString() });
+
+        assertTrue(output.resolve("facepalm-findings.json").toFile().isFile());
+    }
+
+    @Test
+    void fails_the_scan_of_a_dirty_directory(@TempDir final Path output) {
+        final var failure = assertThrows(ScanFailedException.class, () -> FacepalmCLI.main(new String[] {
+            "--output", output.toString(), FIXTURES.resolve("private_key_project").toString() }));
+
+        assertTrue(failure.getMessage().startsWith("Facepalm scan failed: "), failure.getMessage());
+    }
+
+    @Test
+    void execution_failure_states_the_cause() {
+        final var cause = new IOException("disk full");
+
+        final var failure = FacepalmCLI.executionFailure(cause);
+
+        assertEquals("Facepalm scan failed: disk full", failure.getMessage());
+        assertEquals(cause, failure.getCause());
+        assertEquals("Facepalm scan failed: java.lang.NullPointerException",
+            FacepalmCLI.executionFailure(new NullPointerException()).getMessage());
+    }
 
     @Test
     void defaults_to_current_directory_its_target_and_info_level() throws Exception {
@@ -49,11 +88,11 @@ class FacepalmCLITest {
 
     @Test
     void rejects_unknown_option_missing_value_and_second_directory() {
-        assertThrows(MojoExecutionException.class, () -> FacepalmCLI.parse(new String[] {
+        assertThrows(IllegalArgumentException.class, () -> FacepalmCLI.parse(new String[] {
             "--verbose" }));
-        assertThrows(MojoExecutionException.class, () -> FacepalmCLI.parse(new String[] {
+        assertThrows(IllegalArgumentException.class, () -> FacepalmCLI.parse(new String[] {
             "--output" }));
-        assertThrows(MojoExecutionException.class, () -> FacepalmCLI.parse(new String[] {
+        assertThrows(IllegalArgumentException.class, () -> FacepalmCLI.parse(new String[] {
             "a", "b" }));
     }
 

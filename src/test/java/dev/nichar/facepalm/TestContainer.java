@@ -7,9 +7,9 @@ package dev.nichar.facepalm;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.eclipse.sisu.space.BeanScanning;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
@@ -31,7 +31,7 @@ public final class TestContainer {
         return Guice.createInjector(
             new WireModule(
                 new SpaceModule(new URLClassSpace(TestContainer.class.getClassLoader()), BeanScanning.CACHE),
-                new FacepalmLogModule(new SystemStreamLog()),
+                new FacepalmLogModule(FacepalmLog.console(false)),
                 new FacepalmConfigModule(config)));
     }
 }

@@ -21,8 +21,6 @@ import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /**
  * The {@code .facepalmignore} file at the scan root (#315): suppressions reviewed in one place, for files that cannot
@@ -64,7 +62,7 @@ public class SuppressionFile {
      */
     private static final Pattern PATH_LINE = Pattern.compile("^(.+):(\\d+)$");
 
-    private final Log log;
+    private final FacepalmLog log;
 
     @Inject
     private FacepalmConfig config;
@@ -85,8 +83,8 @@ public class SuppressionFile {
     private volatile List<Entry> entries = List.of();
 
     @Inject
-    public SuppressionFile(@Nullable final Log log) {
-        this.log = log != null ? log : new SystemStreamLog();
+    public SuppressionFile(@Nullable final FacepalmLog log) {
+        this.log = log != null ? log : FacepalmLog.console(false);
     }
 
     /**

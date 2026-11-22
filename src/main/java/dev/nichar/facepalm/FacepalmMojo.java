@@ -13,10 +13,13 @@ import dev.nichar.facepalm.config.EvaluatorConfig;
 import dev.nichar.facepalm.config.PatternConfig;
 import dev.nichar.facepalm.config.PostProcessorConfig;
 import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FacepalmRunner;
+import dev.nichar.facepalm.engine.ScanFailedException;
 import dev.nichar.facepalm.engine.ScoringStrategy;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
+import dev.nichar.facepalm.module.MavenFacepalmLog;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.File;
@@ -25,7 +28,6 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
-import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -208,13 +210,13 @@ public class FacepalmMojo extends AbstractMojo {
                 // Use pre-compiled JSR330 metadata for rapid startup.
                 new SpaceModule(space, BeanScanning.INDEX),
                 // Bridge Maven Log and state into the container.
-                new FacepalmLogModule(getLog()),
+                new FacepalmLogModule(new MavenFacepalmLog(getLog())),
                 new FacepalmConfigModule(effectiveConfig)));
 
         // Inject components manually since Maven handles Mojo instantiation.
         final var runner = injector.getInstance(FacepalmRunner.class);
         final var config = injector.getInstance(FacepalmConfig.class);
-        final var log = injector.getInstance(Log.class);
+        final var log = injector.getInstance(FacepalmLog.class);
 
         if (runner == null || config == null || log == null) {
             throw new MojoExecutionException("Facepalm Mojo initialization failed: " +
@@ -229,8 +231,9 @@ public class FacepalmMojo extends AbstractMojo {
 
         try {
             runner.run(rootPath, outputDirectory.toPath(), pluginDescriptor.getVersion());
-        } catch (MojoFailureException e) {
-            throw e;
+        } catch (ScanFailedException e) {
+            // Findings fail the build: a build failure, not an execution error.
+            throw new MojoFailureException(e.getMessage(), e);
         } catch (Exception e) {
             throw executionFailure(e);
         }

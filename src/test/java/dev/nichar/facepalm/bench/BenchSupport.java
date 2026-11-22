@@ -8,6 +8,7 @@ package dev.nichar.facepalm.bench;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
@@ -19,7 +20,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
 import org.eclipse.sisu.wire.WireModule;
@@ -185,7 +185,7 @@ final class BenchSupport {
     /**
      * Log that discards every message.
      */
-    private static final class QuietLog extends SystemStreamLog {
+    private static final class QuietLog implements FacepalmLog {
 
         @Override
         public void debug(final CharSequence content) {
@@ -204,6 +204,11 @@ final class BenchSupport {
 
         @Override
         public void warn(final CharSequence content, final Throwable error) {
+            // Discarded.
+        }
+
+        @Override
+        public void error(final CharSequence content) {
             // Discarded.
         }
 

@@ -11,19 +11,15 @@ import dev.nichar.facepalm.config.EvaluatorConfig;
 import dev.nichar.facepalm.config.PatternConfig;
 import dev.nichar.facepalm.config.PostProcessorConfig;
 import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FacepalmRunner;
+import dev.nichar.facepalm.engine.ScanFailedException;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
-import org.apache.maven.monitor.logging.DefaultLog;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.logging.Log;
-import org.codehaus.plexus.logging.Logger;
-import org.codehaus.plexus.logging.console.ConsoleLogger;
 import org.eclipse.sisu.space.BeanScanning;
 import org.eclipse.sisu.space.SpaceModule;
 import org.eclipse.sisu.space.URLClassSpace;
@@ -59,8 +55,10 @@ public class FacepalmCLI {
      *
      * @param args Command-line arguments: {@code [--debug] [--output <dir>] [<directory>]}. The directory defaults to
      * the current one, the output to {@code <directory>/target}.
+     * @throws ScanFailedException if findings fail the scan under the {@code failOnError} / {@code failOnWarnings}
+     * rules
      */
-    public static void main(final String[] args) throws MojoFailureException, MojoExecutionException {
+    public static void main(final String[] args) throws ScanFailedException {
         final var options = parse(args);
 
         // Assemble baseline configuration with default settings.
@@ -84,21 +82,18 @@ public class FacepalmCLI {
             new WireModule(
                 // Perform a runtime scan of the classpath for @Named components.
                 new SpaceModule(space, BeanScanning.CACHE),
-                // Bridge Maven logging to the console.
-                new FacepalmLogModule(
-                    new DefaultLog(
-                        new ConsoleLogger(options.debug() ? Logger.LEVEL_DEBUG : Logger.LEVEL_INFO,
-                            "facepalm-cli"))),
+                // Log to the console, without the Maven or Plexus logging API.
+                new FacepalmLogModule(FacepalmLog.console(options.debug())),
                 // Bind the active configuration to the container.
                 new FacepalmConfigModule(effectiveConfig)));
 
         // Resolve component instances for the scanning workflow.
         final var runner = injector.getInstance(FacepalmRunner.class);
         final var config = injector.getInstance(FacepalmConfig.class);
-        final var log = injector.getInstance(Log.class);
+        final var log = injector.getInstance(FacepalmLog.class);
 
         if (runner == null || config == null || log == null) {
-            throw new MojoExecutionException("Facepalm Mojo initialization failed: " +
+            throw new IllegalStateException("Facepalm Mojo initialization failed: " +
                 "runner=" + runner + ", config=" + config + ", log=" + log);
         }
 
@@ -107,11 +102,19 @@ public class FacepalmCLI {
 
         try {
             runner.run(options.root(), options.output(), version);
-        } catch (MojoFailureException e) {
+        } catch (ScanFailedException e) {
             throw e;
         } catch (Exception e) {
-            throw FacepalmMojo.executionFailure(e);
+            throw executionFailure(e);
         }
+    }
+
+    /**
+     * Wraps an unexpected scan error so that the message states its cause, like {@code FacepalmMojo} does for Maven.
+     */
+    static IllegalStateException executionFailure(final Exception e) {
+        final var reason = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+        return new IllegalStateException("Facepalm scan failed: " + reason, e);
     }
 
     /**
@@ -119,8 +122,10 @@ public class FacepalmCLI {
      *
     <dir>
      * ] [<directory>]}.
+     *
+     * @throws IllegalArgumentException on an unexpected argument
      */
-    static Options parse(final String[] args) throws MojoExecutionException {
+    static Options parse(final String[] args) {
         var debug = false;
         String output = null;
         String directory = null;
@@ -131,7 +136,7 @@ public class FacepalmCLI {
             } else if ("--output".equals(arg) && i + 1 < args.length) {
                 output = args[++i];
             } else if (arg.startsWith("-") || directory != null) {
-                throw new MojoExecutionException("Unexpected argument: " + arg + System.lineSeparator() + USAGE);
+                throw new IllegalArgumentException("Unexpected argument: " + arg + System.lineSeparator() + USAGE);
             } else {
                 directory = arg;
             }

@@ -11,15 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.config.ScoringConfig;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
+import dev.nichar.facepalm.engine.RecordingLog;
 import dev.nichar.facepalm.engine.ScanStatistics;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -163,24 +164,8 @@ class ReporterTest {
     /**
      * Log that records "LEVEL message" lines.
      */
-    private static SystemStreamLog capturing(final List<String> lines) {
-        return new SystemStreamLog() {
-
-            @Override
-            public void info(final CharSequence content) {
-                lines.add("INFO " + content);
-            }
-
-            @Override
-            public void warn(final CharSequence content) {
-                lines.add("WARN " + content);
-            }
-
-            @Override
-            public void error(final CharSequence content) {
-                lines.add("ERROR " + content);
-            }
-        };
+    private static FacepalmLog capturing(final List<String> lines) {
+        return new RecordingLog(lines);
     }
 
     private static Finding finding(final Path dir) {
@@ -199,10 +184,10 @@ class ReporterTest {
     }
 
     private static Reporter reporter() throws ReflectiveOperationException {
-        return reporter(new SystemStreamLog());
+        return reporter(FacepalmLog.console(false));
     }
 
-    private static Reporter reporter(final SystemStreamLog log) throws ReflectiveOperationException {
+    private static Reporter reporter(final FacepalmLog log) throws ReflectiveOperationException {
         final var reporter = new Reporter(log);
         final var config = new FacepalmConfig();
         config.setScoring(new ScoringConfig());

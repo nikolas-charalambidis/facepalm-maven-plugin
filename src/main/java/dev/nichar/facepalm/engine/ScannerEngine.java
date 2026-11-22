@@ -36,8 +36,6 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 import lombok.Getter;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /**
  * Concurrent engine for file discovery and secret extraction.
@@ -66,7 +64,7 @@ public class ScannerEngine {
     private static final List<String> MODULE_DESCRIPTORS = List.of("pom.xml", "build.gradle", "build.gradle.kts",
         "package.json");
 
-    private final Log log;
+    private final FacepalmLog log;
 
     @Inject
     private FacepalmConfig context;
@@ -93,8 +91,8 @@ public class ScannerEngine {
     private final ScanStatistics stats = new ScanStatistics();
 
     @Inject
-    public ScannerEngine(@Nullable final Log log) {
-        this.log = log != null ? log : new SystemStreamLog();
+    public ScannerEngine(@Nullable final FacepalmLog log) {
+        this.log = log != null ? log : FacepalmLog.console(false);
     }
 
     /**

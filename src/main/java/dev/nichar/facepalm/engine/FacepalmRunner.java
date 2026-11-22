@@ -20,9 +20,6 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /**
  * Orchestrates the scanning lifecycle.
@@ -33,7 +30,7 @@ import org.apache.maven.plugin.logging.SystemStreamLog;
 public class FacepalmRunner {
 
     @Inject
-    private @Nullable Log log;
+    private @Nullable FacepalmLog log;
 
     @Inject
     private FacepalmConfig context;
@@ -44,8 +41,8 @@ public class FacepalmRunner {
     @Inject
     private Reporter reporter;
 
-    private Log getLog() {
-        return log != null ? log : new SystemStreamLog();
+    private FacepalmLog getLog() {
+        return log != null ? log : FacepalmLog.console(false);
     }
 
     /**
@@ -86,7 +83,7 @@ public class FacepalmRunner {
         final long warnings = findings.stream().filter(f -> f.getSeverity(scoring) == Severity.WARNING).count();
         final var failure = failureMessage(scoring, errors, warnings);
         if (failure != null) {
-            throw new MojoFailureException(failure);
+            throw new ScanFailedException(failure);
         }
     }
 

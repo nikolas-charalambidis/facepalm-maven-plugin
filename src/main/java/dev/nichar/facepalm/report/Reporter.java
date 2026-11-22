@@ -7,6 +7,7 @@ package dev.nichar.facepalm.report;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.nichar.facepalm.FacepalmConfig;
+import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.ScanReport;
@@ -32,7 +33,6 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import org.apache.maven.plugin.logging.Log;
 
 /**
  * Handles the generation of security reports and console logging.
@@ -50,13 +50,13 @@ public class Reporter {
     @Inject
     private FacepalmConfig context;
 
-    private final Log log;
+    private final FacepalmLog log;
 
     private final Configuration cfg;
 
     @Inject
-    public Reporter(@Nullable final Log log) {
-        this.log = log != null ? log : new org.apache.maven.plugin.logging.SystemStreamLog();
+    public Reporter(@Nullable final FacepalmLog log) {
+        this.log = log != null ? log : FacepalmLog.console(false);
         cfg = new Configuration(Configuration.VERSION_2_3_32);
         cfg.setClassForTemplateLoading(Reporter.class, "/templates");
         cfg.setDefaultEncoding("UTF-8");

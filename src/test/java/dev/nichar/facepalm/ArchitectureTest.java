@@ -5,7 +5,6 @@
 
 package dev.nichar.facepalm;
 
-import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -17,10 +16,6 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.ScoringStrategy;
 import org.apache.maven.plugin.Mojo;
-import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,19 +41,6 @@ class ArchitectureTest {
     void patterns_and_config_do_not_depend_on_the_maven_api() {
         noClasses().that().resideInAnyPackage(ROOT + ".pattern..", ROOT + ".config..")
             .should().dependOnClassesThat().resideInAPackage("org.apache.maven..")
-            .check(CLASSES);
-    }
-
-    /**
-     * The engine and the reporter still log through the Maven {@link Log} and fail with {@link MojoFailureException}.
-     * #233 replaces those with own types and then removes the exceptions below; no other Maven type may come in.
-     */
-    @Test
-    void engine_and_report_use_no_maven_api_beyond_logging_and_failure() {
-        noClasses().that().resideInAnyPackage(ROOT + ".engine..", ROOT + ".report..")
-            .should().dependOnClassesThat(resideInAPackage("org.apache.maven..")
-                .and(not(belongToAnyOf(Log.class, SystemStreamLog.class, MojoFailureException.class))))
-            .because("only the Mojos, module/ and configurator/ touch the Maven API (#233)")
             .check(CLASSES);
     }
 
@@ -104,11 +86,9 @@ class ArchitectureTest {
     }
 
     /**
-     * Today {@code FacepalmCLI} reuses {@code FacepalmMojo.executionFailure}. #232 gives the CLI its own exit codes and
-     * enables this rule.
+     * The CLI wraps its own errors (#233), so it can run where no Mojo class can be loaded (#232).
      */
     @Test
-    @Disabled("#232: FacepalmCLI still calls FacepalmMojo.executionFailure")
     void cli_does_not_depend_on_the_mojos() {
         noClasses().that().haveFullyQualifiedName(FacepalmCLI.class.getName())
             .should().dependOnClassesThat().areAssignableTo(Mojo.class)
@@ -116,12 +96,10 @@ class ArchitectureTest {
     }
 
     /**
-     * The strict form of {@link #engine_and_report_use_no_maven_api_beyond_logging_and_failure()}: #233 replaces the
-     * Maven {@link Log} and the Mojo exceptions in the engine and the reporter with own types. Enable this rule and
-     * delete the relaxed one then.
+     * The engine and the reporter log through {@code FacepalmLog} and fail with {@code ScanFailedException} (#233); the
+     * Mojos adapt both to the Maven API.
      */
     @Test
-    @Disabled("#233: the engine and the reporter still use the Maven Log and MojoFailureException")
     void engine_and_report_do_not_depend_on_the_maven_api() {
         noClasses().that().resideInAnyPackage(ROOT + ".engine..", ROOT + ".report..")
             .should().dependOnClassesThat().resideInAPackage("org.apache.maven..")
@@ -130,12 +108,9 @@ class ArchitectureTest {
 
     /**
      * The standalone jar of #232 has no {@code maven-plugin-api}, {@code maven-core} or Plexus on its classpath, so
-     * nothing the CLI reaches, directly or through the engine and the Guice modules, may use them. #233 removes
-     * {@code DefaultLog}, {@code ConsoleLogger} and the Maven {@link Log} from that path; #232 removes the call to
-     * {@code FacepalmMojo.executionFailure}.
+     * nothing the CLI reaches, directly or through the engine and the Guice modules, may use them (#233).
      */
     @Test
-    @Disabled("#233, #232: the CLI reaches the Maven and Plexus logging API and FacepalmMojo.executionFailure")
     void cli_runs_without_the_maven_and_plexus_api() {
         noClasses().that().belongToAnyOf(FacepalmCLI.class)
             .should().transitivelyDependOnClassesThat()

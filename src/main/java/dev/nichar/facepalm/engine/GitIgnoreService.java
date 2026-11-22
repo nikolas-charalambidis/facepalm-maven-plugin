@@ -23,8 +23,6 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.logging.SystemStreamLog;
 
 /**
  * Decides which files {@code .gitignore} ignores, to identify files with reduced public exposure.
@@ -39,7 +37,7 @@ import org.apache.maven.plugin.logging.SystemStreamLog;
 @Singleton
 public class GitIgnoreService {
 
-    private final Log log;
+    private final FacepalmLog log;
 
     /**
      * Longest time a {@code git ls-files} call may take before its result is treated as unknown.
@@ -64,8 +62,8 @@ public class GitIgnoreService {
     private volatile Ignored ignored;
 
     @Inject
-    public GitIgnoreService(@Nullable final Log log) {
-        this.log = log != null ? log : new SystemStreamLog();
+    public GitIgnoreService(@Nullable final FacepalmLog log) {
+        this.log = log != null ? log : FacepalmLog.console(false);
     }
 
     /**

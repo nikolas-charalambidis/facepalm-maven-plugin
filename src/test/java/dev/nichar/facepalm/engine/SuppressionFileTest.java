@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import org.apache.maven.plugin.MojoFailureException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -53,7 +52,7 @@ class SuppressionFileTest {
     void path_and_line_suppresses_one_line(@TempDir final Path tempDir) throws Exception {
         final var root = project(tempDir, "src/main/resources/keys.json:2  # vendor sample\n");
 
-        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(MojoFailureException.class);
+        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> f.get("lineNumber"), f -> f.get("finalSeverity"))
             .containsExactlyInAnyOrder(tuple(2, "SUPPRESSED"), tuple(3, "ERROR"));
@@ -67,7 +66,7 @@ class SuppressionFileTest {
         final var root = project(tempDir, "./src/main/resources/keys.json\n");
         Files.writeString(root.resolve("src/main/resources/other.properties"), "aws.key=AKIA" + random(16) + "\n");
 
-        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(MojoFailureException.class);
+        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> fileName(f), f -> f.get("finalSeverity"))
             .containsExactlyInAnyOrder(
@@ -90,7 +89,7 @@ class SuppressionFileTest {
         final var root = project(tempDir, "value:" + KEY_1 + " # public test key of the vendor\n");
         Files.writeString(root.resolve("src/main/resources/other.properties"), "aws.key=" + KEY_1 + "\n");
 
-        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(MojoFailureException.class);
+        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> fileName(f), f -> f.get("finalSeverity"))
             .containsExactlyInAnyOrder(
@@ -127,7 +126,7 @@ class SuppressionFileTest {
         final var audit = config();
         audit.getEngine().setSuppressions(false);
 
-        assertThatThrownBy(() -> run(root, tempDir, audit)).isInstanceOf(MojoFailureException.class);
+        assertThatThrownBy(() -> run(root, tempDir, audit)).isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> f.get("finalSeverity")).containsOnly("ERROR").hasSize(2);
     }
@@ -136,7 +135,7 @@ class SuppressionFileTest {
     void without_the_file_nothing_is_suppressed(@TempDir final Path tempDir) {
         final var root = project(tempDir, null);
 
-        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(MojoFailureException.class);
+        assertThatThrownBy(() -> run(root, tempDir, config())).isInstanceOf(ScanFailedException.class);
 
         assertThat(read(tempDir)).extracting(f -> f.get("finalSeverity")).containsOnly("ERROR").hasSize(2);
     }
