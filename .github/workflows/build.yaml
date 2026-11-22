@@ -62,6 +62,88 @@ jobs:
         with:
           path: target/site
 
+  # Compatibility matrix (#337): unit tests on each JDK, and the integration tests (facepalm:scan and facepalm:report in
+  # forked Maven builds) on each supported Maven. Separate from "ci", so the required check name stays stable.
+  # All combinations run in parallel with each other and with "ci" (no "needs"); fail-fast is off so each one reports.
+  # The build itself needs Maven 3.9+ (enforcer), so it always runs on BUILD_MAVEN; -Dits.maven.home points the
+  # integration tests at the Maven under test. Maven 4 is a release candidate: allowed to fail until it is GA.
+  compat:
+    name: Compat / JDK ${{ matrix.java }}, Maven ${{ matrix.maven }}, ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30 # Normally 5-10 min; Windows is the slowest
+    continue-on-error: ${{ startsWith(matrix.maven, '4.') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-26.04 ]
+        java: [ '17', '21', '25' ]
+        maven: [ '3.6.3', '3.9.16', '4.0.0-rc-7' ]
+        include:
+          - os: windows-latest
+            java: '17'
+            maven: '3.9.16'
+          - os: macos-latest
+            java: '17'
+            maven: '3.9.16'
+    env:
+      BUILD_MAVEN: '3.9.16'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0 # zizmor: ignore[cache-poisoning] PR caches are scoped to the PR ref and never restored on master or release/**
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+          cache: 'maven'
+
+      # Downloads the pinned Maven distributions from Maven Central and checks them against the SHA-512 below
+      # (equal to the published apache-maven-<version>-bin.tar.gz.sha512).
+      - name: Install Maven ${{ matrix.maven }} (and ${{ env.BUILD_MAVEN }} to build)
+        env:
+          TARGET_MAVEN: ${{ matrix.maven }}
+        run: |
+          # A function, not an associative array: macOS runners ship bash 3.2.
+          sha512_of() {
+            case "$1" in
+              3.6.3) echo c35a1803a6e70a126e80b2b3ae33eed961f83ed74d18fcd16909b2d44d7dada3203f1ffe726c17ef8dcca2dcaa9fca676987befeadc9b9f759967a8cb77181c0 ;;
+              3.9.16) echo 831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6 ;;
+              4.0.0-rc-7) echo 17b886c0ffb7ec225e514afa8179b3143d855d196cfbb4607ece6272a9b4f51501a389438ab6841b393a4b1391a1b714f07f450daba1951f53f732b400338184 ;;
+              *) echo "::error::No SHA-512 pinned for Maven $1" >&2; return 1 ;;
+            esac
+          }
+          TOOLS=$(cygpath -u "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")/maven
+          mkdir -p "$TOOLS"
+          for v in "$BUILD_MAVEN" "$TARGET_MAVEN"; do
+            [ -d "$TOOLS/apache-maven-$v" ] && continue
+            archive="$TOOLS/apache-maven-$v-bin.tar.gz"
+            curl -fsSL --retry 5 -o "$archive" \
+              "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$v/apache-maven-$v-bin.tar.gz"
+            expected=$(sha512_of "$v")
+            actual=$( (sha512sum "$archive" 2>/dev/null || shasum -a 512 "$archive") | cut -d' ' -f1)
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::SHA-512 mismatch for Maven $v: $actual"
+              exit 1
+            fi
+            tar -xzf "$archive" -C "$TOOLS"
+          done
+          # The integration tests start Maven from Java, which needs a native path on Windows.
+          TARGET_HOME="$TOOLS/apache-maven-$TARGET_MAVEN"
+          {
+            echo "BUILD_MVN=$TOOLS/apache-maven-$BUILD_MAVEN/bin/mvn"
+            echo "TARGET_HOME=$(cygpath -w "$TARGET_HOME" 2>/dev/null || echo "$TARGET_HOME")"
+          } >> "$GITHUB_ENV"
+          "$TARGET_HOME/bin/mvn" -v
+
+      - name: Verify (unit tests and integration tests on Maven ${{ matrix.maven }})
+        run: '"$BUILD_MVN" -B -ntp verify -Dits.maven.home="$TARGET_HOME"'
+
   # This job is now PURELY for deployment, not generation.
   # We do not need to set up Java or parse XMLs here. It just grabs the artifact and pushes it.
   site:
