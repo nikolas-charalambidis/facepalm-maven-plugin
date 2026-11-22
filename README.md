@@ -146,7 +146,7 @@ Requires Java 17+ and Maven 3.6.3+. Every pull request runs the integration test
 
 | OS | JDK (Temurin) | Maven |
 |---|---|---|
-| Linux | 17, 21, 25 | 3.6.3, 3.9.16 |
+| Linux | 17, 21, 25 | 3.6.3, 3.9.16, 4.0.0-rc-7 |
 | Windows | 17 | 3.9.16 |
 | macOS | 17 | 3.9.16 |
 
