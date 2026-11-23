@@ -113,21 +113,13 @@ This repository scans itself on every commit and CI build, with this setup and t
 ## How it works
 
 ```mermaid
-flowchart TD
+flowchart LR
     W[Walk repository] --> F{Filter}
-    F -- skipDirs / binary / too large --> S[Skipped]
-    F -- candidate --> P[Parallel per-file scan]
-    P --> X[Extract: regex patterns]
-    X --> E[Evaluate: entropy, location, extension,<br/>placeholder, surrounding context, public exposure]
-    E --> PP[Post-process: composite scoring, dedup]
-    PP --> SV{Severity}
-    SV -- ERROR --> FE{failOnError}
-    SV -- WARNING --> FW{failOnWarnings}
-    SV -- INFO --> OK[Build passes]
-    FE -- true --> FAIL[Build fails]
-    FE -- false --> FW
-    FW -- true --> FAIL
-    FW -- false --> OK
+    F -.-> S["Skipped<br/>skipDirs, binary, too large"]
+    F --> X["Scan each file in parallel<br/>1. Extract: regex patterns<br/>2. Evaluate: entropy, location, extension,<br/>placeholder, context, exposure<br/>3. Post-process: composite scoring, dedup"]
+    X --> SV{Severity}
+    SV -- "ERROR: failOnError or failOnWarnings<br/>WARNING: failOnWarnings" --> FAIL[Build fails]
+    SV -- otherwise --> OK[Build passes]
 ```
 
 ---
