@@ -119,6 +119,15 @@ On every pull request, the `CI / Verify & Build Site` job summary shows the over
 - **CI:** [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) fuzzes the targets for 2 minutes in total on pull requests that change code (`cflite_pr.yaml`) and for 30 minutes weekly (`cflite_batch.yaml`). An input that takes longer than 10 seconds counts as a timeout. Neither workflow is a required check.
 - **New target:** name the class `*FuzzTest` and give it a `public static void fuzzerTestOneInput(FuzzedDataProvider)` method for ClusterFuzzLite, called from the `@FuzzTest` method (`.clusterfuzzlite/build.sh` picks it up).
 
+### Mutation testing
+
+[PIT](https://pitest.org) changes the code of the scoring and detection logic (`dev.nichar.facepalm.engine` and `dev.nichar.facepalm.pattern`) in small ways, for example by flipping a condition, and runs the unit tests against each change (a mutant). A mutant that no test notices shows a gap in the tests. The mutation score is the share of mutants that the tests detect.
+
+- **Locally:** `mvn -P mutation test-compile pitest:mutationCoverage`, a few minutes. The report is `target/pit-reports/index.html`. Mutate only some classes with `-DtargetClasses=dev.nichar.facepalm.engine.ScanStatistics,...`.
+- **Threshold:** the `mutation` profile fails below `mutationThreshold`, 75%. The first full run (2026-11-24) scored 76% (503 of 658 mutants), with a test strength of 82% (the score among the mutants that the tests cover). Raise the threshold as the score grows; never lower it to make a run pass.
+- **CI:** the `Mutation Testing` workflow (`mutation.yaml`) runs the full set weekly and on manual dispatch, and uploads the HTML report as the `pit-reports` artifact. On pull requests it mutates only the changed classes of these packages and shows their score in the job summary, without failing. It is not a required check.
+- Integration tests, fuzz tests and benchmarks are not run against the mutants.
+
 ## Benchmarks
 
 JMH microbenchmarks measure how fast the engine's hot paths are and how much memory they allocate. They are measurements, not tests: they have no expected values and no thresholds, so a slower or more allocating change does not fail them. You find a regression by comparing results.

@@ -1,0 +1,77 @@
+name: Mutation Testing
+
+# Mutation testing with PIT (#339), in the "mutation" profile of pom.xml. It changes the code of the scoring and
+# detection logic (dev.nichar.facepalm.engine and .pattern) and checks whether the unit tests notice.
+# - Weekly and on manual dispatch: the full run. It fails below the mutationThreshold of the profile and uploads the
+#   HTML report as the "pit-reports" artifact.
+# - Pull requests: only the changed classes, with their score in the job summary. It never fails, because the score of
+#   a few classes is not comparable with the threshold of the whole run.
+# Not a required check.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly, Monday 06:00 UTC
+  workflow_dispatch: # Manual trigger.
+  pull_request:
+    branches: [ master, 'release/**' ]
+    paths: [ 'src/main/java/**', 'src/test/java/**', 'pom.xml', '.github/workflows/mutation.yaml' ]
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutation Testing
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30 # Normally 3-5 min for the full run
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+          fetch-depth: 2 # On a PR, HEAD is the merge commit; HEAD^1 is the base the changed classes are taken from.
+
+      - name: Setup Java 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0 # zizmor: ignore[cache-poisoning] PR caches are scoped to the PR ref and never restored on master or release/**
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # On a PR: the changed main classes of the mutated packages, as PIT globs (the class and its nested classes).
+      - name: Select Classes
+        id: classes
+        if: github.event_name == 'pull_request'
+        run: |
+          classes=$(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- \
+              'src/main/java/dev/nichar/facepalm/engine/*.java' 'src/main/java/dev/nichar/facepalm/pattern/*.java' \
+            | sed -e 's#^src/main/java/##' -e 's#\.java$##' -e 's#/#.#g' \
+            | while read -r class; do printf '%s' "${class},${class}\$*,"; done)
+          echo "target=${classes%,}" >> "$GITHUB_OUTPUT"
+          echo "Changed classes: ${classes%,}"
+
+      - name: Run PIT (Full)
+        if: github.event_name != 'pull_request'
+        run: mvn -B -ntp -P mutation test-compile pitest:mutationCoverage
+
+      - name: Run PIT (Changed Classes)
+        if: github.event_name == 'pull_request' && steps.classes.outputs.target != ''
+        env:
+          TARGET: ${{ steps.classes.outputs.target }}
+        run: >-
+          mvn -B -ntp -P mutation test-compile pitest:mutationCoverage
+          -DtargetClasses="$TARGET" -DmutationThreshold=0 -DfailWhenNoMutations=false
+
+      - name: Summary
+        if: always() && hashFiles('target/pit-reports/mutations.xml') != ''
+        env:
+          TITLE: ${{ github.event_name == 'pull_request' && 'Mutation testing (changed classes)' || 'Mutation testing' }}
+        run: python3 .github/scripts/mutation-summary.py target/pit-reports/mutations.xml --title "$TITLE"
+
+      - name: Upload Report
+        if: always() && hashFiles('target/pit-reports/index.html') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pit-reports
+          path: target/pit-reports
+          retention-days: 30

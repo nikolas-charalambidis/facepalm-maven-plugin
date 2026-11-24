@@ -140,6 +140,10 @@
         <!-- JMH microbenchmarks, only in the "bench" profile (#245). -->
         <jmh.version>1.37</jmh.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
+
+        <!-- Mutation testing, only in the "mutation" profile (#339). -->
+        <pitest-maven.version>1.30.2</pitest-maven.version>
+        <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
     </properties>
 
     <!-- Patched versions of vulnerable transitive dependencies (OpenSSF Scorecard / OSV, issue #173). -->
@@ -1186,6 +1190,53 @@
                                 </configuration>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Mutation testing with PIT (#339): mvn -P mutation test-compile pitest:mutationCoverage. -->
+        <!-- Not part of the default build: it runs the unit tests once per mutant. Reports: target/pit-reports/. -->
+        <!-- Weekly and on demand in .github/workflows/mutation.yaml; on pull requests only for the changed classes. -->
+        <profile>
+            <id>mutation</id>
+            <properties>
+                <!-- The scoring and detection logic. Override with -DtargetClasses=<class>,<class> to mutate fewer classes. -->
+                <targetClasses>dev.nichar.facepalm.engine.*,dev.nichar.facepalm.pattern.*</targetClasses>
+                <!-- Minimum mutation score in percent of all mutants; the build fails below it. -->
+                <!-- First full run (2026-11-24): 76% (503 of 658). Raise it as the score grows; never lower it to pass. -->
+                <mutationThreshold>75</mutationThreshold>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>${pitest-maven.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>${pitest-junit5-plugin.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetTests>
+                                <param>dev.nichar.facepalm.*</param>
+                            </targetTests>
+                            <!-- Integration tests fork Maven builds and do not see the mutants; fuzz tests and benchmarks are not unit tests. -->
+                            <excludedTestClasses>
+                                <param>*IT</param>
+                                <param>*FuzzTest</param>
+                                <param>dev.nichar.facepalm.bench.*</param>
+                            </excludedTestClasses>
+                            <outputFormats>
+                                <param>HTML</param>
+                                <param>XML</param>
+                            </outputFormats>
+                            <timestampedReports>false</timestampedReports>
+                            <threads>4</threads>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
