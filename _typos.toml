@@ -3,3 +3,5 @@
 # Add a project term here only when it is spelled correctly; fix real typos instead.
 
 [default.extend-words]
+# in-toto attestations (*.intoto.jsonl), the build provenance format of the releases.
+intoto = "intoto"

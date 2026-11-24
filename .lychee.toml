@@ -4,7 +4,7 @@
 no_progress = true
 
 # Also check the #anchors of links to headings, in this repository and on external pages.
-include_fragments = true
+include_fragments = "anchor-only"
 
 max_retries = 3
 retry_wait_time = 5
