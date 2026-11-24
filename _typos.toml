@@ -1,0 +1,5 @@
+# typos (https://github.com/crate-ci/typos) configuration for the "Docs" workflow (#347).
+# Run locally with `typos README.md CONTRIBUTING.md docs` (the file list is in docs.yaml).
+# Add a project term here only when it is spelled correctly; fix real typos instead.
+
+[default.extend-words]
