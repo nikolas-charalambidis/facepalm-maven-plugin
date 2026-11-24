@@ -34,3 +34,8 @@ updates:
       # One PR for all minor and patch updates; major updates get their own PRs.
       minor-and-patch:
         update-types: [ "minor", "patch" ]
+    ignore:
+      # Guice 7 drops javax.inject, which the plugin needs because Maven's own Guice (4.2.1/5.1.0) only knows it.
+      # Revisit when the minimum Maven version ships a Guice with jakarta.inject support (#167).
+      - dependency-name: "com.google.inject:guice"
+        update-types: [ "version-update:semver-major" ]

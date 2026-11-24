@@ -194,6 +194,14 @@
             <artifactId>maven-core</artifactId>
             <version>${maven-plugin-api.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <!-- Its Guice 5.1.0 would come first on the test classpath, so the tests would not run on the Guice -->
+                <!-- the CLI uses (#167). Inside Maven, Maven's own Guice is used anyway (com.google.inject is exported). -->
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -306,6 +314,10 @@
         </dependency>
 
         <!-- The primary DI framework for managing engine lifecycle. -->
+        <!-- Stays on Guice 6 (#167). Inside Maven this dependency is not used: Maven exports its own Guice to plugins -->
+        <!-- (4.2.1 in Maven 3.6.3, 5.1.0 in 3.9 and 4.0), which knows only javax.inject. This version is used by the CLI and -->
+        <!-- the unit tests. Guice 7 drops javax.inject, so the CLI would lose its wiring (132 unit tests fail); moving -->
+        <!-- to jakarta.inject would break the plugin in every supported Maven. Dependabot ignores the major updates. -->
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>

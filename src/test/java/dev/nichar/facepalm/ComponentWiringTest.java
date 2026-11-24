@@ -5,14 +5,25 @@
 
 package dev.nichar.facepalm;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.util.Types;
+import dev.nichar.facepalm.engine.evaluator.FindingEvaluator;
+import dev.nichar.facepalm.engine.extractor.SecretExtractor;
+import dev.nichar.facepalm.engine.postprocessor.FileFindingsPostProcessor;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Every component in the Sisu index can be created by the container. Sisu silently drops a component it cannot create
@@ -27,16 +38,43 @@ class ComponentWiringTest {
 
     @Test
     void every_indexed_component_can_be_created() throws Exception {
-        final List<String> components;
-        try (var reader = new BufferedReader(new InputStreamReader(
-            ComponentWiringTest.class.getResourceAsStream(SISU_INDEX), StandardCharsets.UTF_8))) {
-            components = reader.lines().map(String::trim).filter(line -> !line.isEmpty()).toList();
-        }
+        final List<String> components = indexedComponents();
         assertFalse(components.isEmpty(), "Empty Sisu index");
 
         final var container = TestContainer.create(new FacepalmConfig());
         for (final var component : components) {
             assertNotNull(container.getInstance(Class.forName(component)), component);
+        }
+    }
+
+    /**
+     * Each extension point that the engine injects as a list receives every indexed implementation. A component whose
+     * {@code javax.inject} annotations the container ignores, for example after a switch to Guice 7 (#167), would be
+     * missing from its list without any error.
+     */
+    @ParameterizedTest
+    @ValueSource(classes = {
+        SecretExtractor.class, FindingEvaluator.class, FileFindingsPostProcessor.class })
+    void every_extension_point_receives_all_its_indexed_implementations(final Class<?> extensionPoint)
+            throws Exception {
+        final List<Class<?>> expected = new ArrayList<>();
+        for (final var component : indexedComponents()) {
+            final var type = Class.forName(component);
+            if (extensionPoint.isAssignableFrom(type)) {
+                expected.add(type);
+            }
+        }
+        assertThat(expected).as("indexed implementations of %s", extensionPoint.getSimpleName()).isNotEmpty();
+
+        final Injector container = TestContainer.create(new FacepalmConfig());
+        final var injected = (List<?>) container.getInstance(Key.get(Types.listOf(extensionPoint)));
+        assertThat(injected).extracting(Object::getClass).containsExactlyInAnyOrderElementsOf(expected);
+    }
+
+    private static List<String> indexedComponents() throws IOException {
+        try (var reader = new BufferedReader(new InputStreamReader(
+            ComponentWiringTest.class.getResourceAsStream(SISU_INDEX), StandardCharsets.UTF_8))) {
+            return reader.lines().map(String::trim).filter(line -> !line.isEmpty()).toList();
         }
     }
 }

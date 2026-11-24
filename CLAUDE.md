@@ -68,6 +68,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
 
 - **Use `Locale.ROOT` in every `String.format`, `toLowerCase` and `toUpperCase` call.** This was a real bug fix (see `233c435`); do not regress. PMD enforces it (`UseLocaleWithStringFormat`, `UseLocaleWithCaseConversions`).
 - **JSR-330 only.** Use `javax.inject.@Inject` / `@Named`. Switching to `jakarta.inject` will silently break Sisu wiring.
+- **Guice stays at 6** (#167). Inside Maven the plugin runs on Maven's own Guice (4.2.1 / 5.1.0, exported to plugins), which knows only `javax.inject`; the declared Guice is used by the CLI and the unit tests (`maven-core` excludes its Guice so the tests run on it). Guice 7 drops `javax.inject`; Dependabot ignores its major updates.
 - **Lombok** is on the classpath. Prefer `@RequiredArgsConstructor`, `@Getter`, `@Value` for records-of-records, but stay consistent with surrounding files.
 - **Guava** is declared explicitly in `pom.xml` (and excluded from Guice) to avoid a `Stopwatch` `ClassNotFoundException` from Maven's bundled Guava. Keep the dependency; updating its version is fine. The `Compat` matrix in `build.yaml` runs `facepalm:scan` and `facepalm:report` on the oldest supported Maven (3.6.3), the current one and Maven 4; check it is green.
 - **Comma-separated parameters** (e.g. `skipDirs`) flow through `CommaSeparatedConfigurator` so CLI overrides like `-DskipDirs=a,b` work. Wire new collection-valued `@Parameter`s through it.
