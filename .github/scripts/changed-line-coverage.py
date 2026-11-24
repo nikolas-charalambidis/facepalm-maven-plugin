@@ -5,11 +5,12 @@
 
 Reads the JaCoCo XML report and the diff between two commits, then writes a Markdown summary
 (to $GITHUB_STEP_SUMMARY when set, otherwise to stdout) with the overall and the changed-line coverage.
-Uncovered changed lines get a GitHub warning annotation; changed-line coverage below the minimum gets
-one more. It only warns and always exits 0 when the inputs are readable: the build is gated by
-jacoco:check on the whole bundle.
+Uncovered changed lines get a GitHub warning annotation. Changed-line coverage below the minimum gets an
+error annotation and exits 1 (#370), unless --exempt is given (the pull request carries the coverage-exempt
+label): then it only warns.
 
 Usage: changed-line-coverage.py <jacoco.xml> <base-commit> [--head HEAD] [--min 80] [--source-root src/main/java]
+                                [--exempt]
 """
 
 import argparse
@@ -86,6 +87,8 @@ def main():
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--min", type=float, default=80.0, help="changed-line coverage minimum in percent")
     parser.add_argument("--source-root", default="src/main/java")
+    parser.add_argument("--exempt", action="store_true",
+                        help="only warn below the minimum, e.g. for a pull request labeled coverage-exempt")
     args = parser.parse_args()
 
     if not os.path.isfile(args.report):
@@ -129,7 +132,14 @@ def main():
     else:
         out.append("No executable lines changed under `%s`." % args.source_root)
     out.append("")
-    out.append("Changed-line minimum: %.0f%% (warning only). Unit tests count; integration tests do not." % args.min)
+    below = total_lines > 0 and 100.0 * total_covered / total_lines < args.min
+    out.append("Changed-line minimum: %.0f%% (%s). Unit tests count; integration tests do not." % (
+        args.min, "exempt: warning only" if args.exempt else "fails the build below it"))
+    if below:
+        out.append("")
+        out.append("**Below the minimum.** %s" % (
+            "Exempt by the `coverage-exempt` label." if args.exempt
+            else "Add unit tests, or label the PR `coverage-exempt` and give the reason in its description."))
 
     summary = "\n".join(out) + "\n"
     summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -141,10 +151,15 @@ def main():
 
     for path, n in uncovered_all[:MAX_LINE_ANNOTATIONS]:
         print("::warning file=%s,line=%d,title=Uncovered changed line::Not covered by unit tests" % (path, n))
-    if total_lines and 100.0 * total_covered / total_lines < args.min:
-        print("::warning title=Changed-line coverage::%s of the changed lines are covered (%d/%d), below %.0f%%" % (
-            percent(total_covered, total_lines), total_covered, total_lines, args.min))
     print("Changed-line coverage: %s (%d/%d)" % (percent(total_covered, total_lines), total_covered, total_lines))
+    if below:
+        message = "%s of the changed lines are covered (%d/%d), below %.0f%%" % (
+            percent(total_covered, total_lines), total_covered, total_lines, args.min)
+        if args.exempt:
+            print("::warning title=Changed-line coverage::%s (exempt by the coverage-exempt label)" % message)
+        else:
+            print("::error title=Changed-line coverage::%s; add unit tests or the coverage-exempt label" % message)
+            return 1
     return 0
 
 
