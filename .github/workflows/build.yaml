@@ -39,6 +39,16 @@ jobs:
       - name: Build, Verify, & Generate Site
         run: mvn -B clean verify site
 
+      # The committed dump of the plugin contract (#338) must match the build, so every change to goals, parameters,
+      # -D properties, types or defaults shows up as a reviewed diff. The "SemVer" workflow compares it with the release.
+      - name: Plugin Contract Up to Date
+        run: |
+          python3 .github/scripts/semver-check.py dump target/classes/META-INF/maven/plugin.xml > "$RUNNER_TEMP/plugin-contract.txt"
+          if ! diff -u src/main/contract/plugin-contract.txt "$RUNNER_TEMP/plugin-contract.txt"; then
+            echo "::error file=src/main/contract/plugin-contract.txt,title=Plugin contract::Stale; regenerate it with: python3 .github/scripts/semver-check.py dump target/classes/META-INF/maven/plugin.xml > src/main/contract/plugin-contract.txt"
+            exit 1
+          fi
+
       # Overall and changed-line coverage of the PR (#335), from the JaCoCo XML of the site, in the job summary.
       # Uncovered changed lines are annotated in the diff; below 80% of changed lines it fails the job (#370), unless the
       # PR carries the coverage-exempt label (the reason belongs in the PR description).
