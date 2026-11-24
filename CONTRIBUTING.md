@@ -108,7 +108,7 @@ Integration test fixtures live under `src/test/resources-its/dev/nichar/facepalm
 
 `mvn verify` fails when unit-test coverage falls below the defined line and branch coverage thresholds (`jacoco:check` on the whole bundle). Only unit tests count: the integration tests run the plugin in forked Maven builds, which JaCoCo does not see. A build without unit tests (`-DskipTests`) skips the check.
 
-On every pull request, the `CI / Verify & Build Site` job summary shows the overall coverage and the coverage of the lines the PR adds or changes under `src/main/java`, and annotates the uncovered ones in the diff. Below 80% of changed lines it warns, but does not fail. Run it locally after `mvn verify site` with `python3 .github/scripts/changed-line-coverage.py target/site/jacoco/jacoco.xml "$(git merge-base origin/master HEAD)"` (use your PR's base branch).
+On every pull request, the `CI / Verify & Build Site` job summary shows the overall coverage and the coverage of the lines the PR adds or changes under `src/main/java`, and annotates the uncovered ones in the diff. Below 80% of changed lines the job fails. For code that cannot be unit-tested, the maintainer adds the `coverage-exempt` label (the job re-runs and only warns); give the reason in the PR description. Run it locally after `mvn verify site` with `python3 .github/scripts/changed-line-coverage.py target/site/jacoco/jacoco.xml "$(git merge-base origin/master HEAD)"` (use your PR's base branch).
 
 ### Fuzzing
 
