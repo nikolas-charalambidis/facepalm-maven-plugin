@@ -1,0 +1,5 @@
+# Reviewers requested automatically on every pull request (#373).
+# The project has a single maintainer, so one default owner covers the whole repository.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @nikolas-charalambidis

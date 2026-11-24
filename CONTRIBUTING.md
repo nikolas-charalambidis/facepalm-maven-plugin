@@ -232,6 +232,8 @@ Pull request checklist:
 
 PRs target `master` for new features. Fixes for a released line target its `release/X.Y.x` branch; they are forwarded to every newer line and `master` automatically (see below). Keep PRs focused — one concern per PR.
 
+`.github/CODEOWNERS` assigns every path to the maintainer, so opening a pull request requests a review automatically.
+
 ## Branches and versioning
 
 - `master` — next minor/major release.
