@@ -6,7 +6,7 @@ updates:
   # master by forward.yaml. Update target-branch when a new release/X.Y.x line is created.
   - package-ecosystem: github-actions
     directory: /
-    target-branch: release/1.0.x
+    target-branch: release/1.1.x
     schedule:
       interval: weekly
       day: monday

@@ -238,6 +238,8 @@ PRs target `master` for new features. Fixes for a released line target its `rele
 - `release/X.Y.x` — maintenance line for `X.Y.*` patch releases (e.g. `release/1.0.x`).
 - `feature/<name>`, `bugfix/<issue>/<name>` — short-lived work branches.
 
+When a new `release/X.Y.x` line is opened, point the `github-actions` `target-branch` in `.github/dependabot.yml` at it. The configuration is read from `master`, and the bumps are forwarded from the oldest maintenance line up, so `release/1.0.x` no longer receives them.
+
 `pom.xml` never contains a real version. It uses the Maven [CI-friendly](https://maven.apache.org/maven-ci-friendly.html) placeholder `<version>${revision}</version>`, which defaults to `0.0.0-SNAPSHOT` for local builds. `flatten-maven-plugin` writes the resolved version into the installed/deployed POM. Because `pom.xml` is identical on every branch, commits move between branches without version conflicts.
 
 `master` requires linear history (merge commits are rejected), so fixes are forward-ported by cherry-picking with `-x`, which records the source commit. This is automated by `.github/workflows/forward.yaml`:
