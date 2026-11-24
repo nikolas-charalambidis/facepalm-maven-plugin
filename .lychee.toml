@@ -1,0 +1,19 @@
+# lychee (https://lychee.cli.rs) configuration for the "Docs" workflow (#347).
+# Run locally with `lychee --config .lychee.toml README.md CONTRIBUTING.md docs` (the file list is in docs.yaml).
+
+no_progress = true
+
+# Also check the #anchors of links to headings, in this repository and on external pages.
+include_fragments = true
+
+max_retries = 3
+retry_wait_time = 5
+timeout = 30
+
+# 429: rate limited, the page exists.
+accept = ["200..=299", "429"]
+
+exclude = [
+    # Blocks automated clients with 403.
+    '^https://www\.reddit\.com/',
+]
