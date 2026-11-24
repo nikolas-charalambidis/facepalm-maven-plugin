@@ -10,6 +10,7 @@ import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import jakarta.annotation.Nonnull;
 import java.util.Locale;
+import java.util.Objects;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -27,7 +28,7 @@ class FileExtensionEvaluator implements FindingEvaluator {
 
     @Override
     public void evaluate(@Nonnull final Finding finding, @Nonnull final FileContext context) {
-        final var fileName = context.getPath().getFileName().toString().toLowerCase(Locale.ROOT);
+        final var fileName = Objects.toString(context.getPath().getFileName(), "").toLowerCase(Locale.ROOT);
         final var lowRisk = config.getEvaluators().getLowRiskExtensions().stream().anyMatch(fileName::endsWith);
 
         // Elevate risk for sensitive formats like .env or .properties.

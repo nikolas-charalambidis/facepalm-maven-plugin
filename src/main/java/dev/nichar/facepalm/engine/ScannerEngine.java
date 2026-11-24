@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -262,7 +263,7 @@ public class ScannerEngine {
                 if (attrs.isRegularFile() || Files.isRegularFile(file)) {
                     // Load ignore rules in the same walk (no separate walk for .gitignore files). All rules are
                     // loaded before any file is evaluated, because evaluation starts after the walk.
-                    if (GITIGNORE.equals(file.getFileName().toString())) {
+                    if (GITIGNORE.equals(Objects.toString(file.getFileName(), ""))) {
                         gitIgnoreService.load(file);
                     }
                     files.add(file);
@@ -282,16 +283,18 @@ public class ScannerEngine {
             }
 
             private boolean isSkipDir(final Path dir) {
-                if (dir.equals(root) || dir.getFileName() == null) {
+                final var fileName = dir.getFileName();
+                if (dir.equals(root) || fileName == null) {
                     return false;
                 }
-                final var name = dir.getFileName().toString();
+                final var name = fileName.toString();
                 if (!skipDirs.contains(name)) {
                     return false;
                 }
                 // Build output (target, build, out, dist) only directly under a module root: source packages with
                 // these names, such as com/acme/build, are scanned (#226). Other names match at any depth.
-                return !EngineConfig.BUILD_OUTPUT_DIRS.contains(name) || isModuleRoot(dir.getParent());
+                final var parent = dir.getParent();
+                return !EngineConfig.BUILD_OUTPUT_DIRS.contains(name) || parent != null && isModuleRoot(parent);
             }
 
             private boolean isModuleRoot(final Path dir) {
@@ -319,7 +322,7 @@ public class ScannerEngine {
             return false;
         }
 
-        final var fileName = path.getFileName().toString();
+        final var fileName = Objects.toString(path.getFileName(), "");
         // Skip binary and non-text assets to reduce noise.
         if (skipBinary.matcher(fileName).matches()) {
             if (engineConfig.isShowSkipped()) {

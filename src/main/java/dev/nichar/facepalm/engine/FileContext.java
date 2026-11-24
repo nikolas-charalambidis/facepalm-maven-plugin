@@ -7,6 +7,7 @@ package dev.nichar.facepalm.engine;
 
 import jakarta.annotation.Nonnull;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
 
@@ -49,7 +50,8 @@ public class FileContext {
         this.path = path;
         this.relativePath = relativePath;
         this.fullContent = fullContent;
-        this.lines = lines;
+        // Read-only view without copying: a file's lines can be many, and FileContext is created per scanned file.
+        this.lines = Collections.unmodifiableList(lines);
     }
 
     /**

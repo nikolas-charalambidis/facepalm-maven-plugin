@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SpotBugs findings accepted on purpose (#340). Every entry names one bug pattern in one class (and method where -->
+<!-- possible) and gives the reason. Do not exclude whole packages or categories, and do not lower the threshold in -->
+<!-- pom.xml to make the build pass. -->
+<FindBugsFilter
+        xmlns="https://github.com/spotbugs/filter/3.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- The CLI scans the directory and writes to the output directory the user passes on the command line: a path -->
+    <!-- chosen by the user is the purpose, not a traversal. The CLI runs with the user's own permissions. -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="dev.nichar.facepalm.FacepalmCLI"/>
+        <Method name="parse"/>
+    </Match>
+
+    <!-- The CLI's console log prints the stack trace of a warning to the user who ran the scan, for diagnosis. -->
+    <!-- It is not a server response; nothing is exposed to a third party. -->
+    <Match>
+        <Bug pattern="INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE"/>
+        <Class name="dev.nichar.facepalm.engine.ConsoleFacepalmLog"/>
+        <Method name="warn"/>
+    </Match>
+
+    <!-- The command is fixed: "git", "-c core.fsmonitor=false ls-files -z" and options that are constants of this -->
+    <!-- class, passed as a list (no shell). Nothing from the scanned files or the user reaches it. -->
+    <Match>
+        <Bug pattern="COMMAND_INJECTION"/>
+        <Class name="dev.nichar.facepalm.engine.GitIgnoreService"/>
+        <Method name="lsFiles"/>
+    </Match>
+
+    <!-- False positive: every quantifier in ENVIRONMENT_VARIABLE_NAME is possessive (*+, ++), so it cannot backtrack. -->
+    <Match>
+        <Bug pattern="REDOS"/>
+        <Class name="dev.nichar.facepalm.engine.evaluator.PlaceholderSuppressorEvaluator"/>
+    </Match>
+
+    <!-- False positive: the VALUE pattern is unrolled with possessive quantifiers only (#243), so it cannot backtrack. -->
+    <!-- RegexSecretExtractorFuzzTest runs it on random input through the snippets of the findings. -->
+    <Match>
+        <Bug pattern="REDOS"/>
+        <Class name="dev.nichar.facepalm.engine.extractor.SnippetMasker"/>
+    </Match>
+
+    <!-- The flagged default patterns have bounded optional groups (e.g. "storage[_.-]?(?:account[_.-]?)?key") that -->
+    <!-- cannot backtrack catastrophically. Every default pattern is checked on random input by -->
+    <!-- RegexSecretExtractorFuzzTest (in every build) and fuzzed by ClusterFuzzLite, with a 10-second timeout per input. -->
+    <Match>
+        <Bug pattern="REDOS"/>
+        <Class name="dev.nichar.facepalm.pattern.SecretPatternRegistry"/>
+    </Match>
+
+    <!-- The hash only deduplicates findings of the same secret within a file. It is not compared with a secret or -->
+    <!-- a token, so a timing difference reveals nothing. -->
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="dev.nichar.facepalm.engine.extractor.RegexSecretExtractor"/>
+    </Match>
+
+    <!-- The template is report.html.ftl, bundled in the plugin jar and loaded from the classpath; users cannot supply -->
+    <!-- or change it. Values from the scan are data passed to the template, escaped by its HTML output format. -->
+    <Match>
+        <Bug pattern="TEMPLATE_INJECTION_FREEMARKER"/>
+        <Class name="dev.nichar.facepalm.report.Reporter"/>
+        <Method name="generateHtml"/>
+    </Match>
+</FindBugsFilter>

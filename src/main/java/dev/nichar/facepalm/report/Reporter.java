@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Comparator;
@@ -89,8 +90,9 @@ public class Reporter {
     public void generateHtml(@Nonnull final ScanReport report, @Nonnull final Path outputPath) throws Exception {
         final var temp = cfg.getTemplate("report.html.ftl");
         final var outputFile = outputPath.toFile();
-        if (outputFile.getParentFile() != null) {
-            outputFile.getParentFile().mkdirs();
+        final var parent = outputPath.toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
         }
         try (final var out = new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8)) {
             temp.process(report, out);

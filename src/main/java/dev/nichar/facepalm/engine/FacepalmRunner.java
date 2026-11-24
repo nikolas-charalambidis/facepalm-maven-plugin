@@ -92,8 +92,9 @@ public class FacepalmRunner {
      */
     private void saveFindingsToJson(@Nonnull final List<Finding> findings, @Nonnull final File outputFile)
             throws Exception {
-        if (!outputFile.getParentFile().exists()) {
-            outputFile.getParentFile().mkdirs();
+        final var parent = outputFile.toPath().toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
         }
 
         final var findingsDto = findings.stream()

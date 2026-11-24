@@ -61,6 +61,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
   ```
 - **PMD** with `pmd-ruleset.xml`. Build fails at priority ≤ 2.
 - **CPD** (copy-paste) at `minimumTokens=100`, identifiers ignored.
+- **SpotBugs** with FindSecBugs (effort `Max`, threshold `Medium`). Accepted findings go in `spotbugs-exclude.xml`, one bug pattern per class (and method where possible), each with its reason; never lower the threshold.
 - **JaCoCo** is wired in; keep coverage from regressing.
 
 ## Conventions specific to this codebase
@@ -95,7 +96,7 @@ The `verify` phase enforces **all** of these. A change is not done until `mvn cl
 - Introducing reflective code without an annotation index entry (Sisu will not see it).
 - Logging via `System.out.println` — use the injected `Log` / `FacepalmLogModule`.
 - Bypassing `failOnError` / `failOnWarnings` semantics in `FacepalmMojo`. Their contract is documented in `docs/configuration.md`.
-- Touching `eclipse.xml` or `pmd-ruleset.xml` to "make Spotless/PMD pass" — fix the code instead.
+- Touching `eclipse.xml` or `pmd-ruleset.xml`, or adding broad `spotbugs-exclude.xml` entries, to "make Spotless/PMD/SpotBugs pass" — fix the code instead.
 
 ## Useful docs (read before changing related code)
 

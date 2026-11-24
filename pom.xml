@@ -115,6 +115,9 @@
         <spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
         <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
         <maven-jxr-plugin.version>3.6.0</maven-jxr-plugin.version>
+        <!-- Bytecode analysis (#340): SpotBugs with the FindSecBugs security rules. -->
+        <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
+        <findsecbugs-plugin.version>1.14.0</findsecbugs-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
@@ -800,6 +803,37 @@
                 </configuration>
             </plugin>
 
+            <!-- Purpose: Bytecode analysis (#340): bug patterns that PMD does not see (null handling, resource leaks, concurrency), -->
+            <!-- and security checks from FindSecBugs. -->
+            <!-- Phase: verify - a quality gate next to PMD; any finding at or above the threshold fails the build. -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- Maximum analysis effort; report findings of medium confidence and above. Do not lower the threshold to pass the build. -->
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <!-- Accepted findings, each with its reason. No blanket exclusions. -->
+                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.h3xstream.findsecbugs</groupId>
+                            <artifactId>findsecbugs-plugin</artifactId>
+                            <version>${findsecbugs-plugin.version}</version>
+                        </plugin>
+                    </plugins>
+                </configuration>
+            </plugin>
+
             <!-- Scans this repository for leaked secrets with the latest released Facepalm, as the README recommends (#189). -->
             <!-- Phase: verify (default) - every CI build runs it; the .githooks/pre-commit hook runs facepalm:scan locally. -->
             <!-- Intentional fake secrets: the IT fixtures are skipped here, the unit tests are listed in .facepalmignore. -->
@@ -881,6 +915,27 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>${maven-pmd-plugin.version}</version>
+            </plugin>
+
+            <!-- SpotBugs and FindSecBugs findings (#340), with the same configuration as the build check. -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs-maven-plugin.version}</version>
+                <configuration>
+                    <!-- Maximum analysis effort; report findings of medium confidence and above. Do not lower the threshold to pass the build. -->
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <!-- Accepted findings, each with its reason. No blanket exclusions. -->
+                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.h3xstream.findsecbugs</groupId>
+                            <artifactId>findsecbugs-plugin</artifactId>
+                            <version>${findsecbugs-plugin.version}</version>
+                        </plugin>
+                    </plugins>
+                </configuration>
             </plugin>
 
             <!-- Transforms the binary coverage data collected during the build into a visual HTML report showing which lines of code were actually tested. -->

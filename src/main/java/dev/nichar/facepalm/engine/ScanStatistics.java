@@ -9,6 +9,7 @@ import jakarta.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import lombok.AccessLevel;
@@ -102,7 +103,7 @@ public class ScanStatistics {
     public void recordScan(@Nonnull final Path path, final long bytes) {
         filesScanned.increment();
         bytesScanned.add(bytes);
-        final var fileName = path.getFileName().toString();
+        final var fileName = Objects.toString(path.getFileName(), "");
         final var lastDot = fileName.lastIndexOf('.');
         final var suffix = (lastDot == -1) ? "no-extension" : fileName.substring(lastDot).toLowerCase(Locale.ROOT);
         suffixCounts.computeIfAbsent(suffix, k -> new LongAdder()).increment();
