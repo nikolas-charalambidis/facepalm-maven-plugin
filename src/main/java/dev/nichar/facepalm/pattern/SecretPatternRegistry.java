@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm.pattern;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
@@ -17,6 +18,7 @@ import lombok.experimental.UtilityClass;
  * @since 1.0.0
  */
 @UtilityClass
+@SuppressFBWarnings(value = "REDOS", justification = "Bounded optional groups only. RegexSecretExtractorFuzzTest and ClusterFuzzLite run every default pattern on random input with a timeout.")
 public class SecretPatternRegistry {
 
     /**

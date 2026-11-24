@@ -8,6 +8,7 @@ package dev.nichar.facepalm.engine.evaluator;
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nonnull;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -21,6 +22,7 @@ import javax.inject.Singleton;
  */
 @Named
 @Singleton
+@SuppressFBWarnings(value = "REDOS", justification = "False positive: only possessive quantifiers, which cannot backtrack.")
 class PlaceholderSuppressorEvaluator implements FindingEvaluator {
 
     /**

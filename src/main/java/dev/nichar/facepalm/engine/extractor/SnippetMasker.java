@@ -6,6 +6,7 @@
 package dev.nichar.facepalm.engine.extractor;
 
 import dev.nichar.facepalm.engine.Finding;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +25,7 @@ import lombok.experimental.UtilityClass;
  * likely secrets that no pattern detected (a second credential on the same line).
  */
 @UtilityClass
+@SuppressFBWarnings(value = "REDOS", justification = "False positive: unrolled with possessive quantifiers only (#243), so it cannot backtrack.")
 class SnippetMasker {
 
     /**

@@ -177,7 +177,7 @@ All of the following are enforced by `mvn verify`:
   ```
 - **PMD** with `pmd-ruleset.xml`. The build fails at priority ≤ 2.
 - **CPD** at `minimumTokens=100`. Refactor duplicated logic instead of suppressing.
-- **SpotBugs** with the [FindSecBugs](https://find-sec-bugs.github.io) security rules, effort `Max`, threshold `Medium`. Fix the finding; accept one only in `spotbugs-exclude.xml`, for one bug pattern in one class (and method where possible), with the reason. Do not lower the threshold.
+- **SpotBugs** with the [FindSecBugs](https://find-sec-bugs.github.io) security rules, effort `Max`, threshold `Medium`. Fix the finding. Accept one only with `@SuppressFBWarnings(value = "<PATTERN>", justification = "<reason>")` on the narrowest element SpotBugs honors: the method, or the class for findings in a static initializer such as `REDOS`. SpotBugs reports a suppression that is no longer needed. Do not lower the threshold.
 
 Coding conventions:
 

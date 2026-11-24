@@ -118,6 +118,8 @@
         <!-- Bytecode analysis (#340): SpotBugs with the FindSecBugs security rules. -->
         <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
         <findsecbugs-plugin.version>1.14.0</findsecbugs-plugin.version>
+        <!-- @SuppressFBWarnings for the accepted findings, each with its justification. Same version as the SpotBugs of the plugin. -->
+        <spotbugs-annotations.version>4.10.5</spotbugs-annotations.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
@@ -235,6 +237,14 @@
         </dependency>
 
         <!-- Provides @Mojo and @Parameter annotations for goals and provides metadata to generate the plugin.xml descriptor. -->
+        <!-- @SuppressFBWarnings (#340): only read by SpotBugs at build time, so not a runtime dependency. -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <version>${spotbugs-annotations.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
             <artifactId>maven-plugin-annotations</artifactId>
@@ -820,10 +830,9 @@
                 </executions>
                 <configuration>
                     <!-- Maximum analysis effort; report findings of medium confidence and above. Do not lower the threshold to pass the build. -->
+                    <!-- Accepted findings carry @SuppressFBWarnings with a justification in the code, not an exclude file. -->
                     <effort>Max</effort>
                     <threshold>Medium</threshold>
-                    <!-- Accepted findings, each with its reason. No blanket exclusions. -->
-                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
                     <plugins>
                         <plugin>
                             <groupId>com.h3xstream.findsecbugs</groupId>
@@ -924,10 +933,9 @@
                 <version>${spotbugs-maven-plugin.version}</version>
                 <configuration>
                     <!-- Maximum analysis effort; report findings of medium confidence and above. Do not lower the threshold to pass the build. -->
+                    <!-- Accepted findings carry @SuppressFBWarnings with a justification in the code, not an exclude file. -->
                     <effort>Max</effort>
                     <threshold>Medium</threshold>
-                    <!-- Accepted findings, each with its reason. No blanket exclusions. -->
-                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
                     <plugins>
                         <plugin>
                             <groupId>com.h3xstream.findsecbugs</groupId>

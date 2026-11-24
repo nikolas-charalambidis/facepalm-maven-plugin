@@ -16,6 +16,7 @@ import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.ScanFailedException;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -125,6 +126,7 @@ public class FacepalmCLI {
      *
      * @throws IllegalArgumentException on an unexpected argument
      */
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "The user chooses the scanned and output directories on the command line; the CLI runs with their permissions.")
     static Options parse(final String[] args) {
         var debug = false;
         String output = null;

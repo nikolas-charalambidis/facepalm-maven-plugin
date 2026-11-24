@@ -13,6 +13,7 @@ import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.engine.ScanReport;
 import dev.nichar.facepalm.engine.ScanStatistics;
 import dev.nichar.facepalm.engine.Severity;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import freemarker.core.HTMLOutputFormat;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
@@ -87,6 +88,7 @@ public class Reporter {
     /**
      * Generates an HTML report using Freemarker templates.
      */
+    @SuppressFBWarnings(value = "TEMPLATE_INJECTION_FREEMARKER", justification = "The template is bundled in the plugin jar; scan values are data, escaped by HTMLOutputFormat.")
     public void generateHtml(@Nonnull final ScanReport report, @Nonnull final Path outputPath) throws Exception {
         final var temp = cfg.getTemplate("report.html.ftl");
         final var outputFile = outputPath.toFile();

@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm.engine;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
@@ -124,6 +125,7 @@ public class GitIgnoreService {
      * {@code -z}, names are NUL-separated and never quoted.
      */
     @Nullable
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "A fixed git ls-files command line whose options are constants of this class, run without a shell.")
     private List<String> lsFiles(@Nonnull final Path root, @Nonnull final String... options) {
         Path output = null;
         try {

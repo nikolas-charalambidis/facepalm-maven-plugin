@@ -5,6 +5,7 @@
 
 package dev.nichar.facepalm.engine;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.PrintStream;
 import lombok.RequiredArgsConstructor;
 
@@ -47,6 +48,7 @@ public final class ConsoleFacepalmLog implements FacepalmLog {
     }
 
     @Override
+    @SuppressFBWarnings(value = "INFORMATION_EXPOSURE_THROUGH_AN_ERROR_MESSAGE", justification = "The stack trace goes to the console of the user who ran the CLI, for diagnosis, not to a third party.")
     public void warn(final CharSequence message, final Throwable error) {
         write("WARNING", message);
         error.printStackTrace(out);
