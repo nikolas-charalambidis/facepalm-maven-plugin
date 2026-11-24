@@ -126,9 +126,11 @@
         <!-- The release workflow's "docs: use version" pull request updates it with each release. -->
         <facepalm-maven-plugin.version>1.1.0</facepalm-maven-plugin.version>
         <!-- Java API compatibility check (#338), only run by the "SemVer" workflow. -->
-        <japicmp-maven-plugin.version>0.27.0</japicmp-maven-plugin.version>
-        <!-- The release japicmp compares with; the workflow sets the latest release of the target branch's line. -->
-        <japicmp.baseline>${facepalm-maven-plugin.version}</japicmp.baseline>
+        <revapi-maven-plugin.version>0.15.1</revapi-maven-plugin.version>
+        <revapi-java.version>0.28.4</revapi-java.version>
+        <revapi-reporter-json.version>0.5.1</revapi-reporter-json.version>
+        <!-- The release Revapi compares with; the workflow sets the latest release of the target branch's line. -->
+        <revapi.oldVersion>${facepalm-maven-plugin.version}</revapi.oldVersion>
 
         <!-- JMH microbenchmarks, only in the "bench" profile (#245). -->
         <jmh.version>1.37</jmh.version>
@@ -429,33 +431,49 @@
                     <version>${maven-site-plugin.version}</version>
                 </plugin>
                 <!-- Java API compatibility with a release (#338). Not bound to the lifecycle: the "SemVer" workflow runs -->
-                <!-- `mvn package japicmp:cmp -Djapicmp.baseline=<version>` and summarizes target/japicmp/default-cli.xml. -->
+                <!-- `mvn package revapi:check -Drevapi.oldVersion=<version>` and summarizes target/revapi.json. -->
                 <plugin>
-                    <groupId>com.github.siom79.japicmp</groupId>
-                    <artifactId>japicmp-maven-plugin</artifactId>
-                    <version>${japicmp-maven-plugin.version}</version>
+                    <groupId>org.revapi</groupId>
+                    <artifactId>revapi-maven-plugin</artifactId>
+                    <version>${revapi-maven-plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.revapi</groupId>
+                            <artifactId>revapi-java</artifactId>
+                            <version>${revapi-java.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.revapi</groupId>
+                            <artifactId>revapi-reporter-json</artifactId>
+                            <version>${revapi-reporter-json.version}</version>
+                        </dependency>
+                    </dependencies>
                     <configuration>
-                        <oldVersion>
-                            <dependency>
-                                <groupId>${project.groupId}</groupId>
-                                <artifactId>${project.artifactId}</artifactId>
-                                <version>${japicmp.baseline}</version>
-                                <type>jar</type>
-                            </dependency>
-                        </oldVersion>
-                        <newVersion>
-                            <file>
-                                <path>${project.build.directory}/${project.build.finalName}.jar</path>
-                            </file>
-                        </newVersion>
-                        <parameter>
-                            <onlyModified>true</onlyModified>
-                            <!-- Only report: the workflow decides what is allowed on the target branch. -->
-                            <breakBuildOnBinaryIncompatibleModifications>false</breakBuildOnBinaryIncompatibleModifications>
-                            <!-- The provided Maven API is not on the classpath of the comparison. -->
-                            <ignoreMissingClasses>true</ignoreMissingClasses>
-                            <skipPomModules>false</skipPomModules>
-                        </parameter>
+                        <!-- Only report: the workflow decides what is allowed on the target branch. -->
+                        <failBuildOnProblemsFound>false</failBuildOnProblemsFound>
+                        <!-- Changes in the APIs of dependencies (Jackson, Maven, ...) are not changes of this plugin. -->
+                        <checkDependencies>false</checkDependencies>
+                        <analysisConfiguration>
+                            <!-- The Java API: the Mojos and the CLI, and the types of the nested Mojo parameters. -->
+                            <!-- Everything else is internal, even when public in Java. The deprecated revapi.java package -->
+                            <!-- filter, because revapi.filter still reports the internal types reachable from @Inject constructors. -->
+                            <revapi.java>
+                                <filter>
+                                    <packages>
+                                        <regex>true</regex>
+                                        <include>
+                                            <item>dev\.nichar\.facepalm</item>
+                                            <item>dev\.nichar\.facepalm\.config</item>
+                                        </include>
+                                    </packages>
+                                </filter>
+                            </revapi.java>
+                            <revapi.reporter.json>
+                                <minSeverity>NON_BREAKING</minSeverity>
+                                <output>${project.build.directory}/revapi.json</output>
+                                <indent>true</indent>
+                            </revapi.reporter.json>
+                        </analysisConfiguration>
                     </configuration>
                 </plugin>
             </plugins>
