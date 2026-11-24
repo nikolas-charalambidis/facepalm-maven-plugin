@@ -187,6 +187,8 @@ Coding conventions:
 - Public Mojo parameters belong in `docs/configuration.md`. Keep that table in sync.
 - Every static field (final or not) has a Javadoc comment describing its purpose.
 
+Documentation is checked by the `Docs` workflow (`.github/workflows/docs.yaml`) on pull requests that change Markdown, and weekly: [lychee](https://lychee.cli.rs) for broken links and anchors (`.lychee.toml`), and [typos](https://github.com/crate-ci/typos) for spelling (`_typos.toml`, with the allow-list of project terms). A failed weekly run opens an issue. It is not a required check.
+
 ## Adding detection patterns
 
 A new pattern usually means:

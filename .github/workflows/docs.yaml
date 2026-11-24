@@ -1,0 +1,84 @@
+name: Docs
+
+# Checks the documentation (#347):
+# - lychee: broken links and anchors in the Markdown files. Config: .lychee.toml.
+# - typos: spelling mistakes in the same files. Allow-list of project terms: _typos.toml.
+#
+# Runs on pull requests that change Markdown or this configuration, and weekly, because external pages break without
+# any change here. A failed weekly run opens an issue, or comments on the one that is still open.
+# Not a required check: an external page that is down for a while must not block unrelated pull requests.
+
+on:
+  push:
+    branches: [ master ]
+    paths: [ '**.md', '.lychee.toml', '_typos.toml', '.github/workflows/docs.yaml' ]
+  pull_request:
+    branches: [ master, 'release/**' ]
+    paths: [ '**.md', '.lychee.toml', '_typos.toml', '.github/workflows/docs.yaml' ]
+  schedule:
+    - cron: '30 5 * * 1' # Weekly, Monday 05:30 UTC
+  workflow_dispatch: # Manual trigger.
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: Docs / Links
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10 # Normally under 1 min
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+
+      # The GitHub token (default input) raises the GitHub rate limit for links to github.com.
+      - name: lychee
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          lycheeVersion: v0.24.2
+          args: >-
+            --config .lychee.toml
+            README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CLAUDE.md docs .github/pull_request_template.md
+
+  spelling:
+    name: Docs / Spelling
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+
+      - name: typos
+        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
+        with:
+          files: README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CLAUDE.md docs .github/pull_request_template.md
+          config: _typos.toml
+
+  # Only the weekly run reports: on a pull request the failed check is visible already.
+  report:
+    name: Docs / Report Failure
+    needs: [ links, spelling ]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
+    permissions:
+      issues: write # Open the issue or comment on it
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Weekly documentation check failed"
+          body="The weekly [Docs run]($RUN_URL) found broken links or spelling mistakes. Its job summary lists them."
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label documentation --label XS
+          fi
