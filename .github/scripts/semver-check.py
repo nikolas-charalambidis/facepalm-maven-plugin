@@ -12,13 +12,15 @@ Subcommands:
       Compares two contracts (each a plugin.xml or a dump). An added line is a minor change; a removed or changed
       line is a major one. Writes a Markdown summary (to $GITHUB_STEP_SUMMARY when set, otherwise to stdout) and a
       warning annotation when the level exceeds --allowed.
-  japicmp <japicmp.xml> [--allowed patch|minor|major]
-      Summarizes the binary-incompatible changes of a japicmp XML report the same way. They are major changes.
+  revapi <revapi.json> [--allowed patch|minor|major]
+      Summarizes a Revapi JSON report of the Java API the same way. Only the binary and source classifications
+      count: a breaking or potentially breaking one is a major change, a non-breaking one (an addition) a minor one.
 
 Both comparisons only warn: they always exit 0 when the inputs are readable.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -142,26 +144,31 @@ def compare(args):
     return 0
 
 
-def japicmp(args):
-    root = ET.parse(args.report).getroot()
-    incompatible = []
-    for cls in root.iter("class"):
-        changes = sorted({c.get("type") for c in cls.iter("compatibilityChange")
-                          if c.get("binaryCompatible") == "false"})
-        if changes:
-            incompatible.append("%s: %s" % (cls.get("fullyQualifiedName"), ", ".join(changes)))
-    level = "major" if incompatible else "none"
-    out = ["## Java API (japicmp)", ""]
-    out.append("Binary compatibility of the public and protected classes, compared with %s." % args.label)
+def revapi(args):
+    with open(args.report, encoding="utf-8") as handle:
+        differences = json.load(handle)
+    breaking, added = [], []
+    for difference in differences:
+        severities = {c["severity"] for c in difference.get("classification", [])
+                      if c["compatibility"] in ("BINARY", "SOURCE")}
+        element = difference.get("old") or difference.get("new")
+        entry = "%s: %s" % (difference["code"], element)
+        if severities & {"BREAKING", "POTENTIALLY_BREAKING"}:
+            breaking.append(entry)
+        elif "NON_BREAKING" in severities:
+            added.append(entry)
+    level = "major" if breaking else "minor" if added else "none"
+    out = ["## Java API (Revapi)", ""]
+    out.append("The public API (the Mojos, the CLI and the `config` package), compared with %s." % args.label)
     out.append("")
     out.append(verdict("Java API", level, args.allowed))
-    if incompatible:
+    if breaking or added:
         out.append("")
-        out.append("```")
-        out.extend(l.strip() for l in listed(incompatible, ""))
+        out.append("```diff")
+        out.extend(l.strip() for l in listed(breaking, "-") + listed(added, "+"))
         out.append("```")
     write_summary(out)
-    print("Java API: %s (%d binary-incompatible classes)" % (level, len(incompatible)))
+    print("Java API: %s (%d breaking, %d non-breaking)" % (level, len(breaking), len(added)))
     return 0
 
 
@@ -169,7 +176,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("dump", help="print the contract of a plugin.xml").add_argument("plugin_xml")
-    for name, first in (("compare", "old"), ("japicmp", "report")):
+    for name, first in (("compare", "old"), ("revapi", "report")):
         command = commands.add_parser(name)
         command.add_argument(first)
         if name == "compare":
@@ -181,7 +188,7 @@ def main():
     if args.command == "dump":
         sys.stdout.write(HEADER + "\n".join(dump(args.plugin_xml)) + "\n")
         return 0
-    return compare(args) if args.command == "compare" else japicmp(args)
+    return compare(args) if args.command == "compare" else revapi(args)
 
 
 if __name__ == "__main__":
