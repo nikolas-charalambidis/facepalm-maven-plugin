@@ -1,0 +1,81 @@
+name: SemVer
+
+# Compares a pull request with the latest release of its line (#338) and reports the SemVer level it needs:
+# - Plugin contract: goals, parameters, -D properties, types and defaults from META-INF/maven/plugin.xml, against the
+#   released plugin.xml from Maven Central. An added line is minor; a removed or changed line is major.
+# - Java API: binary-incompatible changes of the public and protected classes (japicmp), which are major.
+# Allowed level: patch on release/X.Y.x; minor on master, or major when the pull request's milestone is X.0.0.
+#
+# For now it only warns (job summary and annotations) and is not a required check: japicmp also reports the internal
+# classes, which are public in Java but not part of the documented contract.
+# The committed dump of the contract (src/main/contract/plugin-contract.txt) is checked for staleness in build.yaml.
+
+on:
+  pull_request:
+    branches: [ master, 'release/**' ]
+
+permissions:
+  contents: read
+
+jobs:
+  semver:
+    name: SemVer / Compatibility
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10 # Normally 1-2 min
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
+          fetch-depth: 0 # The release tags, to find the baseline.
+
+      - name: Setup Java 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0 # zizmor: ignore[cache-poisoning] PR caches are scoped to the PR ref and never restored on master or release/**
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # Baseline: the highest vX.Y.* tag on release/X.Y.x, the highest tag on master.
+      - name: Find the Baseline
+        id: baseline
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          MILESTONE: ${{ github.event.pull_request.milestone.title }}
+        run: |
+          if [[ "$BASE_REF" =~ ^release/([0-9]+)\.([0-9]+)\.x$ ]]; then
+            pattern="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.*"
+            allowed=patch
+          else
+            pattern='v*'
+            allowed=minor
+            if [[ "$MILESTONE" =~ ^[0-9]+\.0\.0$ ]]; then allowed=major; fi
+          fi
+          tag=$(git tag --list "$pattern" --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+          if [ -z "$tag" ]; then
+            echo "::notice title=SemVer::No release matches $pattern; nothing to compare with"
+          fi
+          {
+            echo "version=${tag#v}"
+            echo "allowed=$allowed"
+          } >> "$GITHUB_OUTPUT"
+          echo "Baseline: ${tag:-none}, allowed: $allowed"
+
+      - name: Build and Compare the Java API
+        if: steps.baseline.outputs.version != ''
+        env:
+          BASELINE: ${{ steps.baseline.outputs.version }}
+        run: mvn -B -ntp package japicmp:cmp -DskipTests -Djapicmp.baseline="$BASELINE"
+
+      - name: Report
+        if: steps.baseline.outputs.version != ''
+        env:
+          BASELINE: ${{ steps.baseline.outputs.version }}
+          ALLOWED: ${{ steps.baseline.outputs.allowed }}
+        run: |
+          jar="$HOME/.m2/repository/dev/nichar/facepalm-maven-plugin/$BASELINE/facepalm-maven-plugin-$BASELINE.jar"
+          unzip -p "$jar" META-INF/maven/plugin.xml > "$RUNNER_TEMP/baseline-plugin.xml"
+          python3 .github/scripts/semver-check.py compare "$RUNNER_TEMP/baseline-plugin.xml" \
+            target/classes/META-INF/maven/plugin.xml --allowed "$ALLOWED" --label "v$BASELINE"
+          python3 .github/scripts/semver-check.py japicmp target/japicmp/default-cli.xml \
+            --allowed "$ALLOWED" --label "v$BASELINE"

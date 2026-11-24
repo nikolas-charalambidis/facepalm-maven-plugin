@@ -1,0 +1,43 @@
+name: Contract Label
+
+# Labels a pull request "breaking" when it removes or changes a line of the plugin contract dump
+# (src/main/contract/plugin-contract.txt, #338): under strict SemVer that needs a major release.
+# Additions (minor) are not labeled. The label is not removed automatically.
+#
+# pull_request_target, so that pull requests from forks get a token that can label them. Safe: it checks out nothing
+# and runs no code of the pull request; it only reads the pull request's diff through the API.
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] no checkout, no PR code is run; only the diff is read
+    branches: [ master, 'release/**' ]
+    paths: [ 'src/main/contract/plugin-contract.txt' ]
+    types: [ opened, synchronize, reopened ]
+
+permissions: {}
+
+jobs:
+  label:
+    name: Contract Label
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 1 min
+    permissions:
+      pull-requests: write # Label the pull request
+      issues: write        # Create the label when it does not exist
+    steps:
+      - name: Label Breaking Changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          file=src/main/contract/plugin-contract.txt
+          patch=$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate \
+            --jq ".[] | select(.filename == \"$file\") | .patch // \"\"")
+          removed=$(grep -cE '^-(plugin|goal|param) ' <<< "$patch" || true)
+          echo "Removed or changed contract lines: $removed"
+          if [ "$removed" -gt 0 ]; then
+            if ! gh api "repos/$GH_REPO/labels/breaking" --silent 2>/dev/null; then
+              gh label create breaking --color B60205 --description "Breaking change: needs a major release"
+            fi
+            gh api --method POST "repos/$GH_REPO/issues/$PR/labels" -f 'labels[]=breaking' --silent
+          fi
