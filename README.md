@@ -153,6 +153,7 @@ ___
 - [Detection Patterns](docs/patterns.md) - What is detected and how to extend.
 - [Reporting](docs/reporting.md) - How to generate reports.
 - [FAQ](docs/faq.md) - False positives, performance, and more.
+- [Versioning](docs/versioning.md) - The SemVer policy, the public contract, and the release lines.
 - [Site](https://www.nikolas-charalambidis.com/facepalm-maven-plugin/) - Site
 - [Security](SECURITY.md#verifying-a-release) - Signatures, build provenance, and the CycloneDX SBOM of each release.
 

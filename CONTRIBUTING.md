@@ -258,7 +258,7 @@ When a new `release/X.Y.x` line is opened, point the `github-actions` `target-br
 
 ### Compatibility checks
 
-Releases follow strict SemVer: `release/X.Y.x` takes only patch changes, `master` minor ones, and a breaking change waits for the next major. The contract is what users configure or consume: goals and their parameters (names, `-D` properties, types, defaults), pattern names, the JSON output fields, and the minimum Java and Maven versions.
+Releases follow strict SemVer, as described for users in [docs/versioning.md](docs/versioning.md): `release/X.Y.x` takes only patch changes, `master` minor ones, and a breaking change waits for the next major. The contract is what users configure or consume: goals and their parameters (names, `-D` properties, types, defaults), pattern names, the JSON output fields, and the minimum Java and Maven versions.
 
 - `src/main/contract/plugin-contract.txt` is a dump of the plugin contract from the generated `META-INF/maven/plugin.xml`: one line per goal and per user-settable parameter. `CI / Verify & Build Site` fails when it is stale. After changing a Mojo, regenerate it with `mvn package` and `python3 .github/scripts/semver-check.py dump target/classes/META-INF/maven/plugin.xml > src/main/contract/plugin-contract.txt`, and commit it. An added line needs a minor release; a removed or changed line a major one.
 - The `Contract Label` workflow labels a PR `breaking` when it removes or changes a line of the dump.
