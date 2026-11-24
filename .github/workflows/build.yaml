@@ -5,6 +5,8 @@ on:
     branches: [ master, 'release/**' ]
   pull_request:
     branches: [ master, 'release/**' ]
+    # labeled/unlabeled re-run the changed-line coverage gate when the coverage-exempt label changes (#370).
+    types: [ opened, synchronize, reopened, labeled, unlabeled ]
   workflow_dispatch: # Manual trigger.
 
 # Read-only by default: the "ci" job builds pull request code. Only the "site" job gets Pages permissions.
@@ -38,11 +40,17 @@ jobs:
         run: mvn -B clean verify site
 
       # Overall and changed-line coverage of the PR (#335), from the JaCoCo XML of the site, in the job summary.
-      # Uncovered changed lines are annotated in the diff; below 80% of changed lines it warns, but never fails.
+      # Uncovered changed lines are annotated in the diff; below 80% of changed lines it fails the job (#370), unless the
+      # PR carries the coverage-exempt label (the reason belongs in the PR description).
       # No PR comment: it would need pull-requests: write, which PRs from forks do not get. No third-party service.
       - name: Changed-Line Coverage
         if: github.event_name == 'pull_request' && success()
-        run: python3 .github/scripts/changed-line-coverage.py target/site/jacoco/jacoco.xml HEAD^1 --min 80
+        env:
+          EXEMPT: ${{ contains(github.event.pull_request.labels.*.name, 'coverage-exempt') }}
+        run: |
+          args=(target/site/jacoco/jacoco.xml HEAD^1 --min 80)
+          if [ "$EXEMPT" = true ]; then args+=(--exempt); fi
+          python3 .github/scripts/changed-line-coverage.py "${args[@]}"
 
       # Coverage badges (jacoco.svg, branches.svg) from the JaCoCo CSV of the site, published with the site under badges/.
       # Self-hosted: no third-party coverage service, no secret, no commit from CI.
@@ -71,6 +79,8 @@ jobs:
     name: Compat / JDK ${{ matrix.java }}, Maven ${{ matrix.maven }}, ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30 # Normally 5-10 min; Windows is the slowest
+    # A label change does not change the code: only "ci" re-runs, for the coverage-exempt label (#370).
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
     # Maven 4 is a release candidate (#365): its jobs may not fail the run until 4.0.0 is GA. Then pin the GA version
     # and its SHA-512 below, and remove this line.
     continue-on-error: ${{ startsWith(matrix.maven, '4.') }}
@@ -152,6 +162,7 @@ jobs:
     name: REUSE Compliance
     runs-on: ubuntu-26.04
     timeout-minutes: 5 # Normally under 1 min
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled' # As in "compat".
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
