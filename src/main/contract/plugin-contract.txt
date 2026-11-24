@@ -1,0 +1,33 @@
+# Plugin contract of facepalm-maven-plugin (#338), generated from META-INF/maven/plugin.xml. Do not edit.
+# Regenerate after `mvn package`:
+#   python3 .github/scripts/semver-check.py dump target/classes/META-INF/maven/plugin.xml > src/main/contract/plugin-contract.txt
+# Under strict SemVer, an added line needs a minor release, and a removed or changed line a major release.
+plugin facepalm-maven-plugin goalPrefix=facepalm requiredJavaVersion=17 requiredMavenVersion=3.6.3
+goal report phase=site requiresProject=true aggregator=false threadSafe=true
+param report.locale type=java.lang.String required=false default=default
+param report.outputDirectory type=java.io.File required=true default=${project.build.directory}/reports
+param report.outputFormat type=java.lang.String required=false property=output.format
+param report.outputTimestamp type=java.lang.String required=false default=${project.build.outputTimestamp}
+param report.siteDirectory type=java.io.File required=false default=${basedir}/src/site
+param report.skip type=boolean required=false property=facepalm.skip default=false
+goal scan phase=verify requiresProject=true aggregator=false threadSafe=true
+param scan.errorThreshold type=int required=false property=errorThreshold default=80
+param scan.evaluators type=dev.nichar.facepalm.config.EvaluatorConfig required=false
+param scan.failOnError type=boolean required=false property=failOnError default=true
+param scan.failOnWarnings type=boolean required=false property=failOnWarnings default=false
+param scan.maxFileSizeBytes type=long required=false property=maxFileSizeBytes default=5242880
+param scan.patterns type=dev.nichar.facepalm.config.PatternConfig required=false
+param scan.postProcessing type=dev.nichar.facepalm.config.PostProcessorConfig required=false
+param scan.root type=java.io.File required=false property=root
+param scan.scoringStrategy type=dev.nichar.facepalm.engine.ScoringStrategy required=false property=scoring.strategy default=WEIGHTED_QUADRATIC
+param scan.showDetails type=boolean required=false property=showDetails default=false
+param scan.showProcessed type=boolean required=false property=showProcessed default=false
+param scan.showScoring type=boolean required=false property=showScoring default=false
+param scan.showSkipped type=boolean required=false property=showSkipped default=false
+param scan.skip type=boolean required=false property=facepalm.skip default=false
+param scan.skipBinaryRegex type=java.lang.String required=false property=skipBinaryRegex default=.*\.(png|jpg|jpeg|gif|pdf|zip|jar|class|tar|gz|exe|dll)$
+param scan.skipDirs type=java.util.Set required=false property=skipDirs
+param scan.suppressions type=boolean required=false property=facepalm.suppressions default=true
+param scan.threads type=java.lang.Integer required=false property=threads
+param scan.useDefaultSkipDirs type=java.lang.Boolean required=false property=useDefaultSkipDirs
+param scan.warningThreshold type=int required=false property=warningThreshold default=40

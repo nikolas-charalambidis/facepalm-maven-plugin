@@ -255,6 +255,14 @@ When a new `release/X.Y.x` line is opened, point the `github-actions` `target-br
 - On conflict, the commit is pushed with conflict markers and the PR becomes a draft; the PR description lists the commands to resolve it.
 - The maintainer merges the forward PR with **Rebase and merge**.
 
+### Compatibility checks
+
+Releases follow strict SemVer: `release/X.Y.x` takes only patch changes, `master` minor ones, and a breaking change waits for the next major. The contract is what users configure or consume: goals and their parameters (names, `-D` properties, types, defaults), pattern names, the JSON output fields, and the minimum Java and Maven versions.
+
+- `src/main/contract/plugin-contract.txt` is a dump of the plugin contract from the generated `META-INF/maven/plugin.xml`: one line per goal and per user-settable parameter. `CI / Verify & Build Site` fails when it is stale. After changing a Mojo, regenerate it with `mvn package` and `python3 .github/scripts/semver-check.py dump target/classes/META-INF/maven/plugin.xml > src/main/contract/plugin-contract.txt`, and commit it. An added line needs a minor release; a removed or changed line a major one.
+- The `Contract Label` workflow labels a PR `breaking` when it removes or changes a line of the dump.
+- The `SemVer` workflow compares each PR with the latest release of its line, downloaded from Maven Central: the plugin contract, and the Java API with [japicmp](https://github.com/siom79/japicmp) (binary-incompatible changes are major). It allows patch changes on `release/X.Y.x`, and minor ones on `master` (major ones when the PR's milestone is `X.0.0`). For now it only warns in the job summary and is not a required check, because japicmp also reports internal classes. Run japicmp locally with `mvn package japicmp:cmp -DskipTests -Djapicmp.baseline=<version>`.
+
 ### Branch protection
 
 `master` and `release/**` are protected by repository rulesets that apply to everyone, including administrators:

@@ -124,6 +124,10 @@
         <!-- The latest release from Maven Central, used to scan this repository (#189). -->
         <!-- The release workflow's "docs: use version" pull request updates it with each release. -->
         <facepalm-maven-plugin.version>1.1.0</facepalm-maven-plugin.version>
+        <!-- Java API compatibility check (#338), only run by the "SemVer" workflow. -->
+        <japicmp-maven-plugin.version>0.27.0</japicmp-maven-plugin.version>
+        <!-- The release japicmp compares with; the workflow sets the latest release of the target branch's line. -->
+        <japicmp.baseline>${facepalm-maven-plugin.version}</japicmp.baseline>
 
         <!-- JMH microbenchmarks, only in the "bench" profile (#245). -->
         <jmh.version>1.37</jmh.version>
@@ -413,6 +417,36 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-site-plugin</artifactId>
                     <version>${maven-site-plugin.version}</version>
+                </plugin>
+                <!-- Java API compatibility with a release (#338). Not bound to the lifecycle: the "SemVer" workflow runs -->
+                <!-- `mvn package japicmp:cmp -Djapicmp.baseline=<version>` and summarizes target/japicmp/default-cli.xml. -->
+                <plugin>
+                    <groupId>com.github.siom79.japicmp</groupId>
+                    <artifactId>japicmp-maven-plugin</artifactId>
+                    <version>${japicmp-maven-plugin.version}</version>
+                    <configuration>
+                        <oldVersion>
+                            <dependency>
+                                <groupId>${project.groupId}</groupId>
+                                <artifactId>${project.artifactId}</artifactId>
+                                <version>${japicmp.baseline}</version>
+                                <type>jar</type>
+                            </dependency>
+                        </oldVersion>
+                        <newVersion>
+                            <file>
+                                <path>${project.build.directory}/${project.build.finalName}.jar</path>
+                            </file>
+                        </newVersion>
+                        <parameter>
+                            <onlyModified>true</onlyModified>
+                            <!-- Only report: the workflow decides what is allowed on the target branch. -->
+                            <breakBuildOnBinaryIncompatibleModifications>false</breakBuildOnBinaryIncompatibleModifications>
+                            <!-- The provided Maven API is not on the classpath of the comparison. -->
+                            <ignoreMissingClasses>true</ignoreMissingClasses>
+                            <skipPomModules>false</skipPomModules>
+                        </parameter>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
