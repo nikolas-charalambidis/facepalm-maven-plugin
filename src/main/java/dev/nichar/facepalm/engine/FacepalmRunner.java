@@ -56,17 +56,18 @@ public class FacepalmRunner {
     public void run(@Nonnull final Path root,
                     @Nonnull final Path outputDir,
                     @Nonnull final String version) throws Exception {
-        run(root, outputDir, version, null);
+        run(root, outputDir, (StagedFiles) null);
     }
 
     /**
      * Executes the scanning workflow on the working tree, or only on the staged files (#236).
      *
+     * @param root Base directory to scan.
+     * @param outputDir Target directory for findings and reports.
      * @param staged The files staged below the root, or {@code null} to scan the working tree.
      */
     public void run(@Nonnull final Path root,
                     @Nonnull final Path outputDir,
-                    @Nonnull final String version,
                     @Nullable final StagedFiles staged) throws Exception {
 
         getLog().info(staged == null ? "Scanning " + root : "Scanning the staged files in " + root);

@@ -182,7 +182,7 @@ public class FacepalmCLI implements Callable<Integer> {
         // Listed before the scan starts: no Git or no repository is an error (exit 2), not an empty scan (#236).
         final var stagedFiles = staged ? StagedFiles.of(root()) : null;
         try {
-            runner.run(root(), output(), version, stagedFiles);
+            runner.run(root(), output(), stagedFiles);
             return EXIT_OK;
         } catch (ScanFailedException e) {
             log.error(e.getMessage());

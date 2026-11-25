@@ -8,6 +8,7 @@ package dev.nichar.facepalm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -35,6 +36,11 @@ class StagedScanTest {
     private static final String KEY = "-----BEGIN " + "PRIVATE KEY-----\n"
         + "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n" + "-----END " + "PRIVATE KEY-----\n";
 
+    /**
+     * The {@code git} executable that sets up the test repositories, or {@code null} if it is not on the PATH.
+     */
+    private static final Path GIT = findGit();
+
     @TempDir
     private Path repo;
 
@@ -43,7 +49,7 @@ class StagedScanTest {
 
     @BeforeAll
     static void requireGit() {
-        assumeTrue(gitAvailable(), "git is not on the PATH");
+        assumeTrue(GIT != null, "git is not on the PATH");
     }
 
     @BeforeEach
@@ -183,7 +189,7 @@ class StagedScanTest {
      * Runs Git in the repository with a fixed identity and no signing, independent of the user's configuration.
      */
     private void git(final String... args) throws Exception {
-        final var command = new ArrayList<>(List.of("git", "-c", "user.name=Test", "-c",
+        final var command = new ArrayList<>(List.of(GIT.toString(), "-c", "user.name=Test", "-c",
             "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "-c", "core.autocrlf=false", "-c",
             "init.defaultBranch=main"));
         command.addAll(List.of(args));
@@ -192,15 +198,24 @@ class StagedScanTest {
         assertThat(process.waitFor()).as("git %s: %s", String.join(" ", args), out).isZero();
     }
 
-    private static boolean gitAvailable() {
-        try {
-            return new ProcessBuilder("git", "--version").redirectErrorStream(true).start().waitFor() == 0;
-        } catch (IOException e) {
-            return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
+    /**
+     * The absolute path of the {@code git} executable on the {@code PATH}, or {@code null} if there is none. The test
+     * repositories are set up with this executable, not with whatever a relative {@code git} resolves to.
+     */
+    private static Path findGit() {
+        final var path = System.getenv("PATH");
+        if (path == null) {
+            return null;
         }
+        for (final var dir : path.split(File.pathSeparator)) {
+            for (final var name : List.of("git", "git.exe")) {
+                final var candidate = Path.of(dir, name).toAbsolutePath();
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
     }
 
     private static Result execute(final String... args) {
