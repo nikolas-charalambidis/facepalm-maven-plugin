@@ -65,6 +65,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # Install git-cliff v2.8.0 (pinned version, verified SHA512 checksum)
+      - name: Install git-cliff
+        run: |
+          curl -sSfL https://github.com/orhun/git-cliff/releases/download/v2.8.0/git-cliff-v2.8.0-x86_64-unknown-linux-gnu.tar.gz \
+            -o /tmp/git-cliff.tar.gz
+          echo "42ec0d423098f28115d38af7f95c9248ed2127c7903f16ef6558dcd6e5f625417c7a9a7bbc3b297f63db966d2196d89c2cd0d44c59a7eeb1d3daa0ce1  /tmp/git-cliff.tar.gz" | sha512sum -c -
+          tar -xz -C /tmp -f /tmp/git-cliff.tar.gz
+          install -m 755 /tmp/git-cliff-2.8.0/git-cliff /usr/local/bin/git-cliff
+          rm -rf /tmp/git-cliff-2.8.0 /tmp/git-cliff.tar.gz
+          git-cliff --version
+
       # Step 1: Derive the release version from the latest reachable tag and the chosen bump type
       - name: Calculate Release Version
         id: release_version
@@ -89,28 +100,20 @@ jobs:
           # "v1.0.5$h{...}", and tag-derived values reach bash arithmetic below and perl in the docs step.
           strict_tags() { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; }
 
-          # Resume: if the checked-out commit is already tagged, a previous run published it and failed after the tag
-          # push. Deriving the version from that tag would bump again and upload a second Central deployment (#221).
-          HEAD_TAG=$(git tag --points-at HEAD | strict_tags | sort -V | tail -1)
-          if [[ -n "$HEAD_TAG" ]]; then
-            RESUME=true
-            VERSION="${HEAD_TAG#v}"
-            LAST_TAG=$({ git tag --merged 'HEAD^' 2>/dev/null || true; } | strict_tags | sort -V | tail -1)
-            LAST_TAG="${LAST_TAG:-v0.0.0}"
-            echo "::notice::HEAD is already tagged $HEAD_TAG: resuming the release of $VERSION. The bump type is ignored and nothing is uploaded again."
-          else
-            RESUME=false
-            # The highest strict tag reachable from HEAD (git describe would accept any name matching its glob).
-            LAST_TAG=$(git tag --merged HEAD | strict_tags | sort -V | tail -1)
-            LAST_TAG="${LAST_TAG:-v0.0.0}"
-            IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
+          # Resume detection: first compute target VERSION, then check if its tag exists.
+          # If tag exists, resume if:
+          #   (a) HEAD is tagged (normal resume after tag push, before CHANGELOG)
+          #   (b) HEAD commit is the workflow-generated CHANGELOG commit "chore: update CHANGELOG.md for v$VERSION"
+          # Otherwise, it's an unrelated commit - don't resume, and error if tag exists on another commit.
+          LAST_TAG=$(git tag --merged HEAD | strict_tags | sort -V | tail -1)
+          LAST_TAG="${LAST_TAG:-v0.0.0}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
 
-            case "$BUMP" in
-              major) VERSION="$((MAJOR + 1)).0.0" ;;
-              minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
-              *)     VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
-            esac
-          fi
+          case "$BUMP" in
+            major) VERSION="$((MAJOR + 1)).0.0" ;;
+            minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+            *)     VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+          esac
 
           # Defense in depth: the version is used in later steps, so it must be plain digits and dots.
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -127,10 +130,41 @@ jobs:
             fi
           fi
 
-          # On another commit, an existing tag means the version is taken (v* tags are immutable).
-          if [[ "$RESUME" == "false" ]] && git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "::error::Tag v$VERSION already exists on another commit."
-            exit 1
+          # Resume detection: compute target VERSION first, then check if v$VERSION tag exists.
+          # Resume ONLY if:
+          #   (a) HEAD has the exact target tag v$VERSION (normal resume after tag push)
+          #   (b) HEAD is the workflow-generated CHANGELOG commit AND v$VERSION is its ancestor,
+          #       AND the commit changes ONLY CHANGELOG.md
+          # Otherwise fail if the target tag exists elsewhere.
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            # Target tag exists - check if we should resume
+            if git tag --points-at HEAD | strict_tags | grep -qx "v$VERSION"; then
+              # HEAD has the exact target tag: normal resume (tag pushed, failed before CHANGELOG/GitHub Release)
+              RESUME=true
+              LAST_TAG=$({ git tag --merged 'HEAD^' 2>/dev/null || true; } | strict_tags | sort -V | tail -1)
+              LAST_TAG="${LAST_TAG:-v0.0.0}"
+              echo "::notice::HEAD is tagged v$VERSION: resuming the release of $VERSION. The bump type is ignored and nothing is uploaded again."
+            elif git merge-base --is-ancestor "v$VERSION" HEAD \
+                 && git log -1 --format=%s | grep -qx "chore: update CHANGELOG.md for v$VERSION" \
+                 && git diff --name-only HEAD^ HEAD | grep -qx CHANGELOG.md \
+                 && ! git diff --name-only HEAD^ HEAD | grep -vqx CHANGELOG.md; then
+              # HEAD is workflow CHANGELOG commit, target tag is ancestor, and commit changes ONLY CHANGELOG.md
+              RESUME=true
+              LAST_TAG=$({ git tag --merged 'v$VERSION^' 2>/dev/null || true; } | strict_tags | sort -V | tail -1)
+              LAST_TAG="${LAST_TAG:-v0.0.0}"
+              echo "::notice::HEAD is workflow CHANGELOG commit for v$VERSION: resuming the release of $VERSION. The bump type is ignored and nothing is uploaded again."
+            else
+              # Target tag exists but we're not on it or its legitimate CHANGELOG continuation
+              echo "::error::Tag v$VERSION already exists on another commit (not HEAD or workflow CHANGELOG commit)."
+              exit 1
+            fi
+          else
+            RESUME=false
+            # Sanity check: target tag should not exist if we're not resuming
+            if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+              echo "::error::Tag v$VERSION already exists on another commit."
+              exit 1
+            fi
           fi
 
           # Commit time in UTC for reproducible builds (project.build.outputTimestamp).
@@ -183,7 +217,7 @@ jobs:
           TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
           CENTRAL_TOKEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
       # Step 4: Tag the released commit and push only the tag (token passed to this command only).
       # Right after the upload, so every later failure leaves the tag that lets a re-run resume this release.
@@ -207,7 +241,7 @@ jobs:
         env:
           VERSION: ${{ steps.release_version.outputs.version }}
           TIMESTAMP: ${{ steps.release_version.outputs.timestamp }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 
       # SLSA build provenance for the released jars and POM: records which workflow, commit and runner built them.
       # The POM is target/<artifact>-<version>.pom: the gpg plugin copies the published (flattened) POM there and
@@ -224,7 +258,77 @@ jobs:
             target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}-cyclonedx.json
             target/facepalm-maven-plugin-${{ steps.release_version.outputs.version }}-cyclonedx.xml
 
-      # Step 5: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
+      # Step 5: Generate release notes with git-cliff (for GitHub Release)
+      - name: Generate Release Notes
+        id: release_notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+          LAST_TAG: ${{ steps.release_version.outputs.last_tag }}
+        run: |
+          git-cliff --config cliff.toml --tag "v$VERSION" --unreleased --output RELEASE_NOTES.md
+
+      # Step 6: Update CHANGELOG.md (prepend new version with SAFE conflict resolution)
+      - name: Update CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+          LAST_TAG: ${{ steps.release_version.outputs.last_tag }}
+        run: |
+          # Skip if version section already exists (idempotent)
+          if grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "Version $VERSION section already exists in CHANGELOG.md, skipping prepend."
+          else
+            # Generate the new changelog entry (version section only, no header/footer/Unreleased)
+            git-cliff --config cliff.toml --unreleased --prepend CHANGELOG.md
+
+            # Check if CHANGELOG.md changed
+            if git diff --quiet CHANGELOG.md; then
+              echo "CHANGELOG.md unchanged, skipping commit."
+              exit 0
+            fi
+
+            # SAFE conflict resolution: fetch latest, rebase/merge, explicit conflict detection
+            # GitHub Actions concurrency (group: release) serializes runs, but concurrent
+            # forward.yaml pushes could still race. We handle this safely:
+            git fetch origin "$GITHUB_REF_NAME"
+
+            # Try fast-forward first (most common case: no concurrent changes)
+            if git merge --ff-only "origin/$GITHUB_REF_NAME" --no-edit; then
+              echo "Fast-forwarded to latest origin/$GITHUB_REF_NAME"
+            else
+              # Fast-forward failed: check if our CHANGELOG change conflicts
+              # Use || to capture exit code safely under 'set -e' (GitHub Actions default)
+              MERGE_TREE_OUTPUT=$(git merge-tree --write-tree HEAD "origin/$GITHUB_REF_NAME" 2>&1) || MERGE_TREE_EXIT=$?
+              if [[ $MERGE_TREE_EXIT -eq 1 ]] && echo "$MERGE_TREE_OUTPUT" | grep -q "CONFLICT (content).*CHANGELOG.md"; then
+                echo "::error::CHANGELOG.md conflict detected with concurrent forward-port. Manual resolution required."
+                exit 1
+              elif [[ $MERGE_TREE_EXIT -eq 129 ]]; then
+                echo "::error::git merge-tree usage error: $MERGE_TREE_OUTPUT"
+                exit 1
+              elif [[ $MERGE_TREE_EXIT -eq 1 ]]; then
+                echo "::error::Unexpected merge conflict detected (not in CHANGELOG.md). Manual resolution required."
+                echo "Merge output: $MERGE_TREE_OUTPUT"
+                exit 1
+              fi
+              # No CHANGELOG conflict: safe to merge normally
+              git merge "origin/$GITHUB_REF_NAME" --no-edit -m "Merge origin/$GITHUB_REF_NAME into release branch"
+              echo "Merged concurrent changes (no CHANGELOG conflict)"
+            fi
+
+            # Verify CHANGELOG.md still has our changes
+            if ! git diff --quiet HEAD CHANGELOG.md; then
+              echo "CHANGELOG.md changes preserved after merge."
+            else
+              echo "::error::CHANGELOG.md changes lost during merge."
+              exit 1
+            fi
+
+            git commit -am "chore: update CHANGELOG.md for v$VERSION"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      # Step 7: GitHub Release with notes generated from merged PRs since the previous tag on this branch, plus the signed artifacts.
       # Only the highest version is marked "latest", so a patch release on release/X.Y.x does not hide a newer master release.
       - name: Create GitHub Release
         id: github_release
@@ -249,8 +353,8 @@ jobs:
           # Byte-for-byte reproduction needs the same JDK patch version (javadoc bundles JDK-specific resources).
           JDK=$(java -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vendor.version/ {v=$2} /java.runtime.version/ {r=$2} END {print (v != "" ? v : r)}')
           # --target records the released branch; without it, GitHub shows the default branch (master) as the target.
-          gh release create "v$VERSION" --verify-tag --target "$GITHUB_REF_NAME" --title "$VERSION" --generate-notes \
-            "${START[@]}" --latest="$LATEST" \
+          gh release create "v$VERSION" --verify-tag --target "$GITHUB_REF_NAME" --title "$VERSION" --latest="$LATEST" \
+            --notes-file RELEASE_NOTES.md \
             --notes "Built with JDK $JDK and \`-Dproject.build.outputTimestamp=$TIMESTAMP\`." \
             target/facepalm-maven-plugin-"$VERSION"*.jar target/facepalm-maven-plugin-"$VERSION".pom \
             target/facepalm-maven-plugin-"$VERSION"-cyclonedx.json target/facepalm-maven-plugin-"$VERSION"-cyclonedx.xml \
@@ -312,3 +416,4 @@ jobs:
           **Merge only after the $VERSION deployment is published in the [Maven Central Portal](https://central.sonatype.com/publishing/deployments)**, so the documentation never points to an unpublished version and the CI build can resolve the self-scan plugin. Check: https://repo1.maven.org/maven2/dev/nichar/facepalm-maven-plugin/$VERSION/
           EOF2
           )"
+EOF
