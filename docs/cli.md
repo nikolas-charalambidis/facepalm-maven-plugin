@@ -59,6 +59,7 @@ line as in Maven.
 | `--show-details[=<true\|false>]` | `showDetails` | `false` |
 | `--show-processed[=<true\|false>]` | `showProcessed` | `false` |
 | `--show-skipped[=<true\|false>]` | `showSkipped` | `false` |
+| `--staged` | (CLI only) | off: scan only the files staged for the next commit, with their staged content (see below) |
 | `--debug` | (`mvn -X`) | off: log at DEBUG level, list processed and skipped files, and print stack traces |
 
 - **Booleans:** `--fail-on-warnings` alone means `true`; turn an option off with `=false`, such as
@@ -71,13 +72,27 @@ line as in Maven.
 
 The log looks like the Maven goal's: every ERROR and WARNING finding with its file, line and masked secret.
 
+## Staged files
+
+`--staged` scans only the files staged for the next commit, for a pre-commit hook (see
+[Git Hooks](git-hooks.md#without-maven)). It needs `git` on the `PATH` and a directory inside a Git work tree;
+otherwise the CLI exits with `2`.
+
+- **Files:** added, modified, copied and renamed files below `<directory>`, from
+  `git diff --cached --diff-filter=ACMR`. Deleted files and submodules are not scanned.
+- **Content:** the staged version (`git cat-file blob` of the staged blob), not the working copy. A secret that was
+  staged and then removed from the file is still found; one only in an unstaged change is not.
+- **Filters:** `--skip-dirs`, the binary filter, the size limit, inline markers and `.facepalmignore` apply as in a
+  full scan. Findings are reported at the file's path and the line of the staged content.
+- **Nothing staged:** the scan passes with exit code `0`.
+
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | No finding fails the scan. Findings below the thresholds, or not failing under `--fail-on-error` / `--fail-on-warnings`, are logged only. |
 | `1` | Findings fail the scan, by the same rules as `failOnError` and `failOnWarnings` in Maven. |
-| `2` | Invalid arguments (the usage is printed), or the scan could not run, for example because of an invalid `--skip-binary-regex` or an unwritable output directory. Only `--debug` prints the stack trace. |
+| `2` | Invalid arguments (the usage is printed), or the scan could not run, for example because of an invalid `--skip-binary-regex`, an unwritable output directory, or `--staged` without `git` or outside a Git repository. Only `--debug` prints the stack trace. |
 
 ## Running from an IDE
 

@@ -56,8 +56,20 @@ public class FacepalmRunner {
     public void run(@Nonnull final Path root,
                     @Nonnull final Path outputDir,
                     @Nonnull final String version) throws Exception {
+        run(root, outputDir, version, null);
+    }
 
-        getLog().info("Scanning " + root);
+    /**
+     * Executes the scanning workflow on the working tree, or only on the staged files (#236).
+     *
+     * @param staged The files staged below the root, or {@code null} to scan the working tree.
+     */
+    public void run(@Nonnull final Path root,
+                    @Nonnull final Path outputDir,
+                    @Nonnull final String version,
+                    @Nullable final StagedFiles staged) throws Exception {
+
+        getLog().info(staged == null ? "Scanning " + root : "Scanning the staged files in " + root);
 
         final var resultsFile = new File(outputDir.toFile(), "facepalm-findings.json");
         final var statisticsFile = new File(outputDir.toFile(), ScanStatisticsReport.FILE_NAME);
@@ -66,7 +78,7 @@ public class FacepalmRunner {
         Files.deleteIfExists(resultsFile.toPath());
         Files.deleteIfExists(statisticsFile.toPath());
 
-        final var findings = engine.scan(root);
+        final var findings = engine.scan(root, staged);
         final var stats = engine.getStats();
 
         reporter.printLogs(stats, findings);

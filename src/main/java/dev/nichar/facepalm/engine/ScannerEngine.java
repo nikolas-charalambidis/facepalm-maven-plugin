@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
@@ -107,21 +108,33 @@ public class ScannerEngine {
      */
     @Nonnull
     public List<Finding> scan(@Nonnull final Path root) throws InterruptedException, IOException {
+        return scan(root, null);
+    }
+
+    /**
+     * Scans the root like {@link #scan(Path)}, or only its staged files with their staged content (#236).
+     *
+     * @param staged The files staged below the root, or {@code null} to scan the working tree.
+     */
+    @Nonnull
+    public List<Finding> scan(@Nonnull final Path root, @Nullable final StagedFiles staged)
+            throws InterruptedException, IOException {
         requirePositiveThreads(context.getEngine().getThreads());
         requireReadableDirectory(root);
         stats.markStarted();
         try {
-            return scanRoot(root);
+            return scanRoot(root, staged);
         } finally {
             stats.markFinished();
         }
     }
 
     /**
-     * Discovers the files below the root and scans those that qualify.
+     * Discovers the files below the root, or takes the staged ones, and scans those that qualify.
      */
     @Nonnull
-    private List<Finding> scanRoot(@Nonnull final Path root) throws InterruptedException, IOException {
+    private List<Finding> scanRoot(@Nonnull final Path root, @Nullable final StagedFiles staged)
+            throws InterruptedException, IOException {
         // Capture configuration on the main thread for thread safety.
         final var currentConfig = context;
         final var engineConfig = currentConfig.getEngine();
@@ -138,16 +151,16 @@ public class ScannerEngine {
             | Pattern.UNICODE_CASE);
 
         final List<Callable<List<Finding>>> tasks = new ArrayList<>();
-        // Walk the filesystem and identify candidate files.
-        final var discoveredPaths = discover(root);
-        log.info("Discovered " + discoveredPaths.size() + " files...");
+        // Walk the filesystem, or take the staged files, and identify candidate files.
+        final var discoveredPaths = staged == null ? discover(root) : stagedPaths(root, staged);
+        log.info("Discovered " + discoveredPaths.size() + (staged == null ? " files..." : " staged files..."));
         for (final var path : discoveredPaths) {
             stats.recordDiscovery();
-            if (!shouldScan(path, skipBinary, stats)) {
+            if (!shouldScan(path, skipBinary, stats, staged)) {
                 continue;
             }
             // Counted as scanned in processFile, once the file has been analysed.
-            tasks.add(() -> processFile(root, path));
+            tasks.add(() -> processFile(root, path, staged));
         }
 
         final List<Finding> findings = new ArrayList<>();
@@ -238,11 +251,7 @@ public class ScannerEngine {
     @Nonnull
     private List<Path> discover(@Nonnull final Path root) throws IOException {
         final var engineConfig = context.getEngine();
-        final var skipDirs = engineConfig.getSkipDirs();
-        if (engineConfig.isSkipDirsReplacingDefaults()) {
-            log.warn(SKIP_DIRS_DEPRECATION);
-        }
-        log.debug("Effective skip directories: " + new TreeSet<>(skipDirs));
+        final var skipDirs = effectiveSkipDirs();
         final List<Path> files = new ArrayList<>();
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
 
@@ -283,26 +292,74 @@ public class ScannerEngine {
             }
 
             private boolean isSkipDir(final Path dir) {
-                final var fileName = dir.getFileName();
-                if (dir.equals(root) || fileName == null) {
-                    return false;
-                }
-                final var name = fileName.toString();
-                if (!skipDirs.contains(name)) {
-                    return false;
-                }
-                // Build output (target, build, out, dist) only directly under a module root: source packages with
-                // these names, such as com/acme/build, are scanned (#226). Other names match at any depth.
-                final var parent = dir.getParent();
-                return !EngineConfig.BUILD_OUTPUT_DIRS.contains(name) || parent != null && isModuleRoot(parent);
-            }
-
-            private boolean isModuleRoot(final Path dir) {
-                return dir.equals(root) || MODULE_DESCRIPTORS.stream().anyMatch(file -> Files.isRegularFile(dir
-                    .resolve(file)));
+                return ScannerEngine.isSkipDir(root, dir, skipDirs);
             }
         });
         return files;
+    }
+
+    /**
+     * The staged files that are not in a skipped directory, with the same {@code skipDirs} rules as the walk of a full
+     * scan. Their {@code .gitignore} rules come from Git (tracked files are never ignored anyway).
+     */
+    @Nonnull
+    private List<Path> stagedPaths(@Nonnull final Path root, @Nonnull final StagedFiles staged) {
+        final var skipDirs = effectiveSkipDirs();
+        final List<Path> files = new ArrayList<>();
+        for (final var path : staged.paths()) {
+            Path skipped = null;
+            for (var dir = path.getParent(); dir != null && dir.startsWith(root) && !dir.equals(root); dir = dir
+                .getParent()) {
+                if (isSkipDir(root, dir, skipDirs)) {
+                    skipped = dir;
+                }
+            }
+            if (skipped == null) {
+                files.add(path);
+            } else if (context.getEngine().isShowSkipped()) {
+                log.debug("Skipping staged file in excluded directory " + skipped + ": " + path);
+            }
+        }
+        return files;
+    }
+
+    /**
+     * Returns the effective skip directories, and warns once if {@code skipDirs} replaces the defaults (#258).
+     */
+    @Nonnull
+    private Set<String> effectiveSkipDirs() {
+        final var engineConfig = context.getEngine();
+        final var skipDirs = engineConfig.getSkipDirs();
+        if (engineConfig.isSkipDirsReplacingDefaults()) {
+            log.warn(SKIP_DIRS_DEPRECATION);
+        }
+        log.debug("Effective skip directories: " + new TreeSet<>(skipDirs));
+        return skipDirs;
+    }
+
+    /**
+     * Whether a directory inside the root is skipped. Build output (target, build, out, dist) only directly under a
+     * module root: source packages with these names, such as {@code com/acme/build}, are scanned (#226). Other names
+     * match at any depth.
+     */
+    private static boolean isSkipDir(@Nonnull final Path root,
+                                     @Nonnull final Path dir,
+                                     @Nonnull final Set<String> skipDirs) {
+        final var fileName = dir.getFileName();
+        if (dir.equals(root) || fileName == null) {
+            return false;
+        }
+        final var name = fileName.toString();
+        if (!skipDirs.contains(name)) {
+            return false;
+        }
+        final var parent = dir.getParent();
+        return !EngineConfig.BUILD_OUTPUT_DIRS.contains(name) || parent != null && isModuleRoot(root, parent);
+    }
+
+    private static boolean isModuleRoot(@Nonnull final Path root, @Nonnull final Path dir) {
+        return dir.equals(root) || MODULE_DESCRIPTORS.stream().anyMatch(file -> Files.isRegularFile(dir.resolve(
+            file)));
     }
 
     /**
@@ -310,7 +367,8 @@ public class ScannerEngine {
      */
     private boolean shouldScan(@Nonnull final Path path,
                                @Nonnull final Pattern skipBinary,
-                               @Nonnull final ScanStatistics stats) {
+                               @Nonnull final ScanStatistics stats,
+                               @Nullable final StagedFiles staged) {
         final var engineConfig = context.getEngine();
 
         // The suppression file lists suppressions, not content: its value entries would otherwise be found in it.
@@ -334,7 +392,7 @@ public class ScannerEngine {
 
         try {
             // Skip large files to prevent OOM during regex matching.
-            if (Files.size(path) > engineConfig.getMaxFileSizeBytes()) {
+            if ((staged == null ? Files.size(path) : staged.size(path)) > engineConfig.getMaxFileSizeBytes()) {
                 if (engineConfig.isShowSkipped()) {
                     log.debug("Skipping large file: " + path);
                 }
@@ -353,15 +411,17 @@ public class ScannerEngine {
      * Executes the extraction, evaluation, and post-processing pipeline for a single file.
      */
     @Nonnull
-    private List<Finding> processFile(@Nonnull final Path root, @Nonnull final Path path) {
+    private List<Finding> processFile(@Nonnull final Path root,
+                                      @Nonnull final Path path,
+                                      @Nullable final StagedFiles staged) {
         final var engineConfig = context.getEngine();
 
         if (engineConfig.isShowProcessed()) {
             log.debug("Processing file: " + path);
         }
         try {
-            // Load file into memory. Protected by size limits in shouldScan().
-            final var bytes = Files.readAllBytes(path);
+            // Load file into memory, or its staged content (#236). Protected by size limits in shouldScan().
+            final var bytes = staged == null ? Files.readAllBytes(path) : staged.read(path);
             final var content = TextDecoder.decode(bytes);
             if (content == null) {
                 if (engineConfig.isShowSkipped()) {

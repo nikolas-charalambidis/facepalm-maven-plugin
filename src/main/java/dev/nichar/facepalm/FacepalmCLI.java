@@ -16,6 +16,7 @@ import dev.nichar.facepalm.engine.FacepalmLog;
 import dev.nichar.facepalm.engine.FacepalmRunner;
 import dev.nichar.facepalm.engine.ScanFailedException;
 import dev.nichar.facepalm.engine.ScoringStrategy;
+import dev.nichar.facepalm.engine.StagedFiles;
 import dev.nichar.facepalm.module.FacepalmConfigModule;
 import dev.nichar.facepalm.module.FacepalmLogModule;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -122,6 +123,9 @@ public class FacepalmCLI implements Callable<Integer> {
     @Option(names = "--fail-on-warnings", arity = "0..1", paramLabel = "<true|false>", description = "Exit with 1 if a finding reaches the warning threshold. Default: ${DEFAULT-VALUE}.")
     private boolean failOnWarnings;
 
+    @Option(names = "--staged", description = "Scan only the files staged for the next commit, with their staged content (for pre-commit hooks).")
+    private boolean staged;
+
     @Option(names = "--debug", description = "Log at DEBUG level, list processed and skipped files, and print stack traces of errors.")
     private boolean debug;
 
@@ -175,8 +179,10 @@ public class FacepalmCLI implements Callable<Integer> {
         final var log = injector.getInstance(FacepalmLog.class);
         final var version = version();
         log.info("Starting facepalm-maven-plugin " + version);
+        // Listed before the scan starts: no Git or no repository is an error (exit 2), not an empty scan (#236).
+        final var stagedFiles = staged ? StagedFiles.of(root()) : null;
         try {
-            runner.run(root(), output(), version);
+            runner.run(root(), output(), version, stagedFiles);
             return EXIT_OK;
         } catch (ScanFailedException e) {
             log.error(e.getMessage());

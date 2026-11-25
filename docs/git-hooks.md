@@ -68,26 +68,35 @@ exit 0
 ## Without Maven
 
 Projects that do not build with Maven, or machines without Maven, can run the self-contained jar instead (see
-[Command Line](cli.md)). It needs only a Java 17 runtime. Keep the jar outside the scanned directory, or in a
-directory that is skipped, such as `.git`:
+[Command Line](cli.md)). It needs only a Java 17 runtime and `git`. `--staged` scans only the files staged for the
+commit, with their staged content, so the hook is fast and checks exactly what is committed:
 
 ```sh
 #!/bin/sh
 
-java -jar .git/hooks/facepalm-maven-plugin-cli.jar --output "$(mktemp -d)" .
+java -jar .git/hooks/facepalm-maven-plugin-cli.jar --staged --output "$(mktemp -d)" .
 RESULT=$?
 
-if [ $RESULT -ne 0 ]; then
+if [ $RESULT -eq 1 ]; then
     echo "Facepalm: potential secret detected. Commit blocked."
+    exit 1
+elif [ $RESULT -ne 0 ]; then
+    echo "Facepalm: the scan could not run (exit code $RESULT). Commit blocked."
     exit 1
 fi
 
 exit 0
 ```
 
-Download the jar once, for example to `.git/hooks/facepalm-maven-plugin-cli.jar`. `--output` keeps the reports out of
-the working tree. The CLI takes the goal's parameters as options, such as `--fail-on-warnings`; exit code `1` means
-findings fail the scan, `2` that it could not run (see [Command Line](cli.md#exit-codes)).
+Download the jar once, for example to `.git/hooks/facepalm-maven-plugin-cli.jar`, where it is neither committed nor
+scanned. `--output` keeps the reports out of the working tree.
+
+- **What `--staged` scans:** added, modified, copied and renamed files below the scanned directory. A secret that was
+  staged and then removed from the working copy still blocks the commit; a secret only in an unstaged change or an
+  untracked file does not. Deleted files and submodules are not scanned, and `skipDirs`, the binary filter, the size
+  limit and suppressions apply as in a full scan.
+- **Exit codes:** `1` means findings fail the scan, `2` that it could not run, for example outside a Git repository
+  (see [Command Line](cli.md#exit-codes)). The CLI takes the goal's parameters as options, such as `--fail-on-warnings`.
 
 ------------------------------------------------------------------------
 
@@ -97,7 +106,8 @@ findings fail the scan, `2` that it could not run (see [Command Line](cli.md#exi
     `mvn -q`: quiet mode hides warnings, so with `failOnWarnings=true` a
     blocked commit would show no file or line.
 
--   The scan covers the **working tree**, not only the staged changes:
+-   The Maven hooks scan the **working tree**, not only the staged changes
+    (the CLI's `--staged` scans only those, see above):
     unstaged edits and untracked files are scanned too, and a secret in an
     unrelated file blocks the commit.
 
