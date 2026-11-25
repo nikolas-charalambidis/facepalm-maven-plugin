@@ -89,18 +89,42 @@ class FacepalmCliIT {
     }
 
     /**
+     * #235: picocli and the filtered version resource survive shading and {@code minimizeJar}.
+     */
+    @Test
+    void version_and_usage_error_exit_codes() throws Exception {
+        final var version = java("--version");
+        assertThat(version.exitCode()).as(version.out()).isZero();
+        assertThat(version.out().strip()).matches("facepalm \\d+\\.\\d+\\.\\d+(-SNAPSHOT)?");
+
+        final var usage = java("--no-such-option");
+        assertThat(usage.exitCode()).as(usage.out()).isEqualTo(2);
+        assertThat(usage.out()).contains("Unknown option: '--no-such-option'", "Usage: facepalm");
+    }
+
+    /**
      * Runs {@code java -jar <cli jar> [options] --output <output> <directory>} with the JRE running the tests.
      */
     private static Result run(final Path directory, final Path output, final String... options)
             throws IOException, InterruptedException {
+        final var args = new ArrayList<>(List.of(options));
+        args.addAll(List.of("--output", output.toString(), directory.toString()));
+        return java(args.toArray(String[]::new));
+    }
+
+    /**
+     * Runs {@code java -jar <cli jar> <args>} with the JRE running the tests.
+     */
+    private static Result java(final String... args) throws IOException, InterruptedException {
         final var jar = Path.of(Objects.requireNonNull(System.getProperty("facepalm.cli.jar"), "facepalm.cli.jar"));
         assertThat(jar).exists();
         final var command = new ArrayList<String>();
         command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        // Plain text: picocli detects ANSI support per platform.
+        command.add("-Dpicocli.ansi=false");
         command.add("-jar");
         command.add(jar.toString());
-        command.addAll(List.of(options));
-        command.addAll(List.of("--output", output.toString(), directory.toString()));
+        command.addAll(List.of(args));
         final var process = new ProcessBuilder(command)
             .redirectErrorStream(true)
             .start();

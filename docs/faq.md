@@ -116,7 +116,7 @@ Yes. From 1.2.0, every release publishes a self-contained jar next to the plugin
 java -jar facepalm-maven-plugin-<version>-cli.jar [--debug] [--output <dir>] [<directory>]
 ```
 
-It uses the default configuration of the Maven goal; parameters such as `skipDirs` cannot be changed. See [Command Line](cli.md) for the download, the options and the exit codes.
+Its options are the goal's parameters, such as `--skip-dirs` or `--fail-on-warnings`, with the same defaults. See [Command Line](cli.md) for the download, the options and the exit codes.
 
 ---
 

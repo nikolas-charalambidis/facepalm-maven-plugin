@@ -5,11 +5,9 @@
 
 package dev.nichar.facepalm.configurator;
 
-import java.util.Arrays;
+import dev.nichar.facepalm.config.CommaSeparatedValues;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.codehaus.plexus.component.configurator.ComponentConfigurationException;
 import org.codehaus.plexus.component.configurator.ConfigurationListener;
 import org.codehaus.plexus.component.configurator.converters.AbstractConfigurationConverter;
@@ -47,16 +45,9 @@ public class CommaSeparatedSetConverter extends AbstractConfigurationConverter {
 
         final var value = evaluatedValue != null ? evaluatedValue.toString() : null;
 
-        // Split comma-delimited strings into unique, trimmed elements.
+        // Split comma-delimited strings into unique, trimmed elements, like the CLI does (#235).
         if (value != null && !value.trim().isEmpty()) {
-            return Arrays.stream(value.split(","))
-                // Removes all Unicode whitespace (cleaner than trim()).
-                .map(String::strip)
-                // Discards strings that are empty OR only contain whitespace.
-                .filter(Predicate.not(String::isBlank))
-                // Aggregates the cleaned elements into a LinkedHashSet to maintain the original insertion order while
-                // ensuring uniqueness.
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+            return CommaSeparatedValues.split(value);
         }
 
         // Fallback: process traditional nested XML configuration tags.

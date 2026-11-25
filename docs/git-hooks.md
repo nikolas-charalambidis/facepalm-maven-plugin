@@ -86,7 +86,8 @@ exit 0
 ```
 
 Download the jar once, for example to `.git/hooks/facepalm-maven-plugin-cli.jar`. `--output` keeps the reports out of
-the working tree; the CLI uses the default configuration of the Maven goal.
+the working tree. The CLI takes the goal's parameters as options, such as `--fail-on-warnings`; exit code `1` means
+findings fail the scan, `2` that it could not run (see [Command Line](cli.md#exit-codes)).
 
 ------------------------------------------------------------------------
 
