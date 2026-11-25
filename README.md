@@ -150,6 +150,7 @@ ___
 
 - [Configuration](docs/configuration.md) - Parameters, defaults, and examples.
 - [Git Hooks](docs/git-hooks.md) - Pre-commit and pre-push setup.
+- [Command Line](docs/cli.md) - Run Facepalm without Maven: `java -jar facepalm-maven-plugin-<version>-cli.jar`.
 - [Detection Patterns](docs/patterns.md) - What is detected and how to extend.
 - [Reporting](docs/reporting.md) - How to generate reports.
 - [FAQ](docs/faq.md) - False positives, performance, and more.

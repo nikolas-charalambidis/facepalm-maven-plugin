@@ -110,19 +110,13 @@ The tools complement each other. A common setup:
 
 ## Can I use it outside of Maven?
 
-Use `mvn facepalm:scan`; that is the supported way. For development, the source also contains a command-line entry point (`dev.nichar.facepalm.FacepalmCLI`). It is not published as a runnable JAR, so run it from a checkout with the project's classpath:
+Yes. From 1.2.0, every release publishes a self-contained jar next to the plugin, `facepalm-maven-plugin-<version>-cli.jar`, that runs with only a Java 17 runtime:
 
 ```bash
-mvn -q package -DskipTests -DskipITs
-mvn -q dependency:build-classpath -Dmdep.outputFile=cp.txt
-java -cp "target/facepalm-maven-plugin-0.0.0-SNAPSHOT.jar:$(cat cp.txt)" dev.nichar.facepalm.FacepalmCLI [--debug] [--output <dir>] [<directory>]
+java -jar facepalm-maven-plugin-<version>-cli.jar [--debug] [--output <dir>] [<directory>]
 ```
 
-- `<directory>`: directory to scan (default: the current one).
-- `--output <dir>`: where `facepalm-findings.json` is written (default: `<directory>/target`).
-- `--debug`: log at DEBUG level and list processed and skipped files.
-
-It uses the default configuration of the Maven goal; parameters such as `skipDirs` cannot be changed.
+It uses the default configuration of the Maven goal; parameters such as `skipDirs` cannot be changed. See [Command Line](cli.md) for the download, the options and the exit codes.
 
 ---
 

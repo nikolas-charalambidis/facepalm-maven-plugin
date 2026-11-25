@@ -65,6 +65,31 @@ exit 0
 
 ------------------------------------------------------------------------
 
+## Without Maven
+
+Projects that do not build with Maven, or machines without Maven, can run the self-contained jar instead (see
+[Command Line](cli.md)). It needs only a Java 17 runtime. Keep the jar outside the scanned directory, or in a
+directory that is skipped, such as `.git`:
+
+```sh
+#!/bin/sh
+
+java -jar .git/hooks/facepalm-maven-plugin-cli.jar --output "$(mktemp -d)" .
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo "Facepalm: potential secret detected. Commit blocked."
+    exit 1
+fi
+
+exit 0
+```
+
+Download the jar once, for example to `.git/hooks/facepalm-maven-plugin-cli.jar`. `--output` keeps the reports out of
+the working tree; the CLI uses the default configuration of the Maven goal.
+
+------------------------------------------------------------------------
+
 ## Important notes
 
 -   The hooks use `mvn -B -ntp` (batch mode, no download progress) rather than
