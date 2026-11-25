@@ -751,6 +751,11 @@
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>cli</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <!-- Drops the classes nothing references, which shrinks Guava from about 1970 to 1040 classes. -->
+                            <!-- Libraries that load classes by name are kept whole by the "**" filters below: Sisu loads -->
+                            <!-- the classes of its index, Guice, Jackson and FreeMarker use reflection. FacepalmCliIT fails -->
+                            <!-- with NoClassDefFoundError if a class that is needed at runtime was dropped. -->
+                            <minimizeJar>true</minimizeJar>
                             <artifactSet>
                                 <!-- Maven reporting, Doxia and what they pull in: only FacepalmReportMojo uses them, never the CLI. -->
                                 <excludes>
@@ -782,9 +787,66 @@
                                         <exclude>META-INF/versions/*/module-info.class</exclude>
                                     </excludes>
                                 </filter>
+                                <!-- Kept whole despite minimizeJar: these load classes by name or by reflection. -->
                                 <filter>
-                                    <!-- The Maven plugin descriptors: the CLI is not a Maven plugin. -->
+                                    <artifact>com.google.inject:guice</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.sisu:org.eclipse.sisu.inject</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.ow2.asm:asm</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>javax.inject:javax.inject</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>jakarta.inject:jakarta.inject-api</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <!-- Without its servlet, JSP and scripting integrations, which only web applications use. -->
+                                    <artifact>org.freemarker:freemarker</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>freemarker/ext/jsp/**</exclude>
+                                        <exclude>freemarker/ext/servlet/**</exclude>
+                                        <exclude>freemarker/ext/jakarta/**</exclude>
+                                        <exclude>freemarker/ext/jython/**</exclude>
+                                        <exclude>freemarker/ext/rhino/**</exclude>
+                                        <exclude>freemarker/ext/ant/**</exclude>
+                                        <exclude>freemarker/ext/jdom/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <!-- Kept whole (Sisu loads the indexed components by name), without the Maven plugin -->
+                                    <!-- descriptors: the CLI is not a Maven plugin. -->
                                     <artifact>${project.groupId}:${project.artifactId}</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
                                     <excludes>
                                         <exclude>META-INF/maven/plugin.xml</exclude>
                                         <exclude>META-INF/maven/${project.groupId}/${project.artifactId}/plugin-help.xml</exclude>

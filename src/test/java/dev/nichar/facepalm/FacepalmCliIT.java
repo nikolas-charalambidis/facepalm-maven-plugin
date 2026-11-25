@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,31 @@ class FacepalmCliIT {
     }
 
     /**
+     * Inline suppression and the unused-marker warning: code paths the other fixtures do not reach, so a class that
+     * {@code minimizeJar} dropped wrongly fails here.
+     */
+    @Test
+    void suppressed_finding_does_not_fail(@TempDir final Path output) throws Exception {
+        final var result = run(fixture("suppressed_project"), output);
+
+        assertThat(result.exitCode()).as(result.out()).isZero();
+        assertThat(result.out())
+            .contains("[WARNING] [Unused Suppression] ")
+            .contains("1 findings suppressed by ");
+    }
+
+    /**
+     * {@code --debug} logs at DEBUG level and lists processed and skipped files.
+     */
+    @Test
+    void debug_lists_processed_files(@TempDir final Path output) throws Exception {
+        final var result = run(fixture("dirty_project"), output, "--debug");
+
+        assertThat(result.exitCode()).as(result.out()).isZero();
+        assertThat(result.out()).contains("[DEBUG] ");
+    }
+
+    /**
      * Directory of an integration test fixture, as copied to the test classes.
      */
     private static Path fixture(final String name) throws URISyntaxException {
@@ -63,16 +89,21 @@ class FacepalmCliIT {
     }
 
     /**
-     * Runs {@code java -jar <cli jar> --output <output> <directory>} with the JRE running the tests.
+     * Runs {@code java -jar <cli jar> [options] --output <output> <directory>} with the JRE running the tests.
      */
-    private static Result run(final Path directory, final Path output) throws IOException, InterruptedException {
+    private static Result run(final Path directory, final Path output, final String... options)
+            throws IOException, InterruptedException {
         final var jar = Path.of(Objects.requireNonNull(System.getProperty("facepalm.cli.jar"), "facepalm.cli.jar"));
         assertThat(jar).exists();
-        final var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-        final var process = new ProcessBuilder(List.of(java, "-jar", jar.toString(), "--output", output.toString(),
-            directory.toString()))
-                .redirectErrorStream(true)
-                .start();
+        final var command = new ArrayList<String>();
+        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        command.add("-jar");
+        command.add(jar.toString());
+        command.addAll(List.of(options));
+        command.addAll(List.of("--output", output.toString(), directory.toString()));
+        final var process = new ProcessBuilder(command)
+            .redirectErrorStream(true)
+            .start();
         // Reads until the process closes its output, so the exit code is ready right after.
         final var out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         return new Result(process.waitFor(), out);
