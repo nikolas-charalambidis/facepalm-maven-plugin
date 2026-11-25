@@ -7,6 +7,7 @@ package dev.nichar.facepalm.engine.evaluator;
 
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
+import dev.nichar.facepalm.pattern.ValueClassifier;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.util.HashMap;
@@ -54,7 +55,10 @@ class EntropyEvaluator implements FindingEvaluator {
 
         final var value = finding.getSecretValue();
         final var entropy = getShannonEntropy(value);
-        if (value.length() >= HIGH_ENTROPY_MIN_LENGTH && entropy > highEntropyThreshold(value.length())) {
+        // Shannon entropy only counts distinct characters, so predictable values such as A1b2C3d4 or 0123456789abcdef
+        // would earn the bonus (#386).
+        if (value.length() >= HIGH_ENTROPY_MIN_LENGTH && entropy > highEntropyThreshold(value.length())
+            && !ValueClassifier.isPredictable(value)) {
             // Random strings typical of API keys or passwords.
             finding.log(String.format(Locale.ROOT, "High Entropy (%.2f)", entropy), 10, 20);
         } else if (entropy < LOW_ENTROPY) {

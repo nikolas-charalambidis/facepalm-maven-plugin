@@ -23,12 +23,24 @@ class EntropyEvaluatorTest {
 
     @Test
     void high_entropy_raises_risk_and_confidence() {
-        // 36 distinct characters: about 5.17 bits per character.
-        final var finding = evaluate("Generic API Key Assignment", "abcdefghijklmnopqrstuvwxyz0123456789");
+        // 36 distinct characters in random order: about 5.17 bits per character.
+        final var finding = evaluate("Generic API Key Assignment", "q7Hx2LmP9tRw4KzN5cYb" + "8Fd1Gs3Ja6UeVo0i");
 
         assertThat(finding.getRiskScore()).isEqualTo(60);
         assertThat(finding.getConfidenceScore()).isEqualTo(70);
         assertThat(finding.getScoreHistory()).singleElement().asString().startsWith("High Entropy (5.17)");
+    }
+
+    /**
+     * Issue #386: Shannon entropy counts distinct characters only, so the alphabet in order scored as random.
+     */
+    @Test
+    void predictable_value_gets_no_high_entropy_bonus() {
+        final var finding = evaluate("Generic API Key Assignment", "abcdefghijklmnopqrstuvwxyz0123456789");
+
+        assertThat(finding.getRiskScore()).isEqualTo(50);
+        assertThat(finding.getConfidenceScore()).isEqualTo(50);
+        assertThat(finding.getScoreHistory()).isEmpty();
     }
 
     @Test

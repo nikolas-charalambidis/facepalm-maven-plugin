@@ -117,6 +117,23 @@ class SecretPatternBacktrackingTest {
         new Input("<property name=password value=", "a/"));
 
     /**
+     * Near-matches of the reference, code and format description patterns of {@link ValueClassifier}.
+     */
+    private static final List<Input> VALUE_INPUTS = List.of(
+        new Input("#{", "a."),
+        new Input("#{", "a-"),
+        new Input("~{a", ".b"),
+        new Input("$(", "a:"),
+        new Input("%(", "a/"),
+        new Input("<%=", " a"),
+        new Input("", "#{a"),
+        new Input("", "a.b("),
+        new Input("", ")["),
+        new Input("", "a:b"),
+        new Input("#", "a:"),
+        new Input("", "#/"));
+
+    /**
      * Splits a sample into tokens: runs of letters and digits, and every other character on its own.
      */
     private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9]+|[^A-Za-z0-9]");
@@ -127,6 +144,23 @@ class SecretPatternBacktrackingTest {
         for (final var input : inputs(pattern)) {
             assertLinear(pattern.getPattern(), input, pattern.getName());
         }
+    }
+
+    /**
+     * The patterns that classify captured values (#386) run on every finding, so they must be linear too.
+     */
+    @ParameterizedTest
+    @MethodSource("valuePatterns")
+    void value_pattern_matches_in_linear_time(final Pattern pattern) {
+        final Set<Input> inputs = new LinkedHashSet<>(GENERIC_INPUTS);
+        inputs.addAll(VALUE_INPUTS);
+        for (final var input : inputs) {
+            assertLinear(pattern, input, pattern.pattern());
+        }
+    }
+
+    static Stream<Arguments> valuePatterns() {
+        return ValueClassifier.PATTERNS.stream().map(pattern -> Arguments.argumentSet(pattern.pattern(), pattern));
     }
 
     /**

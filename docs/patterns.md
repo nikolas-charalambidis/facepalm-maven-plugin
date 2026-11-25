@@ -47,12 +47,12 @@ The test does not measure absolute speed: a linear pattern with a high constant 
 Each secret value is reported once per file. When several patterns match the same value, or overlapping parts of one line, only the most specific pattern reports it: the one with the highest base confidence. For example, `aws_secret_access_key=...` is reported as `AWS Secret Key`, not also as `Generic API Key Assignment`.
 
 Patterns are only the first step. Every match is analyzed by these evaluators:
-1. **EntropyEvaluator**: Raises the score of random-looking values and lowers it for repetitive ones.
+1. **EntropyEvaluator**: Raises the score of random-looking values and lowers it for repetitive ones. Predictable values such as `A1b2C3d4` or `0123456789abcdef` get no bonus, although they use many distinct characters.
 2. **LocationEvaluator**: Increases risk for production paths (`src/main/`, `.env`, `config`) and decreases it for test paths (`test`, `mock`, `spec`). See [path markers](configuration.md#heuristics-evaluators).
 3. **FileExtensionEvaluator**: Increases risk in configuration files (`.env`, `.properties`, `.yml`, ...) and decreases it in documentation and logs (`.md`, `.txt`, `.log`, ...).
 4. **SurroundingContextEvaluator**: Looks at the line before and after the match; words like `example`, `dummy`, `fake`, `mock` lower confidence, `prod` and `live` raise risk.
 5. **PublicExposureEvaluator**: Lowers risk if `.gitignore` ignores the file and Git does not track it. Inside a repository, Git decides both (`git ls-files`), with the full `.gitignore` rules; see the [FAQ](faq.md#how-do-i-handle-false-positives). A tracked file is public even when ignored, so it keeps its risk.
-6. **PlaceholderSuppressorEvaluator**: Prevents false positives from `${VARIABLES}` or dummy data like "replace_me".
+6. **PlaceholderSuppressorEvaluator**: Prevents false positives from `${VARIABLES}` and other templating syntaxes (`$(VAR)`, `#{...}`, `~{...}~`), predictable dummies (`AAAA`, `qwerty`), code or format descriptions matched as a value, and dummy data like "replace_me".
 
 Then all findings of a file are post-processed:
 

@@ -33,6 +33,21 @@ import org.assertj.core.api.Assertions;
 class FacepalmMojoIT {
 
     /**
+     * Issue #386: placeholders in templating syntaxes and predictable dummy values are reported as INFO only, so the
+     * build passes even with {@code failOnWarnings}.
+     */
+    @MavenTest
+    @MavenGoal("verify")
+    void non_secret_values_project(final MavenExecutionResult result) {
+        assertThat(result).isSuccessful();
+
+        assertThat(result).out().warn().noneMatch(line -> line.startsWith("["));
+        assertThat(result).out().info()
+            .contains("Starting scan of 4 files...")
+            .contains("SCAN RESULT : SUCCESS");
+    }
+
+    /**
      * Verifies scanner success on a clean project baseline.
      */
     @MavenTest

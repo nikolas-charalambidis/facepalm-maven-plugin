@@ -1,0 +1,7 @@
+payments.token: "#{vault.payments.token}"
+
+
+payments.password: "@{payments.password}"
+
+
+payments.api-secret: ~{payments.api-secret}~

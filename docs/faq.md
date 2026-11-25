@@ -19,6 +19,9 @@ No scanner is perfect. If Facepalm flags something that isn't a secret:
    - **`${API_KEY}` and `{{ api_key }}`:** values that start with them are not reported at all.
    - **`%API_KEY%`, `<your-api-key>` or `[your-api-key]`:** as the whole value, and other values containing `${...}` or `{{...}}`, they lose 50 risk and 100 confidence points, which keeps them below the warning threshold.
    - **Environment variable names:** a value that is only an upper-case variable name with `_`, such as `server-password: CENTRAL_TOKEN_PASSWORD`, gets the same reduction, because it refers to a secret instead of containing one.
+   - **Other templating syntaxes:** these get the same reduction as the whole value, whatever `interpolationPatternRegex` says: `$(VAR)` (Kubernetes, Make), `#{...}` (Spring, Ruby), `@{...}` (MSBuild, PowerShell), `%(name)s` (Python), `<%= ... %>` (ERB), and in general an identifier or a dotted path in braces after a sigil, or in parentheses, such as `~{payments.api-secret}~`. In database URIs (`postgres://`, `mysql://`, `mongodb://`), the password part is checked, so `postgres://$(DB_USER):$(DB_PASSWORD)@host` holds no secret.
+   - **Predictable values:** a value of one repeated character or a short repeated unit (`AAAAAAAA`, `abcabcabc`), runs of consecutive characters or keyboard neighbors (`0123456789abcdef`, `qwerty`), or letters and digits that each count up or down (`A1b2C3d4`) gets the same reduction, and no high entropy bonus.
+   - **Code and format descriptions:** a value with a method call or an index (`responseHeader.split(" ")[1]`), or a token of at least three lower-case words joined by `:` (the `hostname:port:database:username:password` header of a pgpass file), gets the same reduction.
 
    See `interpolationPatternRegex` in [configuration](configuration.md#heuristics-evaluators).
 2. **Move to test paths**: Files in `test/`, `mock/`, or `spec/` get a significant score reduction.

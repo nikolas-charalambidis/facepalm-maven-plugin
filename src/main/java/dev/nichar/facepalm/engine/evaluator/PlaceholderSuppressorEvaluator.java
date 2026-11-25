@@ -8,6 +8,7 @@ package dev.nichar.facepalm.engine.evaluator;
 import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
+import dev.nichar.facepalm.pattern.ValueClassifier;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nonnull;
 import java.util.Locale;
@@ -40,8 +41,10 @@ class PlaceholderSuppressorEvaluator implements FindingEvaluator {
         final var value = finding.getSecretValue().trim().replaceAll("[,;\"']+$", "");
 
         final var conf = config.getEvaluators();
-        // Penalize property interpolation patterns typical of configuration templates.
-        if (conf.getInterpolationPattern().matcher(value).matches()) {
+        // Penalize property interpolation patterns typical of configuration templates, and references in other
+        // templating syntaxes such as #{...}, $(VAR) or ~{...}~ (#386).
+        if (isPlaceholder(value, conf.getInterpolationPattern()) || isPlaceholder(connectionPassword(finding, value),
+            conf.getInterpolationPattern())) {
             finding.log("Interpolation/Placeholder Shield", -50, -100);
             return;
         }
@@ -57,6 +60,16 @@ class PlaceholderSuppressorEvaluator implements FindingEvaluator {
         if (finding.getPatternName().contains("Private Key") || value.contains("-----")) {
             return;
         }
+        // Values no one would use as a secret (#386): a predictable dummy such as AAAA, 0123abcd or A1b2C3, and code
+        // or a format description that a pattern matched as the value.
+        if (ValueClassifier.isPredictable(value)) {
+            finding.log("Predictable Value", -50, -100);
+            return;
+        }
+        if (ValueClassifier.isNotAValue(value, context.getLineOrEmpty(finding.getLineNumber() - 1))) {
+            finding.log("Code or Format Description", -50, -100);
+            return;
+        }
         final var lowerVal = normalize(value);
         // Penalize known dummy keywords to reduce false positives from sample data. Keywords are normalized like the
         // value, so configured ones with upper-case letters match too (#227).
@@ -64,6 +77,25 @@ class PlaceholderSuppressorEvaluator implements FindingEvaluator {
             lowerVal::contains)) {
             finding.log("Dummy Keyword Discount", 0, -80);
         }
+    }
+
+    /**
+     * Whether the value is a placeholder: it matches the configured interpolation pattern or is a reference in another
+     * templating syntax.
+     */
+    private static boolean isPlaceholder(@Nonnull final String value, @Nonnull final Pattern interpolation) {
+        return !value.isEmpty() && (interpolation.matcher(value).matches() || ValueClassifier.isReference(value));
+    }
+
+    /**
+     * Returns the password part of a database connection finding ({@code user:password}), or an empty string for
+     * other findings. A connection URI holds no secret when its password is a placeholder such as
+     * {@code $(DB_PASSWORD)}.
+     */
+    @Nonnull
+    private static String connectionPassword(@Nonnull final Finding finding, @Nonnull final String value) {
+        final var colon = value.indexOf(':');
+        return finding.getPatternName().endsWith(" Connection") && colon >= 0 ? value.substring(colon + 1) : "";
     }
 
     /**
