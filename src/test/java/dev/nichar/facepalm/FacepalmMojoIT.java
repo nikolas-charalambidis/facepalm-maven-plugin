@@ -16,6 +16,8 @@ import com.soebes.itf.jupiter.maven.MavenExecutionResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 /**
  * Integration tests for the Facepalm Maven Plugin.
@@ -23,10 +25,16 @@ import java.util.List;
  * <p>
  * Check the build result with {@code isSuccessful()} / {@code isFailure()}, not with the "BUILD FAILURE" log line.
  * Maven 4 logs that line at ERROR level instead of INFO (#365).
+ * <p>
+ * The tests run concurrently (#416). Each one builds its own copy of the fixture project with its own local
+ * repository under {@code target/maven-it}, because the class has no {@code @MavenRepository}; keep it that way, as
+ * Maven 3.6.3 does not lock a shared repository ({@link FacepalmMojoITIsolationTest} enforces it).
+ * {@code -Dits.parallel=false} runs them one after another.
  *
  * @author Nikolas Charalambidis
  */
 @MavenJupiterExtension
+@Execution(ExecutionMode.CONCURRENT)
 class FacepalmMojoIT {
 
     /**

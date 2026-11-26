@@ -39,6 +39,15 @@ jobs:
       - name: Build, Verify, & Generate Site
         run: mvn -B clean verify site
 
+      # FacepalmMojoIT runs concurrently (#416): the console output of the forked builds interleaves.
+      - name: Upload Integration Test Logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: it-logs-ci
+          path: target/maven-it/**/mvn-*.log
+          retention-days: 7
+
       # The committed dump of the plugin contract (#338) must match the build, so every change to goals, parameters,
       # -D properties, types or defaults shows up as a reviewed diff. The "SemVer" workflow compares it with the release.
       - name: Plugin Contract Up to Date
@@ -100,6 +109,11 @@ jobs:
         os: [ ubuntu-26.04 ]
         java: [ '17', '21', '25' ]
         maven: [ '3.6.3', '3.9.16', '4.0.0-rc-7' ]
+        # The "ci" job already runs this verify on JDK 17 with Maven 3.9 on Ubuntu (#416).
+        exclude:
+          - os: ubuntu-26.04
+            java: '17'
+            maven: '3.9.16'
         include:
           - os: windows-latest
             java: '17'
@@ -165,6 +179,16 @@ jobs:
 
       - name: Verify (unit tests and integration tests on Maven ${{ matrix.maven }})
         run: '"$BUILD_MVN" -B -ntp verify -Dits.maven.home="$TARGET_HOME"'
+
+      # FacepalmMojoIT runs concurrently (#416), so the console output of the forked builds interleaves; each build's
+      # own log is in its test directory.
+      - name: Upload Integration Test Logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: it-logs-${{ matrix.os }}-jdk${{ matrix.java }}-maven${{ matrix.maven }}
+          path: target/maven-it/**/mvn-*.log
+          retention-days: 7
 
   # REUSE (#342): every tracked file must have copyright and license information, from its own SPDX header
   # (Java files, see license.header) or from REUSE.toml, and every license used must have its text in LICENSES/.
