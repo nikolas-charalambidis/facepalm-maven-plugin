@@ -8,8 +8,6 @@ package dev.nichar.facepalm;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nichar.facepalm.config.PatternConfig;
 import dev.nichar.facepalm.pattern.SecretPatternRegistry;
@@ -55,18 +53,10 @@ class FacepalmMojoTest {
      * Issue #277: an empty {@code <patterns><overrides/>} scanned with zero patterns and passed every build.
      */
     @Test
-    void configured_pattern_overrides_fail_the_build() {
-        final var failure = assertThrows(MojoExecutionException.class,
-            () -> FacepalmMojo.requireNoCustomPatterns(new PatternConfig(List.of())));
-
-        assertTrue(failure.getMessage().contains("not supported yet"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("/issues/79"), failure.getMessage());
-    }
-
-    @Test
-    void absent_pattern_overrides_pass() {
-        assertDoesNotThrow(() -> FacepalmMojo.requireNoCustomPatterns(new PatternConfig()));
-        assertDoesNotThrow(() -> FacepalmMojo.requireNoCustomPatterns(null));
+    void empty_and_absent_pattern_overrides_pass() {
+        assertDoesNotThrow(() -> FacepalmMojo.validatePatterns(new PatternConfig(List.of())));
+        assertDoesNotThrow(() -> FacepalmMojo.validatePatterns(new PatternConfig()));
+        assertDoesNotThrow(() -> FacepalmMojo.validatePatterns(null));
     }
 
     /**
@@ -99,11 +89,20 @@ class FacepalmMojoTest {
             }
         });
         set(mojo, "skip", true);
-        // Would fail the build if the scan ran (#277), and the plugin descriptor is not set.
+        // The plugin descriptor is not set, so execution would fail if the scan ran.
         set(mojo, "patterns", new PatternConfig(List.of()));
 
         assertDoesNotThrow(mojo::execute);
         assertEquals(List.of("Skipping Facepalm scan (facepalm.skip=true)."), messages);
+    }
+
+    @Test
+    void invalid_patterns_are_wrapped_as_configuration_failures() {
+        final var patterns = new PatternConfig();
+        patterns.setDisabledPatterns(java.util.Set.of("Unknown"));
+        final var failure = org.junit.jupiter.api.Assertions.assertThrows(MojoExecutionException.class,
+            () -> FacepalmMojo.validatePatterns(patterns));
+        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("Unknown disabled pattern"));
     }
 
     private static void set(final Object target, final String name, final Object value)

@@ -19,7 +19,32 @@ Patterns match the line as written, quotes included. A key and its value may be 
 
 ## Custom Patterns
 
-Custom patterns cannot be configured yet. The `<patterns><overrides>` configuration shown in earlier versions of this page does not work: Maven cannot bind it, and it would replace all built-in patterns instead of adding to them. Since 1.0.5, configuring it fails the build with a message, because an empty `<overrides/>` used to switch off all detection silently. Support for additional patterns is tracked in [#79](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79).
+Custom detectors extend the built-in registry. Configure them with mutable definitions under `<patterns><overrides>`:
+
+```xml
+<patterns>
+    <overrides>
+        <pattern>
+            <name>Organization Credential</name>
+            <regex>ORG_[A-Za-z0-9]{24}</regex>
+            <risk>90</risk>
+            <confidence>95</confidence>
+            <multiLine>false</multiLine>
+        </pattern>
+    </overrides>
+    <disabledPatterns>
+        <name>Basic Auth Header</name>
+    </disabledPatterns>
+</patterns>
+```
+
+`name`, `regex`, `risk` and `confidence` are required. Scores must be between 0 and 100; `multiLine` defaults to `false`. Maven expressions are supported. Names are case-sensitive, with surrounding whitespace ignored. Duplicate names (including built-in names), unknown disabled names, invalid definitions and disabling every detector fail configuration. Custom patterns cannot replace a built-in with the same name.
+
+Absent or empty overrides keep the built-ins. Disabled names may identify built-in or custom detectors; other patterns can still detect the same value. `<disabledPatterns>` also accepts comma-separated names.
+
+Patterns compile once when Maven binds the configuration. Single-line patterns use the first participating capture group, or the whole match when no group participates. `multiLine=true` scans the whole file and reports the full match; use Java inline flags such as `(?s)` for dot-all matching and `(?m)` for line anchors. Matches retain the existing scoring, suppression and masking behavior. For overlapping matches, higher base confidence wins; on equal confidence built-ins precede custom detectors.
+
+Only use regexes from trusted configuration and follow the bounded matching guidance below: Java regexes can backtrack excessively, and compilation does not prove linear-time behavior. No automatic timeout is applied to custom regexes.
 
 To propose a new built-in pattern, see [Adding detection patterns](../CONTRIBUTING.md#adding-detection-patterns).
 

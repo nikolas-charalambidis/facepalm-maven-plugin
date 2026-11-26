@@ -9,7 +9,6 @@ import dev.nichar.facepalm.FacepalmConfig;
 import dev.nichar.facepalm.engine.FileContext;
 import dev.nichar.facepalm.engine.Finding;
 import dev.nichar.facepalm.pattern.SecretPattern;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -207,7 +206,6 @@ public class RegexSecretExtractor implements SecretExtractor {
      *
      * @param snippet The source line with every secret on it masked, or a placeholder for multi-line blocks.
      */
-    @SuppressFBWarnings(value = "UNSAFE_HASH_EQUALS", justification = "The hash only deduplicates findings within a file; it is never compared with a secret.")
     private void registerFinding(@Nonnull final List<Finding> findings,
                                  @Nonnull final Set<String> dedup,
                                  @Nonnull final FileContext ctx,

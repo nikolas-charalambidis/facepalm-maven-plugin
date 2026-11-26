@@ -7,36 +7,67 @@ package dev.nichar.facepalm.config;
 
 import dev.nichar.facepalm.pattern.SecretPattern;
 import dev.nichar.facepalm.pattern.SecretPatternRegistry;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import lombok.AllArgsConstructor;
+import java.util.Set;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Configuration for defining or overriding secret detection patterns.
+ * Configuration for additional detectors and explicit exclusions.
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class PatternConfig {
 
     /**
-     * User-defined patterns to supplement or replace built-in logic.
+     * User-defined patterns appended to the built-in registry.
      */
     private List<SecretPattern> overrides;
 
-    /**
-     * Returns the active detection patterns, falling back to defaults if none are defined. An empty list also means
-     * the defaults: scanning with zero patterns would pass every build as if the project were clean (#277).
-     */
-    public List<SecretPattern> getOverrides() {
-        return overrides != null && !overrides.isEmpty() ? overrides : SecretPatternRegistry.DEFAULT_PATTERNS;
+    /** Names of detectors explicitly disabled by the user. */
+    private Set<String> disabledPatterns = Set.of();
+
+    /** Retains the original programmatic configuration constructor. */
+    public PatternConfig(final List<SecretPattern> overrides) {
+        this.overrides = overrides == null ? null : new ArrayList<>(overrides);
     }
 
-    /**
-     * Returns whether {@code overrides} was configured at all, even as an empty list. Custom patterns are not
-     * supported yet (#79), so the scan goal rejects such a configuration instead of ignoring it.
-     */
+    /** Returns the immutable effective registry, with defaults first and additions last. */
+    public List<SecretPattern> getOverrides() {
+        final var all = new ArrayList<>(SecretPatternRegistry.DEFAULT_PATTERNS);
+        if (overrides != null) {
+            all.addAll(overrides);
+        }
+        final Set<String> names = new HashSet<>();
+        for (final var pattern : all) {
+            if (pattern == null || pattern.getName() == null || pattern.getName().isBlank()
+                || pattern.getPattern() == null || pattern.getBaseRisk() < 0 || pattern.getBaseRisk() > 100
+                || pattern.getBaseConfidence() < 0 || pattern.getBaseConfidence() > 100) {
+                throw new IllegalArgumentException("Invalid custom pattern definition");
+            }
+            if (!names.add(pattern.getName().strip())) {
+                throw new IllegalArgumentException("Duplicate pattern name: " + pattern.getName());
+            }
+        }
+        final Set<String> disabled = new HashSet<>();
+        if (disabledPatterns != null) {
+            for (final var name : disabledPatterns) {
+                if (name == null || !names.contains(name.strip())) {
+                    throw new IllegalArgumentException("Unknown disabled pattern: " + name);
+                }
+                disabled.add(name.strip());
+            }
+        }
+        final var active = all.stream().filter(pattern -> !disabled.contains(pattern.getName().strip())).toList();
+        if (active.isEmpty()) {
+            throw new IllegalArgumentException("At least one detection pattern must remain active");
+        }
+        return active;
+    }
+
+    /** Returns whether additional patterns were explicitly configured. */
     public boolean isConfigured() {
         return overrides != null;
     }

@@ -33,6 +33,7 @@ public class CommaSeparatedConfigurator extends BasicComponentConfigurator {
     public CommaSeparatedConfigurator() {
         super();
         converterLookup.registerConverter(new CommaSeparatedSetConverter());
+        converterLookup.registerConverter(new PatternConfigConverter());
     }
 
     @Override

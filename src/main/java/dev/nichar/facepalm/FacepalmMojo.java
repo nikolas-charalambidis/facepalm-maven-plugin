@@ -173,9 +173,7 @@ public class FacepalmMojo extends AbstractMojo {
     private EvaluatorConfig evaluators = new EvaluatorConfig();
 
     /**
-     * Custom detection patterns. Not supported yet (#79): configuring {@code <patterns><overrides>} fails the build,
-     * because an empty list used to switch off all detection silently (#277). Leave it out to scan with the built-in
-     * patterns.
+     * Additional detection patterns and explicit exclusions by name.
      */
     @Parameter
     private PatternConfig patterns = new PatternConfig();
@@ -198,7 +196,7 @@ public class FacepalmMojo extends AbstractMojo {
             getLog().info("Skipping Facepalm scan (facepalm.skip=true).");
             return;
         }
-        requireNoCustomPatterns(patterns);
+        validatePatterns(patterns);
 
         // Map Maven parameters to internal configuration.
         final var engine = new EngineConfig(threads, maxFileSizeBytes, skipBinaryRegex, skipDirs, useDefaultSkipDirs,
@@ -246,15 +244,14 @@ public class FacepalmMojo extends AbstractMojo {
         }
     }
 
-    /**
-     * Rejects a configured {@code <patterns><overrides>} (#277). Custom patterns are not supported yet (#79): a
-     * non-empty list cannot be bound, and an empty one used to scan with zero patterns and pass every build.
-     */
-    static void requireNoCustomPatterns(@Nullable final PatternConfig patterns) throws MojoExecutionException {
-        if (patterns != null && patterns.isConfigured()) {
-            throw new MojoExecutionException("Facepalm scan failed: custom detection patterns (<patterns><overrides>) "
-                + "are not supported yet, see https://github.com/nikolas-charalambidis/facepalm-maven-plugin/issues/79."
-                + " Remove the <patterns> configuration to scan with the built-in patterns.");
+    /** Validates the effective registry before any files are scanned. */
+    static void validatePatterns(@Nullable final PatternConfig patterns) throws MojoExecutionException {
+        if (patterns != null) {
+            try {
+                patterns.getOverrides();
+            } catch (IllegalArgumentException e) {
+                throw executionFailure(e);
+            }
         }
     }
 

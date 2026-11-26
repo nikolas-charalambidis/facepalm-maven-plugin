@@ -49,6 +49,15 @@ Enable this policy with `mvn facepalm:scan -DfailOnScanError=true`. It applies i
 
 ## Advanced Configuration
 
+### Detection patterns (`<patterns>`)
+
+| Sub-parameter | Default | Description |
+|---------------|---------|-------------|
+| `overrides` | empty | Additional detector definitions (`name`, `regex`, `risk`, `confidence`, `multiLine`), appended to the built-ins. Empty overrides retain the defaults. |
+| `disabledPatterns` | empty | Exact detector names to disable, as nested `<name>` elements or comma-separated names. Unknown names and an empty effective registry fail configuration. |
+
+See [Custom Patterns](patterns.md#custom-patterns) for the XML example, validation and matching rules.
+
 ### Heuristics (`<evaluators>`)
 
 Refine how Facepalm evaluates risk and legitimacy.

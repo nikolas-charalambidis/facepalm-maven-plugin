@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>dev.nichar</groupId>
+    <artifactId>empty-patterns-project</artifactId>
+    <version>1.0</version>
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <organization.regex>ORG_[A-Za-z0-9]{24}</organization.regex>
+    </properties>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>dev.nichar</groupId>
+                <artifactId>facepalm-maven-plugin</artifactId>
+                <version>@project.version@</version>
+                <configuration>
+                    <root>src/main/resources</root>
+                    <patterns>
+                        <overrides/>
+                    </patterns>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>scan</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -40,6 +40,42 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 @Execution(ExecutionMode.CONCURRENT)
 class FacepalmMojoIT {
 
+    @MavenTest
+    @MavenGoal("facepalm:scan")
+    void custom_patterns_project(final MavenExecutionResult result) throws IOException {
+        assertThat(result).isFailure();
+        final var json = Files.readString(result.getMavenProjectResult().getTargetProjectDirectory()
+            .resolve("target/facepalm-findings.json"));
+        final var findings = new ObjectMapper().readTree(json);
+        Assertions.assertThat(StreamSupport.stream(findings.spliterator(), false)
+            .map(node -> node.get("patternName").asText()).toList())
+            .contains("Organization", "Organization Block", "AWS Access Key");
+        assertThat(json).doesNotContain("Xk9mQ2vLp7zR4wqN8tY6cB3s", "AKIA" + "Q7RT2WXZ8VLM3NPK");
+        assertThat(result).out().plain().noneMatch(line -> line.contains("Xk9mQ2vLp7zR4wqN8tY6cB3s")
+            || line.contains("AKIA" + "Q7RT2WXZ8VLM3NPK"));
+    }
+
+    @MavenTest
+    @MavenGoal("facepalm:scan")
+    void disabled_patterns_project(final MavenExecutionResult result) {
+        assertThat(result).isSuccessful();
+    }
+
+    @MavenTest
+    @MavenGoal("facepalm:scan")
+    void empty_patterns_project(final MavenExecutionResult result) {
+        assertThat(result).isFailure();
+        assertThat(result).out().error().anyMatch(line -> line.startsWith("[AWS Access Key]"));
+    }
+
+    @MavenTest
+    @MavenGoal("facepalm:scan")
+    void invalid_patterns_project(final MavenExecutionResult result) {
+        assertThat(result).isFailure();
+        assertThat(result).out().plain().anyMatch(line -> line.contains("Broken") && line.contains("invalid regex"));
+        assertThat(result).out().info().noneMatch(line -> line.startsWith("Starting scan"));
+    }
+
     /**
      * Issue #386: placeholders in templating syntaxes and predictable dummy values are reported as INFO only, so the
      * build passes even with {@code failOnWarnings}.
