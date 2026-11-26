@@ -63,6 +63,9 @@
         <!-- Maven installation the integration tests run the plugin with. Defaults to the Maven running the build. -->
         <!-- The compatibility matrix in build.yaml (#337) builds with Maven 3.9 and sets it to an older or newer Maven, e.g. -Dits.maven.home=/opt/maven-3.6.3. -->
         <its.maven.home>${maven.home}</its.maven.home>
+        <!-- Runs the tests of FacepalmMojoIT concurrently (#416): each spawns its own Maven build with its own local repository. -->
+        <!-- -Dits.parallel=false runs them one after another, e.g. to read the interleaved console output of a failure. -->
+        <its.parallel>true</its.parallel>
         <!-- Third-party license check (#342), shared by the build (add-third-party) and the site (third-party-report). -->
         <!-- Only dependencies that end up on the plugin's runtime classpath count; test and provided come from elsewhere. -->
         <license.excludedScopes>test,provided,system</license.excludedScopes>
@@ -925,6 +928,16 @@
                         <!-- The runnable CLI jar, run by FacepalmCliIT (#234). -->
                         <facepalm.cli.jar>${project.build.directory}/${project.build.finalName}-cli.jar</facepalm.cli.jar>
                     </systemPropertyVariables>
+                    <!-- Only classes annotated with @Execution(CONCURRENT) run their tests in parallel; all others stay sequential. -->
+                    <!-- A fixed pool: each test starts a Maven JVM, and the CI runners have 3-4 cores. -->
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.parallel.enabled=${its.parallel}
+                            junit.jupiter.execution.parallel.mode.default=same_thread
+                            junit.jupiter.execution.parallel.config.strategy=fixed
+                            junit.jupiter.execution.parallel.config.fixed.parallelism=3
+                        </configurationParameters>
+                    </properties>
                 </configuration>
                 <executions>
                     <execution>
@@ -1185,10 +1198,19 @@
             </plugin>
 
             <!-- Transforms the raw XML test results from Surefire and Failsafe into a human-readable HTML summary of passed, failed, and skipped tests. -->
+            <!-- The *-report-only goals read the results of the verify run. The default "report" goal forks the test phase and runs all unit tests a second time (#416). -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
                 <version>${maven-surefire-report-plugin.version}</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>report-only</report>
+                            <report>failsafe-report-only</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
             </plugin>
         </plugins>
     </reporting>
