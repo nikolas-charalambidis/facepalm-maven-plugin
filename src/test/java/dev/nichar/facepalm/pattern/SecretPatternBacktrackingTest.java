@@ -30,6 +30,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * from the first to the second size with the same from the second to the third: linear matching reads the same
  * number per character at any length, so constant costs cancel out and even a small quadratic term shows as growth.
  * Exponential matching stops at a read budget instead of hanging the build.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-04">NFR-04</a>
  */
 class SecretPatternBacktrackingTest {
 

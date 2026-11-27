@@ -20,6 +20,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Issue #218: no raw secret may appear in the JSON findings, in particular in the context snippet. Tokens are
  * assembled at runtime, so this file contains no literal token that other secret scanners would flag.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-03">NFR-03</a>
  */
 class SnippetMaskingTest {
 

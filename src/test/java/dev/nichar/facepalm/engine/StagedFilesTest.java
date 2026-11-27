@@ -15,6 +15,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Parsing of {@code git diff --cached --raw -z} and the errors of {@link StagedFiles} (#236).
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-03">FR-03</a>
  */
 class StagedFilesTest {
 

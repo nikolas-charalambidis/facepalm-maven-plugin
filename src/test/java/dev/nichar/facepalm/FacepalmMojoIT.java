@@ -34,6 +34,9 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * Maven 3.6.3 does not lock a shared repository ({@link FacepalmMojoITIsolationTest} enforces it).
  * {@code -Dits.parallel=false} runs them one after another.
  *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-01">NFR-01</a>
+ *
  * @author Nikolas Charalambidis
  */
 @MavenJupiterExtension

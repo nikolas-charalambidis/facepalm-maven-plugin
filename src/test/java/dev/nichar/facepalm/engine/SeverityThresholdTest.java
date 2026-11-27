@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Severity boundaries: a score equal to a threshold reaches it.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-04">FR-04</a>
  */
 class SeverityThresholdTest {
 

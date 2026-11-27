@@ -22,6 +22,11 @@ import org.junit.jupiter.api.Test;
  * Layer boundaries of the production code (#343), so they hold beyond code review. Only the Mojos, the CLI entry point,
  * {@code module/} and {@code configurator/} may touch the Maven, Guice and Plexus APIs; the scanning core stays
  * independent of them and of reporting.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-02">NFR-02</a>
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-05">NFR-05</a>
  */
 class ArchitectureTest {
 
@@ -36,6 +41,17 @@ class ArchitectureTest {
     private static final JavaClasses CLASSES = new ClassFileImporter()
         .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
         .importPackages(ROOT);
+
+    /**
+     * Scanning stays local; dependency downloads and documentation tools are outside this boundary.
+     * This checks direct production dependencies, not transitive library or subprocess behavior.
+     */
+    @Test
+    void scanning_does_not_depend_on_network_apis() {
+        noClasses().should().dependOnClassesThat()
+            .resideInAnyPackage("java.net..", "javax.net..", "java.rmi..")
+            .check(CLASSES);
+    }
 
     @Test
     void patterns_and_config_do_not_depend_on_the_maven_api() {

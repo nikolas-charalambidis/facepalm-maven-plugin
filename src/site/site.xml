@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site xmlns="http://maven.apache.org/SITE/2.1.0" name="Facepalm Maven Plugin">
+  <skin>
+    <groupId>org.apache.maven.skins</groupId>
+    <artifactId>maven-fluido-skin</artifactId>
+    <version>2.0.1</version>
+  </skin>
+  <mermaid/>
+  <body>
+    <menu name="Contributor documentation">
+      <item name="Architecture" href="docs/architecture.html"/>
+      <item name="Decision records" href="docs/adr/README.html"/>
+      <item name="Requirements" href="docs/requirements.html"/>
+      <item name="Roadmap" href="docs/roadmap.html"/>
+    </menu>
+    <menu ref="reports"/>
+  </body>
+</site>

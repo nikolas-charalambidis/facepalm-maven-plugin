@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Comma-separated and nested XML values for collection parameters such as {@code skipDirs}.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-08">FR-08</a>
  */
 class CommaSeparatedSetConverterTest {
 

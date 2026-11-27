@@ -23,6 +23,9 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Issue #275: the high-volume penalty must not let a file with many leaked secrets pass. Tokens are assembled at
  * runtime from random characters, so this file contains no literal token that other secret scanners would flag.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-04">FR-04</a>
  */
 class CompositeScoringPostProcessorTest {
 

@@ -170,3 +170,12 @@ ___
 
 **IMPORTANT: This software is provided "as is", without warranty of any kind.**  
 The author(s) are not responsible for any damage, data loss, or security breaches caused by the use (or misuse) of this plugin. While Facepalm is designed to catch secrets, no tool is 100% accurate. You are solely responsible for your own security and credentials.
+
+## Contributor design documentation
+
+- [Architecture](docs/architecture.md): components, data flow and extension points.
+- [Architecture decision records](docs/adr/README.md): context, decisions and consequences.
+- [Requirements](docs/requirements.md): behavior and bidirectional test references.
+- [Roadmap](docs/roadmap.md): milestone themes and planned work.
+
+The contributor pages are also included in the generated Maven site (`mvn site`).

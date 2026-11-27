@@ -11,6 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Verifies text encoding detection, byte-order marks, and binary-content filtering.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-02">FR-02</a>
+ */
 class TextDecoderTest {
 
     private static final String TEXT = "# Passwort für DB\ndb.password=s3cr3t";

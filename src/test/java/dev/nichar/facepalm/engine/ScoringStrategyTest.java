@@ -14,6 +14,9 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Composite scores of every {@link ScoringStrategy}.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-04">FR-04</a>
  */
 class ScoringStrategyTest {
 

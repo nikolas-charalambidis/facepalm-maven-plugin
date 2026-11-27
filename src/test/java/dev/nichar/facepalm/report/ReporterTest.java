@@ -31,6 +31,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * The HTML and SARIF reports must never contain the raw secret, and repository content must be escaped. The console
  * always shows where ERROR and WARNING findings are.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-03">NFR-03</a>
  */
 class ReporterTest {
 

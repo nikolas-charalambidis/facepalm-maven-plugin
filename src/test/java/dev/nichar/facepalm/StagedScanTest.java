@@ -27,6 +27,9 @@ import picocli.CommandLine;
  * {@code --staged} (#236): only the files staged for the next commit are scanned, with their staged content. Each
  * test builds a Git repository in a temporary directory. The fake key is assembled at runtime, so this file contains
  * no literal key that secret scanners would flag.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-03">FR-03</a>
  */
 class StagedScanTest {
 

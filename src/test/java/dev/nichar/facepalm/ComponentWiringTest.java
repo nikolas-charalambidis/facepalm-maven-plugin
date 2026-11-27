@@ -28,6 +28,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Every component in the Sisu index can be created by the container. Sisu silently drops a component it cannot create
  * (e.g. a constructor without {@code @Inject}), so a broken one would otherwise go unnoticed (issue #194).
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-05">NFR-05</a>
  */
 class ComponentWiringTest {
 

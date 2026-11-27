@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test;
  * The defaults of the config classes (used by {@code FacepalmCLI}) must equal the {@code @Parameter} defaults of
  * the Maven goal, read from the generated plugin descriptor. Otherwise the same code gets different verdicts in the
  * CLI and in Maven (issue #70: errorThreshold was 70 in the CLI and 80 in Maven).
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-08">FR-08</a>
  */
 class DefaultsConsistencyTest {
 

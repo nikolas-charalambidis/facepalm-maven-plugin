@@ -22,6 +22,11 @@ import picocli.CommandLine;
 
 /**
  * Options, defaults and exit codes of {@link FacepalmCLI} (#235).
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-06">FR-06</a>
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-08">FR-08</a>
  */
 class FacepalmCLITest {
 

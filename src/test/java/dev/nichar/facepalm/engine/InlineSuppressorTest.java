@@ -26,6 +26,9 @@ import org.junit.jupiter.api.io.TempDir;
  * Issue #12: inline {@code facepalm:ignore} and {@code facepalm:ignore-next-line} markers, tested end to end through
  * {@link FacepalmRunner#run}: the build decision and {@code facepalm-findings.json}. Key IDs are generated at runtime,
  * so this file contains no literal token that secret scanners would flag.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-05">FR-05</a>
  */
 class InlineSuppressorTest {
 

@@ -24,6 +24,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * Verifies regex captures, finding locations, multiline matches, and deduplication.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-01">FR-01</a>
+ */
 class RegexSecretExtractorTest {
 
     /**

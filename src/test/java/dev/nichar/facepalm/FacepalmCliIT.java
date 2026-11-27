@@ -20,6 +20,11 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Runs the attached {@code cli} jar with {@code java -jar}, as a user without Maven would (#234). Its classpath is
  * only the jar, so a missing dependency, a lost Sisu index or a wrong {@code Main-Class} fails here.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-08">FR-08</a>
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-01">NFR-01</a>
  */
 class FacepalmCliIT {
 

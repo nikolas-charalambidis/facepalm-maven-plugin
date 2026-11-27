@@ -12,6 +12,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import dev.nichar.facepalm.config.ScoringConfig;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Verifies finding score adjustments, severity thresholds, and secret and snippet masking.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-04">FR-04</a>
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#nfr-03">NFR-03</a>
+ */
 class FindingTest {
 
     @Test

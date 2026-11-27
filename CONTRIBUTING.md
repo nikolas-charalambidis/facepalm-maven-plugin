@@ -16,6 +16,7 @@ Thanks for taking the time to contribute. Facepalm is a small, focused security 
 - [Commit and PR conventions](#commit-and-pr-conventions)
 - [Release process](#release-process)
 - [License](#license)
+- [Contributor design documentation](#contributor-design-documentation)
 
 ## Code of conduct
 
@@ -323,3 +324,12 @@ Third-party licenses are checked by `mvn verify` (`license-maven-plugin`, `add-t
 - License names from dependency POMs are mapped to these names in `src/license/license-merges.txt`. Add a line there when a new dependency spells a known license differently.
 - A dependency whose POM declares no license also fails the build. After checking its source, add it to `src/license/THIRD-PARTY.properties`.
 - The list is packaged in the jar as `THIRD-PARTY.txt`, and the site shows it under Project Reports, Third Parties.
+
+## Contributor design documentation
+
+- [Architecture](docs/architecture.md): components, data flow and extension points.
+- [Architecture decision records](docs/adr/README.md): context, decisions and consequences.
+- [Requirements](docs/requirements.md): behavior and bidirectional test references.
+- [Roadmap](docs/roadmap.md): milestone themes and planned work.
+
+The contributor pages are also included in the generated Maven site (`mvn site`).

@@ -27,6 +27,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Rendering branches of the {@code report} goal.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-07">FR-07</a>
  */
 class FacepalmReportMojoTest {
 

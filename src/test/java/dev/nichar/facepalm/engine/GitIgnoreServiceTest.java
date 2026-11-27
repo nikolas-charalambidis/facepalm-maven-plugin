@@ -26,6 +26,9 @@ import org.junit.jupiter.api.io.TempDir;
  * {@code .gitignore} handling, tested end to end through {@link FacepalmRunner#run} with the real wiring: a finding in
  * an ignored file gets lower risk ({@code -40}, low public exposure). The tests do not depend on how and when
  * {@code .gitignore} files are discovered (e.g. a separate walk or the scanner's walk, issue #15).
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-04">FR-04</a>
  */
 class GitIgnoreServiceTest {
 

@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the default secret detection pattern registry.
+ *
+ * @see <a href=
+ * "https://github.com/nikolas-charalambidis/facepalm-maven-plugin/blob/master/docs/requirements.md#fr-01">FR-01</a>
  */
 class SecretPatternRegistryTest {
 
