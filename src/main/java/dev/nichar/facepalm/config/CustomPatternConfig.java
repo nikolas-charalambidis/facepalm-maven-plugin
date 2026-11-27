@@ -36,8 +36,7 @@ public class CustomPatternConfig {
         try {
             return new SecretPattern(label, Pattern.compile(regex), risk, confidence, multiLine);
         } catch (PatternSyntaxException e) {
-            throw new IllegalArgumentException("Custom pattern '" + label + "': invalid regex (" + "index " + e
-                .getIndex()
+            throw new IllegalArgumentException("Custom pattern '" + label + "': invalid regex (index " + e.getIndex()
                 + ")");
         }
     }

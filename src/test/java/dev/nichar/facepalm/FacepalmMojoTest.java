@@ -8,6 +8,8 @@ package dev.nichar.facepalm;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.nichar.facepalm.config.PatternConfig;
 import dev.nichar.facepalm.pattern.SecretPatternRegistry;
@@ -15,6 +17,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -99,10 +102,10 @@ class FacepalmMojoTest {
     @Test
     void invalid_patterns_are_wrapped_as_configuration_failures() {
         final var patterns = new PatternConfig();
-        patterns.setDisabledPatterns(java.util.Set.of("Unknown"));
-        final var failure = org.junit.jupiter.api.Assertions.assertThrows(MojoExecutionException.class,
+        patterns.setDisabledPatterns(Set.of("Unknown"));
+        final var failure = assertThrows(MojoExecutionException.class,
             () -> FacepalmMojo.validatePatterns(patterns));
-        org.junit.jupiter.api.Assertions.assertTrue(failure.getMessage().contains("Unknown disabled pattern"));
+        assertTrue(failure.getMessage().contains("Unknown disabled pattern"));
     }
 
     private static void set(final Object target, final String name, final Object value)

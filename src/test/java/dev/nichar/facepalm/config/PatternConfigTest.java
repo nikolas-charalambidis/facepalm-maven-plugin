@@ -11,8 +11,14 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 
 import dev.nichar.facepalm.pattern.SecretPattern;
 import dev.nichar.facepalm.pattern.SecretPatternRegistry;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -152,6 +158,95 @@ class PatternConfigTest {
             assertThat(findings).hasSize(16).allSatisfy(finding -> assertThat(finding.getScoreHistory().stream()
                 .anyMatch(entry -> entry.startsWith("High Volume File")))
                     .isEqualTo(confidence < 90));
+        }
+    }
+
+    @Test
+    void repeated_reads_reuse_the_immutable_snapshot() {
+        final var config = new PatternConfig(List.of(definition().toSecretPattern()));
+        final var first = config.getOverrides();
+        assertThat(config.getOverrides()).isSameAs(first);
+        assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(first::clear);
+        config.setOverrides(List.of());
+        assertThat(config.getOverrides()).isNotSameAs(first)
+            .containsExactlyElementsOf(SecretPatternRegistry.DEFAULT_PATTERNS);
+    }
+
+    @Test
+    void exclusions_invalidate_the_snapshot_and_invalid_changes_do_not_reuse_it() {
+        final var config = new PatternConfig(List.of(definition().toSecretPattern()));
+        final var first = config.getOverrides();
+        config.setDisabledPatterns(Set.of("Organization"));
+        assertThat(config.getOverrides()).isNotSameAs(first)
+            .containsExactlyElementsOf(SecretPatternRegistry.DEFAULT_PATTERNS);
+        config.setDisabledPatterns(Set.of("Unknown"));
+        assertThatIllegalArgumentException().isThrownBy(config::getOverrides).withMessageContaining("Unknown");
+        config.setDisabledPatterns(null);
+        assertThat(config.getOverrides()).extracting(SecretPattern::getName).contains("Organization");
+    }
+
+    @Test
+    void callers_cannot_mutate_configuration_behind_the_cache() {
+        final var additions = new ArrayList<>(List.of(definition().toSecretPattern()));
+        final var exclusions = new HashSet<>(Set.of("AWS Access Key"));
+        final var config = new PatternConfig();
+        config.setOverrides(additions);
+        config.setDisabledPatterns(exclusions);
+        additions.clear();
+        exclusions.clear();
+        final var snapshot = config.getOverrides();
+        assertThat(snapshot).extracting(SecretPattern::getName).contains("Organization").doesNotContain(
+            "AWS Access Key");
+        assertThatExceptionOfType(UnsupportedOperationException.class)
+            .isThrownBy(() -> config.getDisabledPatterns().clear());
+        assertThat(config.getOverrides()).isSameAs(snapshot);
+    }
+
+    @Test
+    void object_methods_do_not_resolve_invalid_configuration() {
+        final var first = new PatternConfig();
+        final var second = new PatternConfig();
+        first.setDisabledPatterns(Set.of("Unknown"));
+        second.setDisabledPatterns(Set.of("Unknown"));
+        assertThat(first).isEqualTo(second);
+        assertThat(first.hashCode()).isEqualTo(second.hashCode());
+        assertThat(first.toString()).contains("Unknown");
+        assertThatIllegalArgumentException().isThrownBy(first::getOverrides);
+        assertThat(first).isEqualTo(second);
+        assertThat(first.toString()).isEqualTo(second.toString());
+    }
+
+    @Test
+    void cache_state_does_not_affect_configuration_identity() {
+        final var custom = definition().toSecretPattern();
+        final var first = new PatternConfig(List.of(custom));
+        final var second = new PatternConfig(List.of(custom));
+        final var hash = first.hashCode();
+        final var description = first.toString();
+        first.getOverrides();
+        assertThat(first).isEqualTo(second);
+        assertThat(second).isEqualTo(first);
+        assertThat(first.hashCode()).isEqualTo(hash).isEqualTo(second.hashCode());
+        assertThat(first.toString()).isEqualTo(description).isEqualTo(second.toString());
+    }
+
+    @Test
+    void concurrent_first_reads_share_one_snapshot() throws Exception {
+        final var config = new PatternConfig(List.of(definition().toSecretPattern()));
+        final var barrier = new CyclicBarrier(4);
+        final var executor = Executors.newFixedThreadPool(4);
+        try {
+            final Callable<List<SecretPattern>> read = () -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                return config.getOverrides();
+            };
+            final var futures = executor.invokeAll(List.of(read, read, read, read), 20, TimeUnit.SECONDS);
+            final var first = futures.get(0).get();
+            for (final var future : futures) {
+                assertThat(future.get()).isSameAs(first);
+            }
+        } finally {
+            executor.shutdownNow();
         }
     }
 
