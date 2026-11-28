@@ -157,6 +157,7 @@ ___
 - [Versioning](docs/versioning.md) - The SemVer policy, the public contract, and the release lines.
 - [Site](https://www.nikolas-charalambidis.com/facepalm-maven-plugin/) - Site
 - [Security](SECURITY.md#verifying-a-release) - Signatures, build provenance, and the CycloneDX SBOM of each release.
+- [Changelog](CHANGELOG.md) - Changes in each release, by category.
 
 ___
 

@@ -330,6 +330,22 @@ jobs:
           done
           # The self-scan of this repository (#189). Only the property: the regex above would also hit the project's own <version>${revision}</version>.
           perl -pi -e 's#(<facepalm-maven-plugin\.version>)[^<]+(</facepalm-maven-plugin\.version>)#${1}$ENV{VERSION}${2}#' pom.xml
+          # CHANGELOG.md (#336): the release notes of this version as a new section below the marker, newest first.
+          # The notes are read from a file, so pull request titles are data, never awk or shell code.
+          if [ -f CHANGELOG.md ] && ! grep -qF "## [$VERSION]" CHANGELOG.md; then
+            NOTES="$RUNNER_TEMP/release-notes.md"
+            gh release view "v$VERSION" --json body --jq .body \
+              | sed -e '/^Built with JDK /d' -e "/^## What's Changed/d" -e 's/^## /### /' \
+              | sed -e '/./,$!d' > "$NOTES"
+            HEADING="## [$VERSION](https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$VERSION) - $(date -u +%F)"
+            awk -v heading="$HEADING" -v notes="$NOTES" '
+              { print }
+              /^<!-- The release workflow inserts each new release below this line\. -->$/ {
+                print ""; print heading; print ""
+                while ((getline line < notes) > 0) print line
+              }' CHANGELOG.md > "$RUNNER_TEMP/CHANGELOG.md"
+            mv "$RUNNER_TEMP/CHANGELOG.md" CHANGELOG.md
+          fi
           if git diff --quiet; then
             echo "Documentation already uses $VERSION."
             exit 0
@@ -342,7 +358,7 @@ jobs:
             exit 0
           fi
           gh pr create --base master --head "$BRANCH" --title "docs: use version $VERSION" --body "$(cat <<EOF2
-          Updates the plugin version in the README and docs install snippets, and the self-scan version in \`pom.xml\`, to \`$VERSION\` (released by the release workflow).
+          Updates the plugin version in the README and docs install snippets, and the self-scan version in \`pom.xml\`, to \`$VERSION\` (released by the release workflow), and adds the release notes of $VERSION to \`CHANGELOG.md\`.
 
           **Merge only after the $VERSION deployment is published in the [Maven Central Portal](https://central.sonatype.com/publishing/deployments)**, so the documentation never points to an unpublished version and the CI build can resolve the self-scan plugin. Check: https://repo1.maven.org/maven2/dev/nichar/facepalm-maven-plugin/$VERSION/
           EOF2

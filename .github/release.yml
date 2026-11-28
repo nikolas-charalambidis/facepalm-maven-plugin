@@ -1,0 +1,28 @@
+# Categories of the release notes that deploy.yaml generates with `gh release create --generate-notes` (#336).
+# pr-labels.yaml labels each pull request from its Conventional Commits title; contract-label.yaml adds "breaking".
+# A pull request is listed under the first category whose label it has.
+changelog:
+  exclude:
+    authors:
+      # facepalm-bot opens the "[Forward <line>]" pull requests (forward.yaml) and the "docs: use version" pull
+      # requests (deploy.yaml). Forwarded changes are listed in the notes of the release line they were merged into.
+      - facepalm-bot[bot]
+  categories:
+    - title: Breaking changes
+      labels: [ breaking ]
+    - title: Security
+      labels: [ security ]
+    - title: Bug fixes
+      labels: [ bug ]
+    - title: Features
+      labels: [ enhancement ]
+    - title: Performance
+      labels: [ performance ]
+    - title: Documentation
+      labels: [ documentation ]
+    - title: Dependencies
+      labels: [ dependencies ]
+    - title: CI and build
+      labels: [ ci ]
+    - title: Other changes
+      labels: [ '*' ]
