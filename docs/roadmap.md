@@ -6,7 +6,7 @@ below describe plans, not delivery dates or features already available in a rele
 | Milestone | Theme |
 |---|---|
 | [1.0.6](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/12) | Maintenance/security work on `release/1.0.x`; no open issues in this snapshot |
-| [1.1.2](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/13) | Maintenance and release integrity: signed tags, PR title conventions and curated release notes |
+| [1.1.1](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/10) | Maintenance and release integrity: signed tags, PR title conventions and curated release notes |
 | [1.2.0](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/11) | Opt-in capabilities and contributor tooling: standalone CLI distribution, custom patterns, configuration files, reporting, performance work and architecture documentation |
 | [2.0.0](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/8) | Compatibility-sensitive defaults and scoring/detection improvements, after 1.2.0 |
 | [Backlog](https://github.com/nikolas-charalambidis/facepalm-maven-plugin/milestone/7) | Accepted work without a scheduled version |

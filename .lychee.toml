@@ -1,5 +1,8 @@
 # lychee (https://lychee.cli.rs) configuration for the "Docs" workflow (#347).
 # Run locally with `lychee --config .lychee.toml README.md CONTRIBUTING.md docs` (the file list is in docs.yaml).
+# docs.yaml also remaps links to this repository's files on master to the checkout; add
+# `--remap '^https://github\.com/nikolas-charalambidis/facepalm-maven-plugin/(blob|tree)/master/ file://$PWD/'`
+# to do the same locally.
 
 no_progress = true
 
