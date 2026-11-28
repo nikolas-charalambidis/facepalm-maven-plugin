@@ -171,6 +171,42 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
+      # Signed annotated tag (#349), created locally before the upload, so a signing failure stops the release before
+      # anything is published. Signed with the release key imported above, the same key as the .asc files. The tagger
+      # is the key's user ID: GitHub shows the tag as Verified when that public key is on the maintainer's account.
+      # The passphrase reaches gpg through a file readable only by the runner user, never on a command line.
+      - name: Create Signed Release Tag
+        if: steps.release_version.outputs.resume == 'false'
+        env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          KEYS=$(gpg --batch --list-secret-keys --with-colons)
+          KEY=$(awk -F: '/^fpr/ {print $10; exit}' <<< "$KEYS")
+          USER_ID=$(awk -F: '/^uid/ {print $10; exit}' <<< "$KEYS")
+          if [[ -z "$KEY" || "$USER_ID" != *"<"*">"* ]]; then
+            echo "::error::No release signing key with an e-mail user ID was imported."
+            exit 1
+          fi
+          GIT_COMMITTER_NAME=$(sed -E 's/ *(\([^)]*\))? *<.*//' <<< "$USER_ID")
+          GIT_COMMITTER_EMAIL=$(sed -E 's/.*<([^>]+)>.*/\1/' <<< "$USER_ID")
+          export GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+
+          export GPG_PASSFILE="$RUNNER_TEMP/gpg-passphrase"
+          trap 'rm -f "$GPG_PASSFILE"' EXIT
+          (umask 077 && printf '%s' "$GPG_PASSPHRASE" > "$GPG_PASSFILE")
+          SIGNER="$RUNNER_TEMP/gpg-loopback"
+          # Quoted heredoc: $GPG_PASSFILE expands when git runs the wrapper, not here.
+          cat > "$SIGNER" <<'EOF'
+          #!/bin/sh
+          exec gpg --batch --pinentry-mode loopback --passphrase-file "$GPG_PASSFILE" "$@"
+          EOF
+          chmod 700 "$SIGNER"
+
+          git -c gpg.program="$SIGNER" tag -s -u "$KEY" "v$VERSION" -m "Release v$VERSION"
+          git tag -v "v$VERSION"
+
       # Step 3: Sign and upload to the Maven Central Portal (primary). Tests already passed in step 2.
       - name: Sign and Publish to Maven Central
         if: steps.release_version.outputs.resume == 'false'
@@ -185,15 +221,14 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      # Step 4: Tag the released commit and push only the tag (token passed to this command only).
+      # Step 4: Push only the signed tag created above (token passed to this command only).
       # Right after the upload, so every later failure leaves the tag that lets a re-run resume this release.
-      - name: Tag and Push Release
+      - name: Push Release Tag
         if: steps.release_version.outputs.resume == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.release_version.outputs.version }}
         run: |
-          git tag -a "v$VERSION" -m "Release v$VERSION"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
 
       # Resume only: sign the rebuilt jars for the GitHub Release without uploading them again. The build is

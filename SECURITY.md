@@ -25,6 +25,16 @@ Every release publishes, on Maven Central and on the [GitHub Release](https://gi
 
 - **GPG signatures** (`.asc`) of the jars, the POM and the SBOM.
 - **Build provenance** (`.intoto.jsonl`, also stored as a GitHub attestation): which workflow, commit and runner built the files. Verify a file with `gh attestation verify <file> --repo nikolas-charalambidis/facepalm-maven-plugin`.
+- A **signed release tag**: `vX.Y.Z` is an annotated tag signed by the release workflow with the same GPG key as the
+  `.asc` files (fingerprint `2A6F 082A E43F B92C 78DF  9273 54B7 C6F0 07C9 4F62`). It proves that the tag points to
+  the commit the release was built from. Verify it in a clone (tags released before this was added are not signed):
+
+  ```bash
+  gpg --keyserver keyserver.ubuntu.com --recv-keys 2A6F082AE43FB92C78DF927354B7C6F007C94F62
+  git fetch --tags
+  git tag -v vX.Y.Z
+  ```
+
 - A **CycloneDX SBOM** of the plugin and its dependencies, as `facepalm-maven-plugin-<version>-cyclonedx.json` and `.xml` (Maven classifier `cyclonedx`, types `json` and `xml`). Use it to audit what the plugin brings into your build, for example with `osv-scanner --sbom=<file>` or Dependency-Track.
 
 ## Reporting a vulnerability
