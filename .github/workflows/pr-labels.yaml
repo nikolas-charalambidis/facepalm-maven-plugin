@@ -1,0 +1,63 @@
+name: PR Labels
+
+# Labels a pull request from its Conventional Commits title, so that the generated release notes group it by
+# category (.github/release.yml, #336). Labels are only added, never removed: after a title change, remove the old
+# label by hand. Labels added here start no other workflow (events of the GITHUB_TOKEN never do).
+#
+# pull_request_target, so that pull requests from forks get a token that can label them. Safe: it checks out nothing
+# and runs no code of the pull request; the title reaches the shell only through an environment variable.
+
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] no checkout, no PR code is run; only the title is read
+    branches: [ master, 'release/**' ]
+    types: [ opened, edited, reopened ]
+
+permissions: {}
+
+jobs:
+  label:
+    name: PR Labels
+    # Dependabot labels its own pull requests, and its pull_request_target token is read-only.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5 # Normally under 10 s
+    permissions:
+      pull-requests: write # Label the pull request
+    steps:
+      - name: Label From the Title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # type, optional (scope), optional "!", colon and space: "fix(report): ...", "feat!: ...".
+          re='^([a-z]+)(\(([^)]*)\))?!?: '
+          if [[ ! "$TITLE" =~ $re ]]; then
+            echo "Not a Conventional Commits title: no label."
+            exit 0
+          fi
+          type="${BASH_REMATCH[1]}"
+          scope="${BASH_REMATCH[3]}"
+          case "$scope" in
+            deps) label=dependencies ;;
+            security) label=security ;;
+            *)
+              case "$type" in
+                feat) label=enhancement ;;
+                fix) label=bug ;;
+                perf) label=performance ;;
+                docs) label=documentation ;;
+                ci | build) label=ci ;;
+                test) label=testing ;;
+                refactor) label=refactor ;;
+                *) label= ;;
+              esac
+              ;;
+          esac
+          if [ -z "$label" ]; then
+            echo "No label for type '$type'."
+            exit 0
+          fi
+          gh api --method POST "repos/$GH_REPO/issues/$PR/labels" -f "labels[]=$label" --silent
+          echo "Labeled '$label'."
