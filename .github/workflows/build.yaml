@@ -139,7 +139,16 @@ jobs:
           java-version: ${{ matrix.java }}
           cache: 'maven'
 
-      # Downloads the pinned Maven distributions from Maven Central and checks them against the SHA-512 below
+      # The parallel matrix hit Maven Central's rate limit (HTTP 429) when every job downloaded the distributions (#421).
+      # A restored archive is checked against the pinned SHA-512 like a downloaded one, so the cache cannot inject
+      # another Maven.
+      - name: Cache Maven Distributions
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0 # zizmor: ignore[cache-poisoning] every restored archive is verified against the pinned SHA-512 before use
+        with:
+          path: ${{ runner.temp }}/maven-dist
+          key: maven-dist-${{ runner.os }}-${{ env.BUILD_MAVEN }}-${{ matrix.maven }}
+
+      # Downloads the pinned Maven distributions (unless cached) and checks them against the SHA-512 below
       # (equal to the published apache-maven-<version>-bin.tar.gz.sha512).
       - name: Install Maven ${{ matrix.maven }} (and ${{ env.BUILD_MAVEN }} to build)
         env:
@@ -154,16 +163,28 @@ jobs:
               *) echo "::error::No SHA-512 pinned for Maven $1" >&2; return 1 ;;
             esac
           }
-          TOOLS=$(cygpath -u "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")/maven
-          mkdir -p "$TOOLS"
+          TEMP=$(cygpath -u "$RUNNER_TEMP" 2>/dev/null || echo "$RUNNER_TEMP")
+          TOOLS="$TEMP/maven"
+          DIST="$TEMP/maven-dist" # Cached by the previous step
+          mkdir -p "$TOOLS" "$DIST"
           for v in "$BUILD_MAVEN" "$TARGET_MAVEN"; do
             [ -d "$TOOLS/apache-maven-$v" ] && continue
-            archive="$TOOLS/apache-maven-$v-bin.tar.gz"
-            curl -fsSL --retry 5 -o "$archive" \
-              "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$v/apache-maven-$v-bin.tar.gz"
+            name="apache-maven-$v-bin.tar.gz"
+            archive="$DIST/$name"
+            if [ -f "$archive" ]; then
+              echo "Maven $v: using the cached archive."
+            else
+              # A fixed 20 s delay outlasts a short rate-limit window, unlike curl's default 1-16 s backoff.
+              # If Maven Central still refuses, the Apache archive serves the same file (same SHA-512).
+              curl -fsSL --retry 6 --retry-delay 20 --retry-max-time 300 -o "$archive" \
+                "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$v/$name" \
+              || curl -fsSL --retry 6 --retry-delay 20 --retry-max-time 300 -o "$archive" \
+                "https://archive.apache.org/dist/maven/maven-${v%%.*}/$v/binaries/$name"
+            fi
             expected=$(sha512_of "$v")
             actual=$( (sha512sum "$archive" 2>/dev/null || shasum -a 512 "$archive") | cut -d' ' -f1)
             if [ "$actual" != "$expected" ]; then
+              rm -f "$archive"
               echo "::error::SHA-512 mismatch for Maven $v: $actual"
               exit 1
             fi
