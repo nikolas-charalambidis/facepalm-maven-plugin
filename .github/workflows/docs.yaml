@@ -34,12 +34,15 @@ jobs:
           persist-credentials: false # Nothing is pushed; keep the token out of .git/config.
 
       # The GitHub token (default input) raises the GitHub rate limit for links to github.com.
+      # Links to this repository's own files on master are checked against the checkout instead (file and #anchor):
+      # GitHub answered the ~35 of them with 503 when checked over HTTP. The action evals args, hence the quotes.
       - name: lychee
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           lycheeVersion: v0.24.2
           args: >-
             --config .lychee.toml
+            --remap '^https://github\.com/nikolas-charalambidis/facepalm-maven-plugin/(blob|tree)/master/ file://${{ github.workspace }}/'
             README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CLAUDE.md docs .github/pull_request_template.md
 
   spelling:
