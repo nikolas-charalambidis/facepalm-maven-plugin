@@ -221,10 +221,13 @@ Commit messages and PR titles follow [Conventional Commits](https://www.conventi
 - `refactor: …` — code change without behavior change
 - `test: …` — tests only
 - `docs: …` — documentation only
-- `chore: …` — build, dependencies, housekeeping
+- `build: …` — Maven build, plugins and quality gates
+- `chore: …` — dependencies, housekeeping
 - `ci: …` — GitHub Actions workflows and release machinery
 
-Keep the subject imperative, lowercase after the prefix, and under ~72 characters. Do not put issue numbers in the subject.
+An optional scope and `!` for a breaking change are allowed, for example `fix(report): …` or `feat!: …`. Keep the subject imperative, lowercase after the prefix, and under ~72 characters. Do not put issue numbers in the subject.
+
+The **PR Title** check fails a pull request whose title does not follow these rules: the title becomes the commit subject on a squash merge.
 
 Issues are linked from the **PR description**, not the commit, with each closing keyword on its own line (the forward-port bot copies only such lines):
 
